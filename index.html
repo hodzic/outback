@@ -139,7 +139,7 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
 </header>
 
 <div id="drawBar" hidden>
-  <span>Tap the map to add waypoints. Drag to move.</span>
+  <span>Tap the map to add waypoints. Drag to move. Tap a leg for its details.</span>
   <button id="undoBtn" class="btn">Undo</button>
   <button id="doneBtn" class="btn">Done</button>
 </div>
@@ -278,7 +278,7 @@ function sunTimes(dateIso, lat, lng){
 }
 
 /* ---------- state ---------- */
-const state = { tMin: 600, drawing: false, paddling: false, next: 1, pos: null, sog: null, watch: null, wake: null, follow: false, showStations: false };
+const state = { legs: new Set(), tMin: 600, drawing: false, paddling: false, next: 1, pos: null, sog: null, watch: null, wake: null, follow: false, showStations: false };
 let trip;
 function newTrip(){
   return { id: 't' + Date.now().toString(36), name: 'New trip', date: ymd(new Date()), route: [], tide: null, current: null, data: null, fetchedAt: null, updated: Date.now() };
@@ -314,12 +314,18 @@ let curArrow = null;
 function drawRoute(){
   routeLayer.clearLayers();
   const r = trip.route;
-  if (r.length > 1) L.polyline(r, { color: '#C8167E', weight: 4, opacity: .9 }).addTo(routeLayer);
+  if (r.length > 1) L.polyline(r, { color: '#C8167E', weight: 4, opacity: .9, interactive: false }).addTo(routeLayer);
   r.forEach((p, i) => {
     if (i){
       const a = r[i-1], mid = [(a[0]+p[0])/2, (a[1]+p[1])/2];
-      L.tooltip({ permanent: true, direction: 'center', className: 'leg' }).setLatLng(mid)
-        .setContent(`${distNm(a,p).toFixed(2)} nm ${magB(brgT(a,p))}`).addTo(routeLayer);
+      // wide invisible line = easy tap target; tap toggles this leg's label
+      const hit = L.polyline([a, p], { color: '#000', weight: 22, opacity: 0 }).addTo(routeLayer);
+      hit.on('click', e => { L.DomEvent.stop(e); state.legs.has(i) ? state.legs.delete(i) : state.legs.add(i); drawRoute(); });
+      if (state.legs.has(i)){
+        const d = distNm(a, p);
+        L.tooltip({ permanent: true, direction: 'center', className: 'leg' }).setLatLng(mid)
+          .setContent(`${d.toFixed(2)} nm · ${magB(brgT(a,p))} · ${fmtDur(d / settings.speed)}`).addTo(routeLayer);
+      }
     }
     const isNext = state.paddling && i === state.next;
     const m = L.marker(p, { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div class="wp${isNext?' next':''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
@@ -733,7 +739,7 @@ function changed(){
   clearTimeout(saveT); saveT = setTimeout(() => { idb.put('trips', trip); LS.set('lastTrip', trip.id); }, 300);
 }
 async function openTrip(t){
-  trip = t; state.next = 1; LS.set('lastTrip', t.id);
+  trip = t; state.next = 1; state.legs.clear(); LS.set('lastTrip', t.id);
   drawRoute(); drawStations(); render();
   if (t.route.length) map.fitBounds(L.latLngBounds(t.route), { paddingTopLeft: [30, 70], paddingBottomRight: [30, 380], maxZoom: 15 });
 }

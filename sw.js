@@ -1,5 +1,5 @@
 // Paddle service worker: app shell + offline map tiles
-const SHELL = 'paddle-shell-v3';
+const SHELL = 'paddle-shell-v4';
 const TILES = 'paddle-tiles';
 const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 const REMOTE = [
