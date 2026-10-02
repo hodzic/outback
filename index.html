@@ -47,9 +47,13 @@ button,input,select{font:inherit;color:inherit}
 #panel{position:fixed;left:0;right:0;bottom:0;z-index:1000;background:var(--paper);
   border-radius:16px 16px 0 0;box-shadow:0 -2px 10px rgba(18,50,74,.18);
   padding:6px 12px calc(env(safe-area-inset-bottom,0px) + 10px)}
-#handle{display:block;width:100%;height:18px;border:0;background:none;padding:0}
-#handle::after{content:"";display:block;margin:4px auto;width:44px;height:5px;border-radius:3px;background:var(--line)}
-#panel.min .full{display:none}
+#handle{display:block;width:100%;height:30px;border:0;background:none;padding:0;touch-action:none;cursor:grab}
+#handle::after{content:"";display:block;margin:8px auto;width:52px;height:6px;border-radius:3px;background:#A9B8C5}
+#panel.min .full,#panel.min .read,#panel.min #status{display:none}
+#mini{display:none;width:100%;border:0;background:none;padding:0 0 8px;text-align:left;font-size:15px;font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#panel.min #mini{display:block}
+#mini .w{color:var(--warn);font-weight:700}
 #routeBtn{display:flex;align-items:baseline;gap:8px;width:100%;background:none;border:0;padding:2px 0 6px;text-align:left}
 #dist{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
 #legs{color:var(--muted);font-size:14px}
@@ -149,7 +153,8 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
 </div>
 
 <section id="panel">
-  <button id="handle" aria-label="Expand or collapse panel"></button>
+  <button id="handle" aria-label="Expand or collapse forecast panel"></button>
+  <button id="mini" aria-label="Show forecast"></button>
   <div class="full">
     <div class="top-row">
       <button id="routeBtn"><span id="dist">0.0 nm</span><span id="legs">Tap Draw to plot a route</span></button>
@@ -627,6 +632,14 @@ function render(){
     if (!trip.data?.wx) { st.textContent += ' · no wind forecast (only available up to 16 days ahead)'; st.classList.add('warn'); }
     else if (future && age > 18*36e5){ st.textContent += ' · refresh before you go'; st.classList.add('warn'); }
   }
+  const parts = [`<b>${hm(t)}</b>`];
+  if (!lake && td) parts.push(`Tide ${td.v.toFixed(1)}${td.rising ? '↑' : '↓'}`);
+  if (!lake && cu) parts.push(Math.abs(cu.v) < .1 ? 'Slack' : `${cu.v >= 0 ? 'Flood' : 'Ebb'} ${Math.abs(cu.v).toFixed(1)}`);
+  if (w) parts.push(`<span class="${w.wg >= settings.gust ? 'w' : ''}">Wind ${Math.round(w.ws)} G${Math.round(w.wg)} ${compass(w.wd)}</span>`);
+  if (th != null && th >= 20) parts.push(`<span class="w">⚡${th}%</span>`);
+  if (w && w.dp != null && w.dp <= -2) parts.push('<span class="w">Pressure ↓</span>');
+  if (parts.length === 1) parts.push(`${nm.toFixed(1)} nm · tap to expand`);
+  $('#mini').innerHTML = parts.join(' · ');
   drawChart(sun);
   if (state.paddling) updateNav();
 }
@@ -733,9 +746,18 @@ function setDrawing(on){
   drawRoute();
 }
 $('#drawBtn').onclick = () => { if (state.paddling) return toast('Stop paddling to edit the route.'); setDrawing(!state.drawing); };
-$('#doneBtn').onclick = () => { setDrawing(false); $('#panel').classList.remove('min'); };
+$('#doneBtn').onclick = () => setDrawing(false);
 $('#undoBtn').onclick = () => { trip.route.pop(); changed(); };
-$('#handle').onclick = () => { $('#panel').classList.toggle('min'); render(); };
+function setPanel(min){ $('#panel').classList.toggle('min', min); settings.panelMin = min; saveSettings(); render(); }
+$('#mini').onclick = () => setPanel(false);
+(() => {
+  const h = $('#handle'); let y0 = null, moved = false;
+  h.addEventListener('pointerdown', e => { y0 = e.clientY; moved = false; h.setPointerCapture(e.pointerId); });
+  h.addEventListener('pointermove', e => { if (y0 == null) return; const dy = e.clientY - y0;
+    if (dy > 25){ moved = true; y0 = null; setPanel(true); } else if (dy < -25){ moved = true; y0 = null; setPanel(false); } });
+  h.addEventListener('pointerup', () => { if (y0 != null && !moved) setPanel(!$('#panel').classList.contains('min')); y0 = null; });
+})();
+if (settings.panelMin) $('#panel').classList.add('min');
 $('#routeBtn').onclick = routeSheet;
 $('#fcBtn').onclick = getForecast;
 $('#date').onchange = e => {
