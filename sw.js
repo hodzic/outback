@@ -1,0 +1,62 @@
+// Paddle service worker: app shell + offline map tiles
+const SHELL = 'paddle-shell-v1';
+const TILES = 'paddle-tiles';
+const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const REMOTE = [
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'
+];
+const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org'];
+const STATIC_HOSTS = ['cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
+
+self.addEventListener('install', e => {
+  e.waitUntil((async () => {
+    const c = await caches.open(SHELL);
+    await c.addAll(LOCAL);
+    await Promise.all(REMOTE.map(u => c.add(u).catch(() => {})));
+    self.skipWaiting();
+  })());
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil((async () => {
+    for (const k of await caches.keys()) if (k !== SHELL && k !== TILES) await caches.delete(k);
+    await self.clients.claim();
+  })());
+});
+
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+
+  // Map tiles: cache first, store whatever we see
+  if (TILE_HOSTS.includes(url.hostname)) {
+    e.respondWith((async () => {
+      const c = await caches.open(TILES);
+      const hit = await c.match(req.url);
+      if (hit) return hit;
+      try {
+        const r = await fetch(req);
+        if (r.ok || r.type === 'opaque') c.put(req.url, r.clone());
+        return r;
+      } catch { return new Response('', { status: 504 }); }
+    })());
+    return;
+  }
+
+  // App shell + libraries + fonts: cache first, refresh in background
+  if (url.origin === location.origin || STATIC_HOSTS.includes(url.hostname)) {
+    e.respondWith((async () => {
+      const c = await caches.open(SHELL);
+      const hit = await c.match(req, { ignoreSearch: url.origin === location.origin });
+      const net = fetch(req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; }).catch(() => null);
+      if (hit) { e.waitUntil(net); return hit; }
+      const r = await net;
+      if (r) return r;
+      if (req.mode === 'navigate') return (await c.match('./index.html')) || new Response('Offline', { status: 503 });
+      return new Response('', { status: 504 });
+    })());
+  }
+  // Forecast APIs: network only (data is stored with each trip)
+});
