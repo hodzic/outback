@@ -1,12 +1,12 @@
 // Paddle service worker: app shell + offline map tiles
-const SHELL = 'paddle-shell-v1';
+const SHELL = 'paddle-shell-v2';
 const TILES = 'paddle-tiles';
 const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 const REMOTE = [
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'
 ];
-const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org'];
+const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org', 'basemap.nationalmap.gov'];
 const STATIC_HOSTS = ['cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {

@@ -58,14 +58,19 @@ button,input,select{font:inherit;color:inherit}
 .slider input{flex:1;accent-color:var(--magenta)}
 #timeOut{font-weight:700;font-variant-numeric:tabular-nums;min-width:72px;text-align:right}
 .btn{background:var(--wash);border:1px solid var(--line);border-radius:10px;height:40px;padding:0 12px;font-size:15px}
-.read{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
-.cell{padding:7px 4px 7px 0;border-bottom:1px solid var(--line);min-width:0}
-.cell:nth-child(odd){border-right:1px solid var(--line)}
-.cell:nth-child(even){padding-left:10px}
+.read{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.cell{padding:6px 8px;background:var(--paper);min-width:0}
+.cell[hidden]{display:none}
 .cell .k{font-size:12px;color:var(--muted)}
 .cell .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cell .s{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)}
+.v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
+.top-row{display:flex;align-items:center;gap:8px}
+.top-row #routeBtn{flex:1;min-width:0}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:none}
+.seg button{border:0;background:var(--paper);padding:5px 9px;font-size:13px}
+.seg button.on{background:var(--ink);color:#fff}
+.seg[hidden]{display:none}
 #status{margin:6px 0 4px;font-size:13px;color:var(--muted);min-height:1em}
 #status.warn{color:var(--warn)}
 .actions{display:grid;grid-template-columns:1fr 1.4fr 1fr 48px;gap:8px}
@@ -146,7 +151,10 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
 <section id="panel">
   <button id="handle" aria-label="Expand or collapse panel"></button>
   <div class="full">
-    <button id="routeBtn"><span id="dist">0.0 nm</span><span id="legs">Tap Draw to plot a route</span></button>
+    <div class="top-row">
+      <button id="routeBtn"><span id="dist">0.0 nm</span><span id="legs">Tap Draw to plot a route</span></button>
+      <div class="seg" id="graphSel" role="group" aria-label="Graph"><button data-g="tide">Tide</button><button data-g="wind">Wind</button></div>
+    </div>
     <canvas id="chart" aria-label="Tide and current graph for the trip day"></canvas>
     <div class="slider">
       <input id="time" type="range" min="0" max="1435" step="5" aria-label="Time of day">
@@ -155,9 +163,11 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
     </div>
   </div>
   <div class="read">
-    <div class="cell"><div class="k" id="tideK">Tide</div><div class="v" id="tideV">–</div><div class="s" id="tideS">&nbsp;</div></div>
-    <div class="cell"><div class="k" id="curK">Current</div><div class="v" id="curV">–</div><div class="s" id="curS">&nbsp;</div></div>
+    <div class="cell tidal"><div class="k" id="tideK">Tide</div><div class="v" id="tideV">–</div><div class="s" id="tideS">&nbsp;</div></div>
+    <div class="cell tidal"><div class="k" id="curK">Current</div><div class="v" id="curV">–</div><div class="s" id="curS">&nbsp;</div></div>
     <div class="cell"><div class="k">Wind</div><div class="v" id="windV">–</div><div class="s" id="windS">&nbsp;</div></div>
+    <div class="cell"><div class="k">Pressure</div><div class="v" id="presV">–</div><div class="s" id="presS">&nbsp;</div></div>
+    <div class="cell"><div class="k">Lightning</div><div class="v" id="ltgV">–</div><div class="s" id="ltgS">&nbsp;</div></div>
     <div class="cell"><div class="k">Sun</div><div class="v" id="sunV">–</div><div class="s" id="sunS">&nbsp;</div></div>
   </div>
   <p id="status"></p>
@@ -182,7 +192,7 @@ const LS = {
   get(k, d){ try{ const v = localStorage.getItem('paddle.'+k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
-const settings = Object.assign({ speed: 3, variation: 13, layer: 'chart' }, LS.get('settings', {}));
+const settings = Object.assign({ speed: 3, variation: 13, layer: 'chart', gust: 15, graph: 'tide' }, LS.get('settings', {}));
 const saveSettings = () => LS.set('settings', settings);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let toastT;
@@ -275,8 +285,10 @@ const map = L.map('map', { zoomControl: false, attributionControl: true }).setVi
 map.on('moveend', () => LS.set('view', { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() }));
 const LAYERS = {
   chart: { name: 'Chart', url: 'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'NOAA charts · not for navigation' } },
-  street: { name: 'Street', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt: { maxZoom: 19, attribution: '© OpenStreetMap contributors' } }
+  street: { name: 'Street', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt: { maxZoom: 19, attribution: '© OpenStreetMap contributors' } },
+  topo: { name: 'Topo', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map' } }
 };
+const LAYER_ORDER = ['chart', 'street', 'topo'];
 let base, tileErr = 0, tileOk = 0;
 function setLayer(k){
   if (base) map.removeLayer(base);
@@ -287,7 +299,7 @@ function setLayer(k){
   $('#layerBtn').textContent = LAYERS[k].name;
 }
 setLayer(settings.layer in LAYERS ? settings.layer : 'chart');
-$('#layerBtn').onclick = () => setLayer(settings.layer === 'chart' ? 'street' : 'chart');
+$('#layerBtn').onclick = () => setLayer(LAYER_ORDER[(LAYER_ORDER.indexOf(settings.layer) + 1) % LAYER_ORDER.length]);
 
 const routeLayer = L.layerGroup().addTo(map);
 const stationLayer = L.layerGroup().addTo(map);
@@ -328,6 +340,7 @@ const stIcon = (kind, label, dim) => L.divIcon({ className: '', html: `<div clas
 function drawStations(){
   stationLayer.clearLayers();
   if (curArrow){ map.removeLayer(curArrow); curArrow = null; }
+  if (isLake()) return;
   if (trip.tide) L.marker([trip.tide.lat, trip.tide.lng], { icon: stIcon('tide', 'T') }).bindPopup(`<b>Tide station</b><br>${esc(trip.tide.name)}<br><small>${esc(trip.tide.id)}</small>`).addTo(stationLayer);
   if (trip.current) L.marker([trip.current.lat, trip.current.lng], { icon: stIcon('cur', 'C') }).bindPopup(`<b>Current station</b><br>${esc(trip.current.name)}<br><small>${esc(trip.current.id)}${trip.current.depth ? ' · depth '+esc(trip.current.depth)+' ft' : ''}</small>`).addTo(stationLayer);
   if (state.showStations && state.nearby){
@@ -399,14 +412,27 @@ async function fetchCurrent(s){
 }
 async function fetchWx(c){
   const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4),
-    hourly: 'temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+    hourly: 'temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape',
     wind_speed_unit: 'kn', temperature_unit: 'fahrenheit', timezone: 'GMT', start_date: shiftDay(trip.date,-1), end_date: shiftDay(trip.date,1) });
   const r = await fetch('https://api.open-meteo.com/v1/forecast?' + q);
   const j = await r.json();
   if (j.error) throw new Error(j.reason || 'weather error');
   const h = j.hourly;
-  return { t: h.time.map(s => Date.parse(s + 'Z')), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m };
+  return { t: h.time.map(s => Date.parse(s + 'Z')), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
 }
+// NWS probability of thunder (US only, ~7 days)
+function isoDur(d){ const m = /P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/.exec(d || '') || []; return ((+m[1]||0)*24 + (+m[2]||0)) * 36e5 + (+m[3]||0) * 6e4; }
+async function fetchThunder(c){
+  const r = await fetch(`https://api.weather.gov/points/${c[0].toFixed(4)},${c[1].toFixed(4)}`);
+  if (!r.ok) throw new Error('NWS ' + r.status);
+  const url = (await r.json()).properties?.forecastGridData;
+  if (!url) throw new Error('NWS: no grid');
+  const g = await (await fetch(url)).json();
+  const vals = g.properties?.probabilityOfThunder?.values;
+  if (!vals) throw new Error('NWS: no thunder data');
+  return vals.map(v => { const [st, du] = v.validTime.split('/'); const t = Date.parse(st); return { t, end: t + isoDur(du), v: v.value }; });
+}
+const isLake = () => trip?.water === 'lake';
 
 async function getForecast(){
   if (!navigator.onLine){ toast('You are offline. Connect to get a forecast.'); return; }
@@ -416,18 +442,30 @@ async function getForecast(){
     const c = centroid();
     try{
       const nb = await loadNearby();
-      if (!trip.tide || distNm(c, [trip.tide.lat, trip.tide.lng]) > 25) trip.tide = nb.tide[0] || null;
-      if (!trip.current || distNm(c, [trip.current.lat, trip.current.lng]) > 25) trip.current = nb.current[0] || null;
-    }catch(e){ errs.push('stations'); }
+      if (!trip.waterSet){
+        const near = nb.tide[0] ? distNm(c, [nb.tide[0].lat, nb.tide[0].lng]) : Infinity;
+        const was = trip.water;
+        trip.water = near > 8 ? 'lake' : 'tidal';
+        if (trip.water !== was) toast(trip.water === 'lake' ? 'No tide stations nearby: treating this as a lake trip. Change in ☰.' : 'Tidal water detected.', 4500);
+        if (isLake() && settings.layer === 'chart') setLayer('topo');
+      }
+      if (!isLake()){
+        if (!trip.tide || distNm(c, [trip.tide.lat, trip.tide.lng]) > 25) trip.tide = nb.tide[0] || null;
+        if (!trip.current || distNm(c, [trip.current.lat, trip.current.lng]) > 25) trip.current = nb.current[0] || null;
+      }
+    }catch(e){ if (!isLake()) errs.push('stations'); }
     const data = trip.data || {};
-    const [t, cu, w] = await Promise.allSettled([
-      trip.tide ? fetchTide(trip.tide) : Promise.reject(new Error('none nearby')),
-      trip.current ? fetchCurrent(trip.current) : Promise.reject(new Error('none nearby')),
-      fetchWx(c)
+    const lake = isLake();
+    const [t, cu, w, th] = await Promise.allSettled([
+      lake ? Promise.resolve(null) : trip.tide ? fetchTide(trip.tide) : Promise.reject(new Error('none nearby')),
+      lake ? Promise.resolve(null) : trip.current ? fetchCurrent(trip.current) : Promise.reject(new Error('none nearby')),
+      fetchWx(c),
+      fetchThunder(c)
     ]);
     if (t.status === 'fulfilled') data.tide = t.value; else { data.tide = null; errs.push('tides (' + t.reason.message + ')'); }
-    if (cu.status === 'fulfilled') Object.assign(data, cu.value); else { data.current = null; errs.push('currents (' + cu.reason.message + ')'); }
+    if (cu.status === 'fulfilled'){ if (cu.value) Object.assign(data, cu.value); else data.current = null; } else { data.current = null; errs.push('currents (' + cu.reason.message + ')'); }
     if (w.status === 'fulfilled') data.wx = w.value; else { data.wx = null; errs.push('weather (' + w.reason.message + ')'); }
+    data.thunder = th.status === 'fulfilled' ? th.value : null;
     trip.data = data; trip.fetchedAt = Date.now();
     changed();
     btn.textContent = 'Saving map…';
@@ -491,7 +529,20 @@ function wxAt(t){
   let bi = -1, bd = Infinity;
   w.t.forEach((x, i) => { const d = Math.abs(x - t); if (d < bd){ bd = d; bi = i; } });
   if (bi < 0 || bd > 2*36e5) return null;
-  return { ws: w.ws[bi], wd: w.wd[bi], wg: w.wg[bi], temp: w.temp[bi], pop: w.pop[bi], code: w.code[bi] };
+  const p = w.p?.[bi], p3 = w.p && bi >= 3 ? w.p[bi - 3] : null;
+  return { ws: w.ws[bi], wd: w.wd[bi], wg: w.wg[bi], temp: w.temp[bi], pop: w.pop[bi], code: w.code[bi], p, dp: p != null && p3 != null ? p - p3 : null, cape: w.cape?.[bi] };
+}
+function thunderAt(t){
+  const a = trip.data?.thunder; if (!a) return null;
+  const x = a.find(v => t >= v.t && t < v.end); return x ? x.v : null;
+}
+function stormRisk(w){ // fallback when NWS is unavailable
+  if (!w) return null;
+  if (w.code >= 95) return { txt: 'Storms', warn: true };
+  const cape = w.cape ?? 0, pop = w.pop ?? 0;
+  if (cape > 1000 && pop >= 30) return { txt: 'High', warn: true };
+  if (cape > 300 && pop >= 20) return { txt: 'Moderate', warn: true };
+  return { txt: 'Low', warn: false };
 }
 function wxText(c){
   if (c == null) return '';
@@ -512,6 +563,10 @@ function render(){
   $('#dist').textContent = nm.toFixed(1) + ' nm';
   $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''} · ${fmtDur(nm / settings.speed)} at ${settings.speed} kt` : 'Tap Draw to plot a route';
 
+  const lake = isLake();
+  document.querySelectorAll('.cell.tidal').forEach(el => el.hidden = lake);
+  $('#graphSel').hidden = lake;
+  document.querySelectorAll('#graphSel button').forEach(b => b.classList.toggle('on', b.dataset.g === settings.graph));
   const td = tideAt(t);
   $('#tideK').textContent = trip.tide ? 'Tide · ' + trip.tide.name : 'Tide';
   $('#tideV').textContent = td ? td.v.toFixed(1) + ' ft' : '–';
@@ -530,8 +585,35 @@ function render(){
   } else { cv.textContent = '–'; $('#curS').textContent = '\u00a0'; drawCurArrow(null); }
 
   const w = wxAt(t);
-  $('#windV').textContent = w ? `${Math.round(w.ws)} kt ${compass(w.wd)}` : '–';
-  $('#windS').textContent = w ? `gusts ${Math.round(w.wg)} · ${Math.round(w.temp)}°F · ${wxText(w.code)}${w.pop != null ? ' · ' + w.pop + '% rain' : ''}` : '\u00a0';
+  const wv = $('#windV');
+  wv.textContent = w ? `${Math.round(w.ws)} kt ${compass(w.wd)}` : '–';
+  wv.classList.toggle('warn', !!w && w.wg >= settings.gust);
+  $('#windS').textContent = w ? `gusts ${Math.round(w.wg)} · ${Math.round(w.temp)}°F · ${wxText(w.code)}` : '\u00a0';
+
+  const pv = $('#presV');
+  pv.classList.remove('warn');
+  if (w && w.p != null){
+    const dp = w.dp, arrow = dp == null ? '' : dp >= 0.5 ? ' ↑' : dp <= -0.5 ? ' ↓' : ' →';
+    pv.textContent = Math.round(w.p) + ' mb' + arrow;
+    if (dp == null) $('#presS').textContent = '\u00a0';
+    else if (Math.abs(dp) < 0.5) $('#presS').textContent = 'Steady over 3 h';
+    else {
+      const fast = Math.abs(dp) >= 2;
+      $('#presS').textContent = `${dp > 0 ? 'Rising' : 'Falling'}${fast ? ' fast' : ''} ${Math.abs(dp).toFixed(1)} mb in 3 h`;
+      if (fast && dp < 0) pv.classList.add('warn');
+    }
+  } else { pv.textContent = '–'; $('#presS').textContent = '\u00a0'; }
+
+  const lv = $('#ltgV'), th = thunderAt(t);
+  lv.classList.remove('warn');
+  if (th != null){
+    lv.textContent = th + '%'; if (th >= 20) lv.classList.add('warn');
+    $('#ltgS').textContent = `NWS thunder chance${w && w.pop != null ? ' · rain ' + w.pop + '%' : ''}`;
+  } else {
+    const sr = stormRisk(w);
+    lv.textContent = sr ? sr.txt : '–'; if (sr?.warn) lv.classList.add('warn');
+    $('#ltgS').textContent = sr ? `Estimated${w.pop != null ? ' · rain ' + w.pop + '%' : ''}` : '\u00a0';
+  }
 
   const c = centroid(), sun = sunTimes(trip.date, c[0], c[1]);
   $('#sunV').textContent = sun.rise ? `${hm(sun.rise)} – ${hm(sun.set)}` : '–';
@@ -541,7 +623,7 @@ function render(){
   if (!trip.fetchedAt) st.textContent = 'No forecast yet. Plot a route, then tap Get forecast.';
   else {
     const age = Date.now() - trip.fetchedAt, future = dayStart() + 864e5 > Date.now();
-    st.textContent = `Forecast from ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+    st.textContent = `${lake ? 'Lake · ' : ''}Forecast from ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
     if (!trip.data?.wx) { st.textContent += ' · no wind forecast (only available up to 16 days ahead)'; st.classList.add('warn'); }
     else if (future && age > 18*36e5){ st.textContent += ' · refresh before you go'; st.classList.add('warn'); }
   }
@@ -552,7 +634,7 @@ const fmtDur = h => { const m = Math.round(h * 60); return m < 60 ? `${m} min` :
 
 function drawCurArrow(dir, sp, flood){
   if (curArrow){ map.removeLayer(curArrow); curArrow = null; }
-  if (dir == null || !trip.current) return;
+  if (dir == null || !trip.current || isLake()) return;
   const len = 22 + Math.min(sp, 5) * 9, col = flood ? '#1F6FB2' : '#2E8B57';
   const html = `<svg width="${len*2}" height="${len*2}" viewBox="${-len} ${-len} ${len*2} ${len*2}" style="transform:rotate(${dir}deg)">
     <line x1="0" y1="${len-6}" x2="0" y2="${-len+10}" stroke="${col}" stroke-width="5" stroke-linecap="round"/>
@@ -575,6 +657,7 @@ function drawChart(sun){
   g.fillStyle = '#5B7183'; g.font = '10px ' + getComputedStyle(document.body).fontFamily;
   for (let h = 3; h < 24; h += 3){ const x = X(t0 + h*36e5); g.fillRect(x, H - 4, 1, 4); g.fillText(h === 12 ? '12p' : (h > 12 ? h - 12 + 'p' : h + 'a'), x + 2, H - 2); }
   const mid = H * .55;
+  if (isLake() || settings.graph === 'wind'){ drawWind(g, W, H, X, t0, t1); g.fillStyle = '#C8167E'; g.fillRect(X(tAt()) - 1, 0, 2, H); return; }
   // currents
   if (trip.data?.current){
     let mx = 1; for (let x = 0; x <= W; x += 3){ const c = curAt(t0 + x / W * 864e5); if (c) mx = Math.max(mx, Math.abs(c.v)); }
@@ -601,6 +684,20 @@ function drawChart(sun){
   // cursor
   const cx = X(tAt()); g.fillStyle = '#C8167E'; g.fillRect(cx - 1, 0, 2, H);
 }
+function drawWind(g, W, H, X, t0, t1){
+  const w = trip.data?.wx, font = getComputedStyle(document.body).fontFamily;
+  if (!w){ g.fillStyle = '#5B7183'; g.font = '13px ' + font; g.fillText('Wind graph appears after Get forecast', 8, 22); return; }
+  const idx = w.t.map((t, i) => i).filter(i => w.t[i] >= t0 - 36e5 && w.t[i] <= t1 + 36e5);
+  if (!idx.length){ g.fillStyle = '#5B7183'; g.font = '13px ' + font; g.fillText('No wind forecast for this day', 8, 22); return; }
+  const top = Math.max(settings.gust + 5, ...idx.map(i => w.wg[i] || 0)), Y = v => H - 14 - v / top * (H - 22);
+  g.fillStyle = 'rgba(18,50,74,.28)'; g.beginPath(); g.moveTo(X(w.t[idx[0]]), Y(0));
+  idx.forEach(i => g.lineTo(X(w.t[i]), Y(w.ws[i]))); g.lineTo(X(w.t[idx[idx.length-1]]), Y(0)); g.fill();
+  g.strokeStyle = '#B3261E'; g.lineWidth = 1.5; g.beginPath();
+  idx.forEach((i, k) => k ? g.lineTo(X(w.t[i]), Y(w.wg[i])) : g.moveTo(X(w.t[i]), Y(w.wg[i]))); g.stroke();
+  g.setLineDash([4, 4]); g.strokeStyle = 'rgba(179,38,30,.6)'; g.beginPath(); g.moveTo(0, Y(settings.gust)); g.lineTo(W, Y(settings.gust)); g.stroke(); g.setLineDash([]);
+  g.fillStyle = '#5B7183'; g.font = '10px ' + font; g.fillText(`${Math.round(top)} kt`, 2, 10); g.fillText(`gust limit ${settings.gust}`, W - 70, Y(settings.gust) - 3);
+}
+document.querySelectorAll('#graphSel button').forEach(b => b.onclick = () => { settings.graph = b.dataset.g; saveSettings(); render(); });
 function chartTouch(e){
   const r = cv.getBoundingClientRect(), x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
   state.tMin = Math.max(0, Math.min(1435, Math.round(x / r.width * 1440 / 5) * 5)); state.follow = false; render();
@@ -716,7 +813,8 @@ $('#menuBtn').onclick = () => openSheet(`<h2>Menu</h2><div class="menu">
   <button id="mTrips">My trips</button>
   <button id="mNew">New trip</button>
   <button id="mRename">Rename this trip</button>
-  <button id="mStations">${state.showStations ? 'Hide' : 'Choose'} tide and current stations</button>
+  <button id="mWater">Water type: ${isLake() ? 'Lake' : 'Tidal'} (tap to change)</button>
+  ${isLake() ? '' : `<button id="mStations">${state.showStations ? 'Hide' : 'Choose'} tide and current stations</button>`}
   <button id="mJson">Export trip (.json)</button>
   <button id="mGpx">Export route (.gpx)</button>
   <button id="mImport">Import trip or GPX</button>
@@ -727,6 +825,11 @@ sheet.addEventListener('click', async e => {
   if (id === 'mTrips') return tripsSheet();
   if (id === 'mNew'){ sheet.close(); stopPaddle(); const t = newTrip(); await idb.put('trips', t); openTrip(t); setDrawing(true); return; }
   if (id === 'mRename'){ sheet.close(); const n = prompt('Trip name', trip.name); if (n && n.trim()){ trip.name = n.trim(); changed(); } return; }
+  if (id === 'mWater'){
+    sheet.close(); trip.water = isLake() ? 'tidal' : 'lake'; trip.waterSet = true;
+    if (isLake() && settings.layer === 'chart') setLayer('topo');
+    changed(); toast(isLake() ? 'Lake trip. Tides and currents hidden.' : 'Tidal trip. Tap Get forecast for tides and currents.', 4000); return;
+  }
   if (id === 'mStations'){
     sheet.close(); state.showStations = !state.showStations;
     if (state.showStations){
@@ -740,7 +843,7 @@ sheet.addEventListener('click', async e => {
   if (id === 'mImport'){ sheet.close(); return $('#file').click(); }
   if (id === 'mSettings') return settingsSheet();
   if (id === 'mAbout') return openSheet(`<h2>Paddle</h2>
-    <p>Plan a kayak trip online, then use it offline. Tides and currents: NOAA CO-OPS. Wind and weather: Open-Meteo. Map: NOAA charts or OpenStreetMap. Sun times are calculated on the phone.</p>
+    <p>Plan a kayak trip online, then use it offline. Tides and currents: NOAA CO-OPS. Wind, weather and pressure: Open-Meteo. Lightning: NWS thunder probability (US), otherwise estimated from rain chance and atmospheric instability. Map: NOAA charts, OpenStreetMap or USGS topo. Sun times are calculated on the phone.</p>
     <p>Tide and current curves are smoothed between NOAA high/low and slack/max predictions. Current directions are mean flood and ebb directions in degrees true.</p>
     <p class="danger"><b>Not for navigation.</b> Check official forecasts and conditions before you launch.</p>
     <div class="row"><button class="btn" data-close>Close</button></div>`);
@@ -753,8 +856,8 @@ sheet.addEventListener('click', async e => {
     return tripsSheet();
   }
   if (id === 'sSave'){
-    const sp = +$('#sSpeed').value, va = +$('#sVar').value;
-    if (sp > 0) settings.speed = sp; if (isFinite(va)) settings.variation = va;
+    const sp = +$('#sSpeed').value, va = +$('#sVar').value, gu = +$('#sGust').value;
+    if (sp > 0) settings.speed = sp; if (isFinite(va)) settings.variation = va; if (gu > 0) settings.gust = gu;
     saveSettings(); sheet.close(); changed(); toast('Settings saved');
   }
 });
@@ -770,6 +873,7 @@ function settingsSheet(){
     <label for="sSpeed">Paddling speed (kt)</label><input id="sSpeed" type="number" step="0.1" min="0.5" value="${settings.speed}">
     <label for="sVar">Magnetic variation (° east)</label><input id="sVar" type="number" step="0.5" value="${settings.variation}">
     <p><small>SF Bay is about 13° E. Bearings are shown magnetic (°M).</small></p>
+    <label for="sGust">Gust warning (kt)</label><input id="sGust" type="number" step="1" min="1" value="${settings.gust}">
     <div class="row"><button class="btn" data-close>Cancel</button><button class="btn" id="sSave">Save</button></div>`);
 }
 function routeSheet(){
