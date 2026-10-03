@@ -81,13 +81,16 @@ module.exports = async (browser, url, check) => {
     c('track Map button shows it on the map', await page.evaluate(() => state.view) === 2);
     c('no page errors (tracks)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
-  { // out-and-back, reverse, Go with a route
+  { // clear waypoints, kayak icon, Go with a route
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
-    await page.click('#outBack');
-    c('out-and-back adds return legs', await page.evaluate(() => trip.route.length === 5 && trip.route[4].join() === trip.route[0].join()));
-    await page.click('#reverse');
-    c('reverse route', await page.evaluate(() => trip.route[1].join()) === GG[1].join());
+    c('no out-and-back or reverse buttons', await page.locator('#outBack, #reverse').count() === 0);
+    await page.click('#clearRoute'); await page.waitForTimeout(200);
+    c('clear waypoints empties the route', await page.evaluate(() => trip.route.length) === 0 && /0\.0 nm/.test(await page.text('#dist')));
+    c('clear is disabled with no waypoints', await page.isDisabled('#clearRoute'));
+    await view(page, 0);
+    c('paddle trips show a kayak icon', await page.locator('#tripList .trip .ic svg').count() >= 1 && await page.locator('#tripList .trip', { hasText: '🛶' }).count() === 0);
+    await seedRoute(page, GG); await view(page, 1);
     await page.click('#editRoute'); await page.waitForTimeout(500);
     c('Edit route opens the map in draw mode', await page.evaluate(() => state.view === 2 && state.drawing));
     await page.click('#doneBtn');

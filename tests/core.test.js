@@ -46,9 +46,10 @@ module.exports = async (browser, url, check) => {
   await page.screenshot({ path: path.join(OUT, 'core-trip.png') });
 
   const before = await page.text('#tideV');
-  await page.evaluate(() => { const s = document.querySelector('#time'); s.value = 900; s.dispatchEvent(new Event('input')); });
-  c('slider sets time', (await page.text('#timeOut')).includes('3:00'), await page.text('#timeOut'));
-  c('slider updates tide', (await page.text('#tideV')) !== before);
+  c('no time slider; time and Now sit by the graph buttons', await page.locator('#time').count() === 0 && await page.evaluate(() => document.querySelector('#graphSel').parentElement.contains(document.querySelector('#nowBtn'))));
+  await page.evaluate(() => { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width * 0.625, clientY: r.top + 30, pointerId: 1, bubbles: true })); });
+  c('graph tap sets time', (await page.text('#timeOut')).includes('3:00'), await page.text('#timeOut'));
+  c('time change updates tide', (await page.text('#tideV')) !== before);
   await page.locator('#chart').scrollIntoViewIfNeeded();
   const box = await page.locator('#chart').boundingBox();
   await page.mouse.click(box.x + box.width * 0.25, box.y + 30);
