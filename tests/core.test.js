@@ -110,6 +110,8 @@ module.exports = async (browser, url, check) => {
   await view(page, 1);
   await page.fill('#date', '2026-12-10'); await page.dispatchEvent('#date', 'change');
   c('date change clears forecast', /no forecast/i.test(await page.text('#status')));
+  c('weekday shown before the date', (await page.text('#dow')) === 'Thursday,', await page.text('#dow'));
+  c('date sits above the activity buttons', await page.evaluate(() => document.querySelector('#date').getBoundingClientRect().bottom <= document.querySelector('#actSel').getBoundingClientRect().top));
   const n0 = await page.evaluate(async () => (await idb.all('trips')).length);
   await page.click('#deleteTrip'); await page.waitForTimeout(500);
   c('delete trip returns to the list', await page.evaluate(() => state.view) === 0 && await page.evaluate(async () => (await idb.all('trips')).length) === n0 - 1);
