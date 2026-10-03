@@ -10,7 +10,7 @@ Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over 
 Three views; swipe between them or use the tabs at the bottom.
 
 1. **Trips**: your trips (newest date first), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
-   settings (distance unit, speed and gust warning per activity; magnetic variation) and about.
+   settings (distance unit, speed and gust warning per activity; magnetic variation), offline help and about.
 2. **Trip**: everything about the selected trip:
    - name, date (with the weekday), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
    - route: length, duration, speed, waypoint table, *Edit route on map*, *Clear waypoints*
@@ -39,6 +39,38 @@ Three views; swipe between them or use the tabs at the bottom.
   Opacity slider on the right. PDF maps saved in GPS Map (same origin) can be copied in.
 
 Not for navigation. Check official forecasts and conditions before you set out.
+
+## Using it offline
+
+The app works offline once each trip has been prepared while you still have a connection.
+
+**Works offline**
+
+- **The app itself.** Once you have opened it online, it opens with no connection.
+- **Your trips.** Routes, settings, recorded tracks and PDF maps are stored on the phone.
+- **The forecast you already fetched.** *Get forecast* saves tides, currents, wind, pressure, lightning and
+  elevation with the trip. Offline you see that saved copy; it can't refresh, and the status line says when
+  it was fetched.
+- **GPS.** Your location, *Go* and track recording use satellites, not data. Keep the screen on while recording.
+- **Map tiles:**
+  - *Get forecast* saves the map around the route (a few miles beyond it), from region-wide down to fairly close zoom.
+  - Areas you have already looked at while online are kept too.
+
+**Needs a connection**
+
+- Getting or refreshing a forecast, or changing tide stations.
+- Map areas you haven't saved or viewed.
+- Map layers you didn't save: *Get forecast* only saves the layer selected at the time (Chart, Street or Topo).
+- Importing your first PDF map, because the 10 MB PDF reader downloads on first use.
+  PDF maps you have already imported show fine offline.
+
+**Before you leave**
+
+1. Open the trip, choose the map layer you'll use, then tap *Get forecast*.
+   Wait until the status says the map was saved offline.
+2. Open the Map view once and zoom in to the detail you'll want.
+3. Add the app to your home screen. iPhones can clear saved data for websites that aren't installed and
+   haven't been used for a while.
 
 ## Files
 
