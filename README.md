@@ -12,7 +12,7 @@ Three views; swipe between them or use the tabs at the bottom.
 1. **Trips**: your trips (newest date first), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
    settings (distance unit, speed and gust warning per activity; magnetic variation) and about.
 2. **Trip**: everything about the selected trip:
-   - name, activity (Paddle / Hike / Bike), date, water or terrain (auto-detected, or pick one)
+   - name, date (with the weekday), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
    - route: length, duration, speed, waypoint table, *Edit route on map*, *Clear waypoints*
    - forecast for the day: tide/wind graph (tap or drag it to pick a time; *Now* jumps to now), wind, pressure, lightning, sun, elevation for hikes.
      *Get forecast* also saves the map around the route for offline use.

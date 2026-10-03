@@ -1,7 +1,7 @@
 // Outback service worker: app shell + offline map tiles.
 // hodzic.github.io hosts several apps on one origin and they share Cache Storage,
 // so only ever delete caches this app owns (old Paddle/Outback shell versions).
-const SHELL = 'outback-shell-v5';
+const SHELL = 'outback-shell-v8';
 const TILES = 'paddle-tiles'; // name kept so tiles saved before the rename stay usable
 const OWN = k => /^(paddle|outback)-shell-/.test(k);
 const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './pdfmap.js', './vendor/Leaflet.ImageOverlay.Rotated.js'];
