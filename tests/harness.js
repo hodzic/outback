@@ -47,4 +47,7 @@ async function seedRoute(page, route){
   await page.evaluate(r => { trip.route = r; changed(); map.fitBounds(L.latLngBounds(r), { paddingTopLeft: [30, 70], paddingBottomRight: [30, 380] }); }, route);
   await page.waitForTimeout(400);
 }
-module.exports = { serve, launch, open, check, results, waitForecast, seedRoute, OUT };
+const ready = page => page.waitForFunction(() => typeof trip !== 'undefined' && trip);
+// Switch view by tab: 0 = Trips, 1 = Trip, 2 = Map
+async function view(page, i){ await page.click(`#tabs [data-view="${i}"]`); await page.waitForFunction(i => state.view === i, i); await page.waitForTimeout(450); }
+module.exports = { serve, launch, open, check, results, waitForecast, seedRoute, ready, view, OUT };
