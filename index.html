@@ -69,13 +69,15 @@ td:first-child,th:first-child{text-align:left}
 .trip .grow{flex:1;min-width:0}
 .trip b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .trip small{display:block;color:var(--muted)}
-.new{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 14px}
+.new{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 14px}
 .new button{height:52px;font-size:16px}
 
 /* trip details */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 6px}
 .stat .k{font-size:12px;color:var(--muted)} .stat .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
-.stat input{width:64px;height:32px;border:1px solid var(--line);border-radius:8px;padding:0 6px;font-size:18px;font-weight:700}
+table.acts td,table.acts th{text-align:left;vertical-align:middle}
+table.acts select,table.acts input{height:38px;border:1px solid var(--line);border-radius:8px;padding:0 6px;background:var(--paper)}
+table.acts input{width:76px}
 #chart{display:block;width:100%;height:110px;touch-action:none;margin:6px 0 8px;cursor:ew-resize}
 #timeOut{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
 .read{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -159,10 +161,11 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
   <section class="view" id="vTrips" aria-label="Trips">
     <div class="page">
       <h1>Outback</h1>
-      <div class="new"><button class="btn primary" id="newPaddle">+ Paddle</button><button class="btn primary" id="newHike">+ Hike</button></div>
+      <div class="new"><button class="btn primary" id="newPaddle">+ Paddle</button><button class="btn primary" id="newHike">+ Hike</button><button class="btn primary" id="newBike">+ Bike</button></div>
       <div id="tripList"></div>
       <div class="row" style="margin-top:6px"><button class="btn" id="importBtn">Import trip or GPX…</button></div>
       <details class="card" style="margin-top:16px"><summary>Settings</summary>
+        <table class="acts"><tr><th>Activity</th><th>Distance</th><th>Speed</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
         <label class="f" for="sGust">Gust warning (kt)</label><input class="f" id="sGust" type="number" step="1" min="1">
       </details>
@@ -178,7 +181,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div class="page">
       <input class="f" id="tripName" aria-label="Trip name" autocomplete="off">
       <div class="card">
-        <div class="row"><div class="seg" id="actSel" role="group" aria-label="Activity"><button data-act="paddle">Paddle</button><button data-act="hike">Hike</button></div>
+        <div class="row"><div class="seg" id="actSel" role="group" aria-label="Activity"><button data-act="paddle">Paddle</button><button data-act="hike">Hike</button><button data-act="bike">Bike</button></div>
           <span class="grow"></span><input class="f" id="date" type="date" aria-label="Trip date" style="width:auto"></div>
         <label class="f" id="envLabel">Water</label>
         <div class="chips" id="envSel"></div>
@@ -189,7 +192,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <div class="stats">
           <div class="stat"><div class="k">Length</div><div class="v" id="dist">0.0 nm</div></div>
           <div class="stat"><div class="k">Duration</div><div class="v" id="dur">–</div></div>
-          <div class="stat"><label class="k" id="spdK" for="speed">Speed (kt)</label><input id="speed" type="number" step="0.1" min="0.5"></div>
+          <div class="stat"><div class="k">Speed</div><div class="v" id="spd">–</div></div>
         </div>
         <p class="muted" id="legs">Tap Edit route to draw it on the map.</p>
         <div class="row"><button class="btn" id="editRoute">Edit route on map</button><button class="btn" id="clearRoute">Clear waypoints</button></div>
@@ -273,8 +276,11 @@ const LS = {
   get(k, d){ try{ const v = localStorage.getItem('paddle.'+k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
-const settings = Object.assign({ speeds: { paddle: 3, hike: 2.5 }, variation: 13, layer: 'chart', gust: 15, graph: 'tide', shownMaps: [], view: 1 }, LS.get('settings', {}));
-if (typeof settings.speed === 'number'){ settings.speeds = { ...settings.speeds, paddle: settings.speed }; delete settings.speed; }
+const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gust: 15, graph: 'tide', shownMaps: [], view: 1 }, LS.get('settings', {}));
+// Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
+if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
+if (settings.speeds){ if (settings.speeds.paddle) settings.speedsKt.paddle = settings.speeds.paddle; if (settings.speeds.hike) settings.speedsKt.hike = settings.speeds.hike / 1.15078; delete settings.speeds; }
+settings.speedsKt = { paddle: 3, hike: 2.17, bike: 8.69, ...settings.speedsKt }; settings.units = { paddle: 'nm', hike: 'mi', bike: 'mi', ...settings.units };
 const saveSettings = () => LS.set('settings', settings);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let toastT;
@@ -316,28 +322,45 @@ const KAYAK = `<svg viewBox="0 0 64 24" width="42" height="16" aria-hidden="true
   <path d="M2 10C13 12.5 49 12.5 60 9" fill="none" stroke="#12324A" stroke-width="1"/>
   <ellipse cx="25" cy="7.6" rx="6" ry="1.6" fill="#12324A"/>
   <path d="M57.5 9.5L60.5 2.5L63 3.5L60.5 10Z" fill="#111"/></svg>`;
+const BIKE = `<svg viewBox="0 0 64 40" width="40" height="25" aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="14" cy="27" r="10" stroke="#12324A" stroke-width="3"/><circle cx="50" cy="27" r="10" stroke="#12324A" stroke-width="3"/>
+  <path d="M14 27L24 12H44L50 27M24 12L32 27L44 12M32 27H14M21 7H28M44 12L42 5H48" stroke="#C8167E" stroke-width="3"/></svg>`;
+// climb: feet of ascent that add one hour (hike: Naismith's rule); detect: water/terrain from distance to the nearest tide station (nm)
 const ACT = {
-  paddle: { name: 'Paddle', icon: KAYAK, unit: 'nm', k: 1, spd: 'kt', small: [1852, 'm'], arrive: 0.05, layer: 'chart', envLabel: 'Water', envs: ['ocean', 'bay', 'slough', 'river', 'lake'] },
-  hike:   { name: 'Hike', icon: '🥾', unit: 'mi', k: 1.15078, spd: 'mph', small: [6076, 'ft'], arrive: 0.02, layer: 'topo', envLabel: 'Terrain', envs: ['trail', 'coast'] }
+  paddle: { name: 'Paddle', icon: KAYAK, arrive: 0.05, minStep: 8, layer: 'chart', envLabel: 'Water', envs: ['ocean', 'bay', 'slough', 'river', 'lake'], detect: near => near <= 8 ? 'bay' : 'lake' },
+  hike:   { name: 'Hike', icon: '🥾', arrive: 0.02, minStep: 5, layer: 'topo', envLabel: 'Terrain', envs: ['trail', 'coast'], detect: near => near <= 1 ? 'coast' : 'trail', climb: 2000 },
+  bike:   { name: 'Bike', icon: BIKE, arrive: 0.03, minStep: 10, layer: 'street', envLabel: 'Surface', envs: ['road', 'gravel', 'mtb'], climb: 3000 }
+};
+// k: display units per nautical mile; wind is fetched in knots and shown in the matching speed unit
+const UNITS = {
+  nm: { k: 1, spd: 'kt', small: [1852, 'm'], metric: true },
+  mi: { k: 1.15078, spd: 'mph', small: [6076, 'ft'], metric: false },
+  km: { k: 1.852, spd: 'km/h', small: [1852, 'm'], metric: true }
 };
 const ENV = {
   ocean: { name: 'Ocean', tides: true, currents: true }, bay: { name: 'Bay', tides: true, currents: true },
   slough: { name: 'Slough', tides: true, currents: true }, river: { name: 'River' }, lake: { name: 'Lake' },
-  trail: { name: 'Trail' }, coast: { name: 'Coast', tides: true }
+  trail: { name: 'Trail' }, coast: { name: 'Coast', tides: true },
+  road: { name: 'Road' }, gravel: { name: 'Gravel' }, mtb: { name: 'Mountain bike' }
 };
 const act = () => ACT[trip?.activity] || ACT.paddle;
 const env = () => ENV[trip?.env] || {};
-const isHike = () => trip?.activity === 'hike';
 const isTidal = () => !!env().tides;
 const hasCurrents = () => !!env().currents;
-const speed = () => settings.speeds[trip?.activity || 'paddle'] || 3;
-const dU = nm => nm * act().k;
-const fmtD = (nm, dp = 1) => dU(nm).toFixed(dp) + ' ' + act().unit;
-const fmtNear = nm => nm < 0.1 ? Math.round(nm * act().small[0]) + ' ' + act().small[1] : fmtD(nm, 2);
-const wU = kt => isHike() ? kt * 1.15078 : kt;      // wind is fetched in knots
-const wUnit = () => isHike() ? 'mph' : 'kt';
-// Hike time uses Naismith's rule: +1 h per 2000 ft of climb.
-const hoursFor = (nm, climbFt = 0) => dU(nm) / speed() + (isHike() ? climbFt / 2000 : 0);
+const unitKey = a => settings.units[a] in UNITS ? settings.units[a] : 'nm';
+const uOf = a => UNITS[unitKey(a)];
+const u = () => uOf(trip?.activity || 'paddle');
+const unitName = () => unitKey(trip?.activity || 'paddle');
+const speedKt = () => settings.speedsKt[trip?.activity || 'paddle'] || 3;
+const speed = () => +(speedKt() * u().k).toFixed(1);  // in the display unit
+const dU = nm => nm * u().k;
+const fmtD = (nm, dp = 1) => dU(nm).toFixed(dp) + ' ' + unitName();
+const fmtNear = nm => nm < 0.1 ? Math.round(nm * u().small[0]) + ' ' + u().small[1] : fmtD(nm, 2);
+const wU = kt => kt * u().k;
+const wUnit = () => u().spd;
+const hasElev = () => !!act().climb;
+const elv = f => u().metric ? Math.round(f / 3.28084).toLocaleString() + ' m' : Math.round(f).toLocaleString() + ' ft';  // f in feet
+const hoursFor = (nm, climbFt = 0) => nm / speedKt() + (act().climb ? climbFt / act().climb : 0);
 
 /* ---------- geo + time helpers ---------- */
 const toR = d => d * Math.PI / 180, toD = r => r * 180 / Math.PI;
@@ -374,7 +397,7 @@ const tAt = () => dayStart() + state.tMin * 6e4;
 const routeNm = r => r.reduce((s, p, i) => i ? s + distNm(r[i-1], p) : 0, 0);
 const fmtDur = h => { const m = Math.round(h * 60); return m < 60 ? `${m} min` : `${Math.floor(m/60)} h ${String(m % 60).padStart(2,'0')}`; };
 const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB';
-const ft = v => Math.round(v).toLocaleString() + ' ft';
+const ft = elv;
 const fmtDay = iso => new Date(iso + 'T12:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: iso.slice(0, 4) === String(new Date().getFullYear()) ? undefined : 'numeric' });
 function centroid(){
   if (trip.route.length){ const n = trip.route.length; return [trip.route.reduce((s,p)=>s+p[0],0)/n, trip.route.reduce((s,p)=>s+p[1],0)/n]; }
@@ -427,7 +450,7 @@ const state = { legs: new Set(), tMin: 600, drawing: false, going: false, next: 
   follow: false, locating: false, timeFollow: false, showStations: false, rec: null, recSaved: 0, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
-  return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: null, envSet: false, date: ymd(new Date()), route: [], tracks: [],
+  return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), route: [], tracks: [],
     tide: null, current: null, data: null, fetchedAt: null, updated: Date.now() };
 }
 // Bring trips saved by older versions (Paddle) up to the current shape.
@@ -674,12 +697,12 @@ async function getForecast(){
   const errs = []; let envMsg = '';
   try{
     const c = centroid();
-    if (!trip.envSet || isTidal()){
+    if ((!trip.envSet && act().detect) || isTidal()){
       try{
         const nb = await loadNearby();
         if (!trip.envSet){
           const near = nb.tide[0] ? distNm(c, [nb.tide[0].lat, nb.tide[0].lng]) : Infinity, was = trip.env;
-          trip.env = isHike() ? (near <= 1 ? 'coast' : 'trail') : (near <= 8 ? 'bay' : 'lake');
+          trip.env = act().detect(near);
           if (trip.env !== was) envMsg = `${isTidal() ? 'Tide stations nearby' : 'No tide stations nearby'}: set to ${env().name.toLowerCase()}. `;
           if (!isTidal() && settings.layer === 'chart') setLayer('topo');
         }
@@ -687,7 +710,7 @@ async function getForecast(){
           if (!trip.tide || distNm(c, [trip.tide.lat, trip.tide.lng]) > 25) trip.tide = nb.tide[0] || null;
           if (hasCurrents() && (!trip.current || distNm(c, [trip.current.lat, trip.current.lng]) > 25)) trip.current = nb.current[0] || null;
         }
-      }catch(e){ if (isTidal()) errs.push('stations'); else if (!trip.envSet) trip.env = isHike() ? 'trail' : 'lake'; }
+      }catch(e){ if (isTidal()) errs.push('stations'); else if (!trip.envSet) trip.env = act().detect(Infinity); }
     }
     const data = trip.data || {};
     const none = () => Promise.reject(new Error('none nearby'));
@@ -696,7 +719,7 @@ async function getForecast(){
       !hasCurrents() ? null : trip.current ? fetchCurrent(trip.current) : none(),
       fetchWx(c),
       fetchThunder(c),
-      isHike() && trip.route.length > 1 ? fetchElev(trip.route) : null
+      hasElev() && trip.route.length > 1 ? fetchElev(trip.route) : null
     ]);
     if (t.status === 'fulfilled') data.tide = t.value; else { data.tide = null; errs.push('tides (' + t.reason.message + ')'); }
     if (cu.status === 'fulfilled'){ if (cu.value) Object.assign(data, cu.value); else data.current = null; } else { data.current = null; errs.push('currents (' + cu.reason.message + ')'); }
@@ -801,25 +824,24 @@ function wxText(c){
 }
 
 /* ---------- render: trip details + the map's conditions line ---------- */
-function graphs(){ const g = []; if (isTidal()) g.push('tide'); if (isHike()) g.push('elev'); g.push('wind'); return g; }
+function graphs(){ const g = []; if (isTidal()) g.push('tide'); if (hasElev()) g.push('elev'); g.push('wind'); return g; }
 const GRAPH_NAMES = { tide: 'Tide', elev: 'Elevation', wind: 'Wind' };
 function curGraph(){ const g = graphs(); return g.includes(settings.graph) ? settings.graph : g[0]; }
 function render(){
   const t = tAt(), nm = routeNm(trip.route), legs = Math.max(0, trip.route.length - 1), es = elevStats();
-  const tidal = isTidal(), hike = isHike();
+  const tidal = isTidal(), hike = hasElev();
   if (document.activeElement !== $('#tripName')) $('#tripName').value = trip.name;
   $('#tabTrip').textContent = trip.name; $('#tripChip').textContent = trip.name;
   $('#date').value = trip.date;
   document.querySelectorAll('#actSel button').forEach(b => b.classList.toggle('on', b.dataset.act === trip.activity));
   $('#envLabel').textContent = act().envLabel;
-  $('#envSel').innerHTML = `<button data-env="" class="${trip.envSet ? '' : 'on'}">Auto${!trip.envSet && trip.env ? ': ' + env().name : ''}</button>` +
+  $('#envSel').innerHTML = (act().detect ? `<button data-env="" class="${trip.envSet ? '' : 'on'}">Auto${!trip.envSet && trip.env ? ': ' + env().name : ''}</button>` : '') +
     act().envs.map(k => `<button data-env="${k}" class="${trip.envSet && trip.env === k ? 'on' : ''}">${ENV[k].name}</button>`).join('');
   // route
   $('#dist').textContent = fmtD(nm);
   $('#dur').textContent = legs ? fmtDur(hoursFor(nm, es?.up)) : '–';
-  $('#spdK').textContent = `Speed (${act().spd})`;
-  if (document.activeElement !== $('#speed')) $('#speed').value = speed();
-  $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''}${es ? ` · climb +${ft(es.up)}, adds ${fmtDur(es.up / 2000)}` : hike ? ' · Get forecast for the climb' : ''}` : 'Tap Edit route to draw it on the map.';
+  $('#spd').textContent = `${speed()} ${u().spd}`;
+  $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''}${es ? ` · climb +${ft(es.up)}, adds ${fmtDur(es.up / act().climb)}` : hike ? ' · Get forecast for the climb' : ''}` : 'Tap Edit route to draw it on the map.';
   $('#clearRoute').disabled = !trip.route.length;
   routeTable();
   // forecast
@@ -910,8 +932,8 @@ function routeTable(){
   const r = trip.route;
   if (r.length < 2){ $('#routeTable').innerHTML = '<p class="muted">No route yet.</p>'; return; }
   let cum = 0; const start = tAt();
-  $('#routeTable').innerHTML = `<p class="muted">Leaving at ${hm(start)} (the forecast time) at ${speed()} ${act().spd}${isHike() ? ', on the flat' : ', without current'}.</p>
-    <table><tr><th>WP</th><th>Leg ${act().unit}</th><th>Bearing</th><th>Total</th><th>Arrive</th></tr>${r.map((p, i) => {
+  $('#routeTable').innerHTML = `<p class="muted">Leaving at ${hm(start)} (the forecast time) at ${speed()} ${u().spd}${hasElev() ? ', on the flat' : ', without current'}.</p>
+    <table><tr><th>WP</th><th>Leg ${unitName()}</th><th>Bearing</th><th>Total</th><th>Arrive</th></tr>${r.map((p, i) => {
       if (!i) return `<tr><td>1</td><td>–</td><td>–</td><td>0.00</td><td>${hm(start)}</td></tr>`;
       const d = distNm(r[i-1], p); cum += d;
       return `<tr><td>${i+1}</td><td>${dU(d).toFixed(2)}</td><td>${magB(brgT(r[i-1], p))}</td><td>${dU(cum).toFixed(2)}</td><td>${hm(start + hoursFor(cum) * 36e5)}</td></tr>`;
@@ -1005,7 +1027,7 @@ function drawElev(g, W, H, font, note){
   g.fillStyle = '#5B7183'; g.font = '10px ' + font;
   g.fillText(ft(hi), 2, 10); g.fillText(ft(lo), 2, H - 16);
   const step = dU(D) > 6 ? 2 : dU(D) > 2 ? 1 : 0.5;
-  for (let u = step; u < dU(D); u += step){ const x = X(u / act().k); g.fillRect(x, H - 4, 1, 4); g.fillText(u + ' ' + act().unit, x + 2, H - 2); }
+  for (let u = step; u < dU(D); u += step){ const x = X(u / dU(1)); g.fillRect(x, H - 4, 1, 4); g.fillText(u + ' ' + unitName(), x + 2, H - 2); }
 }
 $('#graphSel').addEventListener('click', e => { const b = e.target.closest('button[data-g]'); if (!b) return; settings.graph = b.dataset.g; saveSettings(); render(); });
 function chartTouch(e){
@@ -1032,8 +1054,8 @@ $('#date').onchange = e => {
 $('#actSel').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || b.dataset.act === trip.activity) return;
   trip.activity = b.dataset.act; trip.env = null; trip.envSet = false; trip.data = null; trip.fetchedAt = null;
-  if (trip.activity === 'hike' && settings.layer === 'chart') setLayer('topo');
-  if (trip.activity === 'paddle' && settings.layer === 'topo') setLayer('chart');
+  trip.env = act().detect ? null : act().envs[0]; trip.envSet = !act().detect;
+  setLayer(act().layer);
   changed(); toast(`${act().name} trip. Tap Get forecast.`);
 });
 $('#envSel').addEventListener('click', e => {
@@ -1044,7 +1066,6 @@ $('#envSel').addEventListener('click', e => {
   changed();
   if (isTidal() && !trip.data?.tide) toast(`Tap Get forecast for tides${hasCurrents() ? ' and currents' : ''}.`);
 });
-$('#speed').addEventListener('change', e => { const v = +e.target.value; if (v > 0){ settings.speeds[trip.activity] = v; saveSettings(); changed(); } });
 $('#editRoute').onclick = () => { showView(2); if (!state.going) setDrawing(true); };
 $('#clearRoute').onclick = () => {
   if (!trip.route.length || !confirm(`Clear all ${trip.route.length} waypoints?`)) return;
@@ -1065,10 +1086,10 @@ $('#deleteTrip').onclick = async () => {
 /* ---------- trips list ---------- */
 async function renderList(){
   const all = (await idb.all('trips')).map(normTrip).sort((a, b) => b.date.localeCompare(a.date) || b.updated - a.updated);
-  $('#tripList').innerHTML = all.map(t => { const A = ACT[t.activity] || ACT.paddle;
+  $('#tripList').innerHTML = all.map(t => { const A = ACT[t.activity] || ACT.paddle, U = uOf(t.activity);
     return `<button class="trip${t.id === trip?.id ? ' cur' : ''}" data-open="${esc(t.id)}"><span class="ic" aria-hidden="true">${A.icon}</span><span class="grow"><b>${esc(t.name)}</b>
       <small>${fmtDay(t.date)} · ${A.name}${t.env ? ' · ' + (ENV[t.env]?.name || '') : ''}</small>
-      <small>${(routeNm(t.route) * A.k).toFixed(1)} ${A.unit}${t.tracks.length ? ` · ${t.tracks.length} track${t.tracks.length > 1 ? 's' : ''}` : ''}${t.fetchedAt ? ' · forecast saved' : ''}</small></span></button>`; }).join('') || '<p class="muted">No trips yet.</p>';
+      <small>${(routeNm(t.route) * U.k).toFixed(1)} ${unitKey(t.activity)}${t.tracks.length ? ` · ${t.tracks.length} track${t.tracks.length > 1 ? 's' : ''}` : ''}${t.fetchedAt ? ' · forecast saved' : ''}</small></span></button>`; }).join('') || '<p class="muted">No trips yet.</p>';
 }
 $('#tripList').addEventListener('click', async e => {
   const b = e.target.closest('[data-open]'); if (!b) return;
@@ -1077,12 +1098,26 @@ $('#tripList').addEventListener('click', async e => {
 });
 async function createTrip(kind){
   const t = newTrip(kind); await idb.put('trips', t); await openTrip(t);
-  if (ACT[kind].layer !== settings.layer && settings.layer !== 'street') setLayer(ACT[kind].layer);
+  setLayer(ACT[kind].layer);
   showView(2); setDrawing(true);
 }
 $('#newPaddle').onclick = () => createTrip('paddle');
 $('#newHike').onclick = () => createTrip('hike');
+$('#newBike').onclick = () => createTrip('bike');
 $('#importBtn').onclick = () => $('#file').click();
+// Settings: distance unit and speed per activity (speed is stored in knots)
+function renderActSettings(){
+  $('#actSettings').innerHTML = Object.entries(ACT).map(([a, A]) => `<tr><td>${A.name}</td>
+    <td><select data-unit="${a}" aria-label="${A.name} distance unit">${Object.keys(UNITS).map(k => `<option value="${k}"${k === unitKey(a) ? ' selected' : ''}>${{ nm: 'nautical miles', mi: 'miles', km: 'kilometres' }[k]}</option>`).join('')}</select></td>
+    <td><input data-speed="${a}" type="number" step="0.1" min="0.1" value="${+(settings.speedsKt[a] * uOf(a).k).toFixed(1)}" aria-label="${A.name} speed"> ${uOf(a).spd}</td></tr>`).join('');
+}
+$('#actSettings').addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.unit) settings.units[t.dataset.unit] = t.value;
+  if (t.dataset.speed && +t.value > 0) settings.speedsKt[t.dataset.speed] = +t.value / uOf(t.dataset.speed).k;
+  saveSettings(); renderActSettings(); renderList(); if (trip) changed();
+});
+renderActSettings();
 $('#sVar').value = settings.variation; $('#sGust').value = settings.gust;
 $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.target.value)){ settings.variation = +e.target.value; saveSettings(); render(); } };
 $('#sGust').onchange = e => { if (+e.target.value > 0){ settings.gust = +e.target.value; saveSettings(); render(); } };
@@ -1201,7 +1236,7 @@ function record(c, t){
   const k = state.rec; if (!k || c.accuracy > 50) return;
   const p = [+c.latitude.toFixed(6), +c.longitude.toFixed(6), t, c.altitude != null ? Math.round(c.altitude * 3.28084) : null];
   const last = k.pts[k.pts.length - 1];
-  if (last && distNm(last, p) * 1852 < Math.max(isHike() ? 5 : 8, c.accuracy / 2)) return;
+  if (last && distNm(last, p) * 1852 < Math.max(act().minStep, c.accuracy / 2)) return;
   k.pts.push(p);
   if (recLine) recLine.addLatLng([p[0], p[1]]); else drawTracks();
   if (k.pts.length - state.recSaved >= 20){ state.recSaved = k.pts.length; trip.updated = Date.now(); saveNow(); }
@@ -1209,13 +1244,13 @@ function record(c, t){
 const trackNm = k => routeNm(k.pts);
 function trackLabel(k){
   const nm = trackNm(k), h = ((k.end || Date.now()) - k.start) / 36e5;
-  return `${fmtD(nm, 2)} in ${fmtDur(h)}${h > 0.01 ? ' · avg ' + (dU(nm) / h).toFixed(1) + ' ' + act().spd : ''}`;
+  return `${fmtD(nm, 2)} in ${fmtDur(h)}${h > 0.01 ? ' · avg ' + (dU(nm) / h).toFixed(1) + ' ' + u().spd : ''}`;
 }
 function updateNav(){
   if (!state.going) return;
   const r = trip.route, k = state.rec, routed = r.length > 1;
-  const sogU = state.sog != null ? (isHike() ? state.sog * 1.15078 : state.sog) : null;
-  $('#navSogK').textContent = `Speed ${act().spd}`;
+  const sogU = state.sog != null ? state.sog * u().k : null;
+  $('#navSogK').textContent = `Speed ${u().spd}`;
   $('#navSog').textContent = sogU != null ? sogU.toFixed(1) : '–';
   const recTxt = k ? `<span class="rec">● REC</span> ${esc(trackLabel(k))}` : '';
   if (!routed){ // record-only

@@ -58,8 +58,7 @@ module.exports = async (browser, url, check) => {
 
   await page.click('#wpDetails summary');
   c('waypoint table', await page.locator('#routeTable tr').count() === 4);
-  await page.fill('#speed', '4'); await page.dispatchEvent('#speed', 'change');
-  c('speed edit applies', await page.evaluate(() => settings.speeds.paddle) === 4 && /4 kt/.test(await page.text('#routeTable')));
+  c('speed shown in the Trip view', (await page.text('#spd')) === '3 kt', await page.text('#spd'));
   await page.fill('#tripName', 'Golden Gate loop'); await page.press('#tripName', 'Enter');
   c('rename inline', await page.evaluate(() => trip.name) === 'Golden Gate loop' && (await page.text('#tabTrip')) === 'Golden Gate loop');
 
