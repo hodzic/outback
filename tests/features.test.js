@@ -89,7 +89,7 @@ module.exports = async (browser, url, check) => {
     c('clear waypoints empties the route', await page.evaluate(() => trip.route.length) === 0 && /0\.0 nm/.test(await page.text('#dist')));
     c('clear is disabled with no waypoints', await page.isDisabled('#clearRoute'));
     await view(page, 0);
-    c('paddle trips show a kayak icon', await page.locator('#tripList .trip .ic svg').count() >= 1 && await page.locator('#tripList .trip', { hasText: '🛶' }).count() === 0);
+    c('paddle trips show a kayak with a double-bladed paddle', await page.locator('#tripList .trip .ic svg ellipse[transform]').count() >= 2 && await page.locator('#tripList .trip', { hasText: '🛶' }).count() === 0);
     await seedRoute(page, GG); await view(page, 1);
     await page.click('#editRoute'); await page.waitForTimeout(500);
     c('Edit route opens the map in draw mode', await page.evaluate(() => state.view === 2 && state.drawing));
@@ -110,6 +110,7 @@ module.exports = async (browser, url, check) => {
     c('legacy trip opens', (await page.text('#tabTrip')) === 'Old paddle');
     c('legacy tidal water -> bay', await page.evaluate(() => trip.activity === 'paddle' && trip.env === 'bay' && trip.envSet === true && Array.isArray(trip.tracks)));
     c('legacy speed setting migrated', await page.evaluate(() => settings.speedsKt.paddle) === 3.5);
+    c('legacy gust warning applies to every activity', await page.evaluate(() => settings.gustKt.paddle === 15 && settings.gustKt.hike === 15 && settings.gustKt.bike === 15 && !('gust' in settings)));
     await ctx.close(); }
 
   { // biking: street map, surfaces, elevation, mph
@@ -136,6 +137,7 @@ module.exports = async (browser, url, check) => {
     await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 0);
     await page.click('#vTrips details summary >> text=Settings');
     c('settings row per activity', await page.locator('#actSettings tr').count() === 3);
+    c('bike gust shown in mph', await page.inputValue('[data-gust=bike]') === '17');
     c('defaults nm / mi / mi', (await page.$$eval('#actSettings select', ss => ss.map(s => s.value))).join() === 'nm,mi,mi');
     const nm = await page.evaluate(() => routeNm(trip.route));
     await page.selectOption('[data-unit=paddle]', 'km');
@@ -145,6 +147,12 @@ module.exports = async (browser, url, check) => {
     await page.fill('[data-speed=paddle]', '7.4'); await page.dispatchEvent('[data-speed=paddle]', 'change');
     c('speed saved in knots', Math.abs(await page.evaluate(() => settings.speedsKt.paddle) - 7.4 / 1.852) < 1e-9);
     await page.selectOption('[data-unit=hike]', 'km');
+    c('gust warning shown in km/h', await page.inputValue('[data-gust=paddle]') === '28', await page.inputValue('[data-gust=paddle]'));
+    await page.fill('[data-gust=paddle]', '37'); await page.dispatchEvent('[data-gust=paddle]', 'change');
+    c('gust saved in knots, per activity', Math.abs(await page.evaluate(() => settings.gustKt.paddle) - 37 / 1.852) < 1e-9 && await page.evaluate(() => settings.gustKt.bike) === 15);
+    await page.click('#tabs [data-view="1"]'); await page.waitForTimeout(400);
+    c('gust limit drives the wind warning', await page.evaluate(() => gust()) === 37 / 1.852);
+    await page.click('#tabs [data-view="0"]'); await page.waitForTimeout(400);
     c('other activities keep their own unit', await page.evaluate(() => settings.units.paddle === 'km' && settings.units.hike === 'km' && settings.units.bike === 'mi'));
     c('list uses each trip\'s unit', / km/.test(await page.text('#tripList')));
     await page.reload(); await ready(page);
@@ -156,8 +164,7 @@ module.exports = async (browser, url, check) => {
     await page.goto(url); await ready(page); await view(page, 0);
     await page.click('#vTrips details summary >> text=Settings');
     await page.fill('#sVar', '14'); await page.dispatchEvent('#sVar', 'change');
-    await page.fill('#sGust', '20'); await page.dispatchEvent('#sGust', 'change');
-    c('settings saved', await page.evaluate(() => settings.variation === 14 && settings.gust === 20));
+    c('settings saved', await page.evaluate(() => settings.variation === 14));
     await ctx.close(); }
 
   { // PDF maps from the map view: auto-placement from printed GPS labels, adjust, persistence, opacity

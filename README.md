@@ -10,7 +10,7 @@ Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over 
 Three views; swipe between them or use the tabs at the bottom.
 
 1. **Trips**: your trips (newest date first), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
-   settings (distance unit and speed per activity, magnetic variation, gust warning) and about.
+   settings (distance unit, speed and gust warning per activity; magnetic variation) and about.
 2. **Trip**: everything about the selected trip:
    - name, activity (Paddle / Hike / Bike), date, water or terrain (auto-detected, or pick one)
    - route: length, duration, speed, waypoint table, *Edit route on map*, *Clear waypoints*
@@ -24,7 +24,7 @@ Three views; swipe between them or use the tabs at the bottom.
 ## What it does
 
 - **Activities**: *Paddle* (NOAA chart), *Hike* (USGS topo) and *Bike* (street map). Each has its own
-  distance unit (nautical miles, miles or kilometres) and speed in Settings; wind uses the same unit.
+  distance unit (nautical miles, miles or kilometres), speed and gust warning in Settings; wind uses the same unit.
   Defaults: paddle 3 kt, hike 2.5 mph, bike 10 mph.
 - **Water / terrain / surface**: ocean, bay, slough, river, lake for paddling; trail or coast for hiking;
   road, gravel or mountain bike for biking.
