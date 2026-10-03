@@ -77,7 +77,8 @@ td:first-child,th:first-child{text-align:left}
 .stat .k{font-size:12px;color:var(--muted)} .stat .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 table.acts td,table.acts th{text-align:left;vertical-align:middle}
 table.acts select,table.acts input{height:38px;border:1px solid var(--line);border-radius:8px;padding:0 6px;background:var(--paper)}
-table.acts input{width:76px}
+table.acts input{width:64px}
+table.acts td,table.acts th{padding:5px 3px}
 #chart{display:block;width:100%;height:110px;touch-action:none;margin:6px 0 8px;cursor:ew-resize}
 #timeOut{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
 .read{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -165,9 +166,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <div id="tripList"></div>
       <div class="row" style="margin-top:6px"><button class="btn" id="importBtn">Import trip or GPX…</button></div>
       <details class="card" style="margin-top:16px"><summary>Settings</summary>
-        <table class="acts"><tr><th>Activity</th><th>Distance</th><th>Speed</th></tr><tbody id="actSettings"></tbody></table>
+        <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
-        <label class="f" for="sGust">Gust warning (kt)</label><input class="f" id="sGust" type="number" step="1" min="1">
       </details>
       <details class="card"><summary>About</summary>
         <p class="muted">Plan an out-and-back paddle or hike online, then take it offline. Tides and currents: NOAA CO-OPS. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA charts, OpenStreetMap, USGS topo, and your own PDF maps. Hiking times add 1 hour per 2000 ft of climb. Tracks record while Go is on and the screen is awake.</p>
@@ -276,10 +276,13 @@ const LS = {
   get(k, d){ try{ const v = localStorage.getItem('paddle.'+k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
-const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gust: 15, graph: 'tide', shownMaps: [], view: 1 }, LS.get('settings', {}));
+const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
 if (settings.speeds){ if (settings.speeds.paddle) settings.speedsKt.paddle = settings.speeds.paddle; if (settings.speeds.hike) settings.speedsKt.hike = settings.speeds.hike / 1.15078; delete settings.speeds; }
+// The gust warning used to be one knots value for every activity.
+if (typeof settings.gust === 'number'){ settings.gustKt = { paddle: settings.gust, hike: settings.gust, bike: settings.gust }; delete settings.gust; }
+settings.gustKt = { paddle: 15, hike: 15, bike: 15, ...settings.gustKt };
 settings.speedsKt = { paddle: 3, hike: 2.17, bike: 8.69, ...settings.speedsKt }; settings.units = { paddle: 'nm', hike: 'mi', bike: 'mi', ...settings.units };
 const saveSettings = () => LS.set('settings', settings);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -316,12 +319,15 @@ const idb = {
 
 /* ---------- activities ---------- */
 // Distances are stored in nautical miles and shown in the activity's unit.
-const KAYAK = `<svg viewBox="0 0 64 24" width="42" height="16" aria-hidden="true">
+const KAYAK = `<svg viewBox="0 -4 64 28" width="42" height="18" aria-hidden="true">
   <path d="M2 10C13 12.5 49 12.5 60 9C54 17 41 19 31 19C19 19 8 16 2 10Z" fill="#fff" stroke="#9fb0bf" stroke-width=".8"/>
   <path d="M2 10C13 12.5 49 12.5 60 9C51 6.5 40 5.5 31 5.5C19 5.5 9 7 2 10Z" fill="#1E9BE0"/>
   <path d="M2 10C13 12.5 49 12.5 60 9" fill="none" stroke="#12324A" stroke-width="1"/>
   <ellipse cx="25" cy="7.6" rx="6" ry="1.6" fill="#12324A"/>
-  <path d="M57.5 9.5L60.5 2.5L63 3.5L60.5 10Z" fill="#111"/></svg>`;
+  <path d="M57.5 9.5L60.5 2.5L63 3.5L60.5 10Z" fill="#111"/>
+  <path d="M13 -0.5L38 15" stroke="#12324A" stroke-width="1.4" stroke-linecap="round"/>
+  <ellipse cx="11.2" cy="-1.6" rx="4.6" ry="1.9" transform="rotate(32 11.2 -1.6)" fill="#F2B705" stroke="#12324A" stroke-width=".7"/>
+  <ellipse cx="39.8" cy="16.1" rx="4.6" ry="1.9" transform="rotate(32 39.8 16.1)" fill="#F2B705" stroke="#12324A" stroke-width=".7"/></svg>`;
 const BIKE = `<svg viewBox="0 0 64 40" width="40" height="25" aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round">
   <circle cx="14" cy="27" r="10" stroke="#12324A" stroke-width="3"/><circle cx="50" cy="27" r="10" stroke="#12324A" stroke-width="3"/>
   <path d="M14 27L24 12H44L50 27M24 12L32 27L44 12M32 27H14M21 7H28M44 12L42 5H48" stroke="#C8167E" stroke-width="3"/></svg>`;
@@ -359,6 +365,7 @@ const fmtNear = nm => nm < 0.1 ? Math.round(nm * u().small[0]) + ' ' + u().small
 const wU = kt => kt * u().k;
 const wUnit = () => u().spd;
 const hasElev = () => !!act().climb;
+const gust = () => settings.gustKt[trip?.activity || 'paddle'] || 15;  // knots, like the wind data
 const elv = f => u().metric ? Math.round(f / 3.28084).toLocaleString() + ' m' : Math.round(f).toLocaleString() + ' ft';  // f in feet
 const hoursFor = (nm, climbFt = 0) => nm / speedKt() + (act().climb ? climbFt / act().climb : 0);
 
@@ -877,7 +884,7 @@ function render(){
 
   const w = wxAt(t), wv = $('#windV');
   wv.textContent = w ? `${Math.round(wU(w.ws))} ${wUnit()} ${compass(w.wd)}` : '–';
-  wv.classList.toggle('warn', !!w && w.wg >= settings.gust);
+  wv.classList.toggle('warn', !!w && w.wg >= gust());
   $('#windS').textContent = w ? `gusts ${Math.round(wU(w.wg))} · ${Math.round(w.temp)}°F · ${wxText(w.code)}` : ' ';
   const pv = $('#presV');
   pv.classList.remove('warn');
@@ -918,7 +925,7 @@ function render(){
   const parts = [`<b>${hm(t)}</b>`];
   if (td) parts.push(`Tide ${td.v.toFixed(1)}${td.rising ? '↑' : '↓'}`);
   if (cu) parts.push(Math.abs(cu.v) < .1 ? 'Slack' : `${cu.v >= 0 ? 'Flood' : 'Ebb'} ${Math.abs(cu.v).toFixed(1)}`);
-  if (w) parts.push(`<span class="${w.wg >= settings.gust ? 'w' : ''}">Wind ${Math.round(wU(w.ws))} G${Math.round(wU(w.wg))} ${compass(w.wd)}</span>`);
+  if (w) parts.push(`<span class="${w.wg >= gust() ? 'w' : ''}">Wind ${Math.round(wU(w.ws))} G${Math.round(wU(w.wg))} ${compass(w.wd)}</span>`);
   if (th != null && th >= 20) parts.push(`<span class="w">⚡${th}%</span>`);
   if (w && w.dp != null && w.dp <= -2) parts.push('<span class="w">Pressure ↓</span>');
   parts.push(fmtD(nm));
@@ -1008,13 +1015,13 @@ function drawWind(g, W, H, X, t0, t1, font, note){
   if (!w) return note('Wind graph appears after Get forecast');
   const idx = w.t.map((t, i) => i).filter(i => w.t[i] >= t0 - 36e5 && w.t[i] <= t1 + 36e5);
   if (!idx.length) return note('No wind forecast for this day');
-  const top = Math.max(settings.gust + 5, ...idx.map(i => w.wg[i] || 0)), Y = v => H - 14 - v / top * (H - 22);
+  const top = Math.max(gust() + 5, ...idx.map(i => w.wg[i] || 0)), Y = v => H - 14 - v / top * (H - 22);
   g.fillStyle = 'rgba(18,50,74,.28)'; g.beginPath(); g.moveTo(X(w.t[idx[0]]), Y(0));
   idx.forEach(i => g.lineTo(X(w.t[i]), Y(w.ws[i]))); g.lineTo(X(w.t[idx[idx.length-1]]), Y(0)); g.fill();
   g.strokeStyle = '#B3261E'; g.lineWidth = 1.5; g.beginPath();
   idx.forEach((i, k) => k ? g.lineTo(X(w.t[i]), Y(w.wg[i])) : g.moveTo(X(w.t[i]), Y(w.wg[i]))); g.stroke();
-  g.setLineDash([4, 4]); g.strokeStyle = 'rgba(179,38,30,.6)'; g.beginPath(); g.moveTo(0, Y(settings.gust)); g.lineTo(W, Y(settings.gust)); g.stroke(); g.setLineDash([]);
-  g.fillStyle = '#5B7183'; g.font = '10px ' + font; g.fillText(`${Math.round(wU(top))} ${wUnit()}`, 2, 10); g.fillText(`gust limit ${Math.round(wU(settings.gust))}`, W - 76, Y(settings.gust) - 3);
+  g.setLineDash([4, 4]); g.strokeStyle = 'rgba(179,38,30,.6)'; g.beginPath(); g.moveTo(0, Y(gust())); g.lineTo(W, Y(gust())); g.stroke(); g.setLineDash([]);
+  g.fillStyle = '#5B7183'; g.font = '10px ' + font; g.fillText(`${Math.round(wU(top))} ${wUnit()}`, 2, 10); g.fillText(`gust limit ${Math.round(wU(gust()))}`, W - 76, Y(gust()) - 3);
 }
 function drawElev(g, W, H, font, note){
   const el = trip.data?.elev;
@@ -1108,19 +1115,20 @@ $('#importBtn').onclick = () => $('#file').click();
 // Settings: distance unit and speed per activity (speed is stored in knots)
 function renderActSettings(){
   $('#actSettings').innerHTML = Object.entries(ACT).map(([a, A]) => `<tr><td>${A.name}</td>
-    <td><select data-unit="${a}" aria-label="${A.name} distance unit">${Object.keys(UNITS).map(k => `<option value="${k}"${k === unitKey(a) ? ' selected' : ''}>${{ nm: 'nautical miles', mi: 'miles', km: 'kilometres' }[k]}</option>`).join('')}</select></td>
-    <td><input data-speed="${a}" type="number" step="0.1" min="0.1" value="${+(settings.speedsKt[a] * uOf(a).k).toFixed(1)}" aria-label="${A.name} speed"> ${uOf(a).spd}</td></tr>`).join('');
+    <td><select data-unit="${a}" aria-label="${A.name} units">${Object.entries(UNITS).map(([k, U]) => `<option value="${k}"${k === unitKey(a) ? ' selected' : ''}>${k} · ${U.spd}</option>`).join('')}</select></td>
+    <td><input data-speed="${a}" type="number" step="0.1" min="0.1" value="${+(settings.speedsKt[a] * uOf(a).k).toFixed(1)}" aria-label="${A.name} speed in ${uOf(a).spd}"></td>
+    <td><input data-gust="${a}" type="number" step="1" min="1" value="${Math.round(settings.gustKt[a] * uOf(a).k)}" aria-label="${A.name} gust warning in ${uOf(a).spd}"></td></tr>`).join('');
 }
 $('#actSettings').addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.unit) settings.units[t.dataset.unit] = t.value;
   if (t.dataset.speed && +t.value > 0) settings.speedsKt[t.dataset.speed] = +t.value / uOf(t.dataset.speed).k;
+  if (t.dataset.gust && +t.value > 0) settings.gustKt[t.dataset.gust] = +t.value / uOf(t.dataset.gust).k;
   saveSettings(); renderActSettings(); renderList(); if (trip) changed();
 });
 renderActSettings();
-$('#sVar').value = settings.variation; $('#sGust').value = settings.gust;
+$('#sVar').value = settings.variation;
 $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.target.value)){ settings.variation = +e.target.value; saveSettings(); render(); } };
-$('#sGust').onchange = e => { if (+e.target.value > 0){ settings.gust = +e.target.value; saveSettings(); render(); } };
 
 /* ---------- save / load ---------- */
 let saveT, listT;
