@@ -85,6 +85,8 @@ table.acts td,table.acts th{padding:5px 3px}
 .read{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .cell{padding:6px 8px;background:var(--paper);min-width:0}
 .cell.wide{grid-column:1/-1}
+.tempc .v{font-size:28px}
+.tempc .lo{color:var(--flood)} .tempc .hi{color:var(--warn)}
 .cell .k{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cell .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cell .s{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -234,6 +236,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <canvas id="chart" aria-label="Day graph for the trip"></canvas>
         <p class="muted" id="chartHint" style="margin:-4px 0 8px">Tap or drag the graph to pick a time.</p>
         <div class="read">
+          <div class="cell wide tempc"><div class="k">Temperature</div><div class="v" id="tempV">–</div><div class="s" id="tempS">&nbsp;</div></div>
           <div class="cell tidal"><div class="k" id="tideK">Tide</div><div class="v" id="tideV">–</div><div class="s" id="tideS">&nbsp;</div></div>
           <div class="cell curc"><div class="k" id="curK">Current</div><div class="v" id="curV">–</div><div class="s" id="curS">&nbsp;</div></div>
           <div class="cell elevc"><div class="k">Elevation</div><div class="v" id="elevV">–</div><div class="s" id="elevS">&nbsp;</div></div>
@@ -395,6 +398,16 @@ const fmtNear = nm => nm < 0.1 ? Math.round(nm * u().small[0]) + ' ' + u().small
 const wU = kt => kt * u().k;
 const wUnit = () => u().spd;
 const hasElev = () => !!act().climb;
+// Temperature comes in °F; shown in °C when the activity uses kilometres.
+const tC = () => unitName() === 'km';
+const temp = f => Math.round(tC() ? (f - 32) * 5 / 9 : f) + '°';
+const tUnit = () => tC() ? 'C' : 'F';
+// Forecast low and high for the trip day (local midnight to midnight)
+function dayTemps(){
+  const w = trip.data?.wx; if (!w?.temp) return null;
+  const t0 = dayStart(), v = w.t.map((t, i) => t >= t0 && t < t0 + 864e5 ? w.temp[i] : null).filter(x => x != null);
+  return v.length ? { lo: Math.min(...v), hi: Math.max(...v) } : null;
+}
 const gust = () => settings.gustKt[trip?.activity || 'paddle'] || 15;  // knots, like the wind data
 const elv = f => u().metric ? Math.round(f / 3.28084).toLocaleString() + ' m' : Math.round(f).toLocaleString() + ' ft';  // f in feet
 const hoursFor = (nm, climbFt = 0) => nm / speedKt() + (act().climb ? climbFt / act().climb : 0);
@@ -916,7 +929,10 @@ function render(){
   const w = wxAt(t), wv = $('#windV');
   wv.textContent = w ? `${Math.round(wU(w.ws))} ${wUnit()} ${compass(w.wd)}` : '–';
   wv.classList.toggle('warn', !!w && w.wg >= gust());
-  $('#windS').textContent = w ? `gusts ${Math.round(wU(w.wg))} · ${Math.round(w.temp)}°F · ${wxText(w.code)}` : ' ';
+  $('#windS').textContent = w ? `gusts ${Math.round(wU(w.wg))} ${wUnit()}` : ' ';
+  const dt = dayTemps();
+  $('#tempV').innerHTML = dt ? `<span class="lo">Low ${temp(dt.lo)}</span> · <span class="hi">High ${temp(dt.hi)}</span>${tUnit()}` : '–';
+  $('#tempS').textContent = w ? `${temp(w.temp)}${tUnit()} at ${hm(t)}${wxText(w.code) ? ' · ' + wxText(w.code) : ''}${w.pop != null ? ' · rain ' + w.pop + '%' : ''}` : ' ';
   const pv = $('#presV');
   pv.classList.remove('warn');
   if (w && w.p != null){
@@ -956,6 +972,7 @@ function render(){
   const parts = [`<b>${hm(t)}</b>`];
   if (td) parts.push(`Tide ${td.v.toFixed(1)}${td.rising ? '↑' : '↓'}`);
   if (cu) parts.push(Math.abs(cu.v) < .1 ? 'Slack' : `${cu.v >= 0 ? 'Flood' : 'Ebb'} ${Math.abs(cu.v).toFixed(1)}`);
+  if (dt) parts.push(`${temp(dt.lo)}–${temp(dt.hi)}`);
   if (w) parts.push(`<span class="${w.wg >= gust() ? 'w' : ''}">Wind ${Math.round(wU(w.ws))} G${Math.round(wU(w.wg))} ${compass(w.wd)}</span>`);
   if (th != null && th >= 20) parts.push(`<span class="w">⚡${th}%</span>`);
   if (w && w.dp != null && w.dp <= -2) parts.push('<span class="w">Pressure ↓</span>');
