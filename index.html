@@ -244,8 +244,19 @@ const COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW',
 const compass = d => COMPASS[Math.round(((d % 360) + 360) % 360 / 22.5) % 16];
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const shiftDay = (iso, n) => { const d = new Date(iso+'T12:00'); d.setDate(d.getDate()+n); return ymd(d); };
-const hm = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-const dayStart = () => new Date(trip.date + 'T00:00').getTime();
+// Times are shown in the trip's own time zone (learned from the forecast), else the device's.
+const tz = () => trip?.tz || undefined;
+const hm = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: tz() });
+function zParts(ms){
+  const o = {}; for (const p of new Intl.DateTimeFormat('en-US', { timeZone: tz(), hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(ms)) o[p.type] = p.value;
+  return { ymd: `${o.year}-${o.month}-${o.day}`, min: (+o.hour % 24) * 60 + +o.minute, off: Date.UTC(+o.year, o.month - 1, +o.day, +o.hour % 24, +o.minute) - Math.floor(ms / 6e4) * 6e4 };
+}
+const todayIso = () => zParts(Date.now()).ymd;
+const nowMin = () => zParts(Date.now()).min;
+function dayStart(){
+  const u = Date.parse(trip.date + 'T00:00Z');
+  let t = u - zParts(u).off; t = u - zParts(t).off; return t;
+}
 const tAt = () => dayStart() + state.tMin * 6e4;
 const routeNm = r => r.reduce((s, p, i) => i ? s + distNm(r[i-1], p) : 0, 0);
 function centroid(){
@@ -256,7 +267,7 @@ function centroid(){
 /* ---------- sun (after SunCalc, V. Agafonkin, BSD) ---------- */
 function sunTimes(dateIso, lat, lng){
   const rad = Math.PI/180, dayMs = 864e5, J1970 = 2440588, J2000 = 2451545, e = rad*23.4397, J0 = 0.0009;
-  const date = new Date(dateIso+'T12:00').getTime();
+  const date = Date.parse(dateIso+'T12:00Z') - lng / 15 * 36e5; // local solar noon
   const d = date/dayMs - 0.5 + J1970 - J2000;
   const lw = rad * -lng, phi = rad * lat;
   const n = Math.round(d - J0 - lw/(2*Math.PI));
@@ -300,7 +311,7 @@ function setLayer(k){
   settings.layer = k; saveSettings(); tileErr = 0; tileOk = 0;
   base = L.tileLayer(LAYERS[k].url, LAYERS[k].opt).addTo(map);
   base.on('tileload', () => tileOk++);
-  base.on('tileerror', () => { if (++tileErr > 12 && tileOk === 0 && k === 'chart' && navigator.onLine){ toast('Chart tiles are not loading. Switched to Street.'); setLayer('street'); } });
+  base.on('tileerror', () => { if (++tileErr >= 4 && tileOk === 0 && k === 'chart' && navigator.onLine){ toast('Chart tiles are not loading. Switched to Street.'); setLayer('street'); } });
   $('#layerBtn').textContent = LAYERS[k].name;
 }
 setLayer(settings.layer in LAYERS ? settings.layer : 'chart');
@@ -424,12 +435,12 @@ async function fetchCurrent(s){
 async function fetchWx(c){
   const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4),
     hourly: 'temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape',
-    wind_speed_unit: 'kn', temperature_unit: 'fahrenheit', timezone: 'GMT', start_date: shiftDay(trip.date,-1), end_date: shiftDay(trip.date,1) });
+    wind_speed_unit: 'kn', temperature_unit: 'fahrenheit', timezone: 'auto', start_date: shiftDay(trip.date,-1), end_date: shiftDay(trip.date,1) });
   const r = await fetch('https://api.open-meteo.com/v1/forecast?' + q);
   const j = await r.json();
   if (j.error) throw new Error(j.reason || 'weather error');
-  const h = j.hourly;
-  return { t: h.time.map(s => Date.parse(s + 'Z')), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
+  const h = j.hourly, off = (j.utc_offset_seconds || 0) * 1000;
+  return { tz: j.timezone, t: h.time.map(s => Date.parse(s + 'Z') - off), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
 }
 // NWS probability of thunder (US only, ~7 days)
 function isoDur(d){ const m = /P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/.exec(d || '') || []; return ((+m[1]||0)*24 + (+m[2]||0)) * 36e5 + (+m[3]||0) * 6e4; }
@@ -444,6 +455,7 @@ async function fetchThunder(c){
   return vals.map(v => { const [st, du] = v.validTime.split('/'); const t = Date.parse(st); return { t, end: t + isoDur(du), v: v.value }; });
 }
 const isLake = () => trip?.water === 'lake';
+const validTz = z => { try{ return !!z && z !== 'GMT' && !!new Intl.DateTimeFormat('en', { timeZone: z }); }catch{ return false; } };
 
 async function getForecast(){
   if (!navigator.onLine){ toast('You are offline. Connect to get a forecast.'); return; }
@@ -475,7 +487,7 @@ async function getForecast(){
     ]);
     if (t.status === 'fulfilled') data.tide = t.value; else { data.tide = null; errs.push('tides (' + t.reason.message + ')'); }
     if (cu.status === 'fulfilled'){ if (cu.value) Object.assign(data, cu.value); else data.current = null; } else { data.current = null; errs.push('currents (' + cu.reason.message + ')'); }
-    if (w.status === 'fulfilled') data.wx = w.value; else { data.wx = null; errs.push('weather (' + w.reason.message + ')'); }
+    if (w.status === 'fulfilled'){ data.wx = w.value; if (validTz(w.value.tz) && w.value.tz !== trip.tz){ trip.tz = w.value.tz; if (tz() && todayIso() === trip.date) state.tMin = Math.floor(nowMin() / 5) * 5; } } else { data.wx = null; errs.push('weather (' + w.reason.message + ')'); }
     data.thunder = th.status === 'fulfilled' ? th.value : null;
     trip.data = data; trip.fetchedAt = Date.now();
     changed();
@@ -634,7 +646,7 @@ function render(){
   if (!trip.fetchedAt) st.textContent = 'No forecast yet. Plot a route, then tap Get forecast.';
   else {
     const age = Date.now() - trip.fetchedAt, future = dayStart() + 864e5 > Date.now();
-    st.textContent = `${lake ? 'Lake · ' : ''}Forecast from ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+    st.textContent = `${lake ? 'Lake · ' : ''}Forecast from ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}`;
     if (!trip.data?.wx) { st.textContent += ' · no wind forecast (only available up to 16 days ahead)'; st.classList.add('warn'); }
     else if (future && age > 18*36e5){ st.textContent += ' · refresh before you go'; st.classList.add('warn'); }
   }
@@ -725,9 +737,8 @@ cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); cha
 cv.addEventListener('pointermove', e => { if (e.buttons) chartTouch(e); });
 $('#time').addEventListener('input', e => { state.tMin = +e.target.value; state.follow = false; render(); });
 function setNow(){
-  const now = new Date();
-  if (ymd(now) !== trip.date){ toast('Trip is on ' + trip.date + '. Showing that day.'); return false; }
-  state.tMin = Math.floor((now.getHours() * 60 + now.getMinutes()) / 5) * 5; render(); return true;
+  if (todayIso() !== trip.date){ toast('Trip is on ' + trip.date + '. Showing that day.'); return false; }
+  state.tMin = Math.floor(nowMin() / 5) * 5; render(); return true;
 }
 $('#nowBtn').onclick = () => { if (setNow()) state.follow = true; };
 
@@ -736,9 +747,16 @@ let saveT;
 function changed(){
   trip.updated = Date.now();
   drawRoute(); drawStations(); render();
-  clearTimeout(saveT); saveT = setTimeout(() => { idb.put('trips', trip); LS.set('lastTrip', trip.id); }, 300);
+  clearTimeout(saveT); saveT = setTimeout(saveNow, 300);
 }
+function saveNow(){
+  clearTimeout(saveT); saveT = null;
+  if (trip) return idb.put('trips', trip).then(() => LS.set('lastTrip', trip.id)).catch(() => {});
+}
+addEventListener('pagehide', () => { if (saveT) saveNow(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveT) saveNow(); });
 async function openTrip(t){
+  if (saveT && trip) await saveNow();
   trip = t; state.next = 1; state.legs.clear(); LS.set('lastTrip', t.id);
   drawRoute(); drawStations(); render();
   if (t.route.length) map.fitBounds(L.latLngBounds(t.route), { paddingTopLeft: [30, 70], paddingBottomRight: [30, 380], maxZoom: 15 });
@@ -804,7 +822,7 @@ function onPos(p){
   if (firstFix){ map.setView(state.pos, Math.max(map.getZoom(), 14)); firstFix = false; }
   const r = trip.route;
   while (state.next < r.length - 1 && distNm(state.pos, r[state.next]) < 0.05){ state.next++; drawRoute(); toast('Waypoint reached. Next: ' + (state.next + 1)); }
-  if (state.follow){ const now = new Date(); state.tMin = Math.floor((now.getHours()*60 + now.getMinutes()) / 5) * 5; render(); }
+  if (state.follow){ state.tMin = Math.floor(nowMin() / 5) * 5; render(); }
   else updateNav();
 }
 function updateNav(){
@@ -961,10 +979,10 @@ $('#file').onchange = async e => {
   try{ if (last) t = await idb.get('trips', last); }catch{}
   if (!t){ t = newTrip(); try{ await idb.put('trips', t); }catch{} }
   await openTrip(t);
-  if (ymd(new Date()) === trip.date) setNow();
+  if (todayIso() === trip.date) setNow();
   else render();
 })();
-addEventListener('resize', () => render());
+addEventListener('resize', () => { if (trip) render(); });
 addEventListener('offline', () => toast('Offline. Saved trips still work.'));
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
