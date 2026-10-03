@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#12324A">
-<title>Paddle</title>
+<title>Outback</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -55,7 +55,7 @@ button,input,select{font:inherit;color:inherit}
 #panel.min #mini{display:block}
 #mini .w{color:var(--warn);font-weight:700}
 #routeBtn{display:flex;align-items:baseline;gap:8px;width:100%;background:none;border:0;padding:2px 0 6px;text-align:left}
-#dist{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+#dist{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 #legs{color:var(--muted);font-size:14px}
 #chart{display:block;width:100%;height:96px;touch-action:none}
 .slider{display:flex;align-items:center;gap:8px;margin:2px 0 6px}
@@ -83,10 +83,17 @@ button,input,select{font:inherit;color:inherit}
 .actions .on{background:var(--ink);border-color:var(--ink);color:#fff}
 
 /* draw hint */
-#drawBar{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:1000;
+#drawBar,#mapBar{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:1000;
   background:var(--paper);border:2px solid var(--magenta);border-radius:14px;padding:8px 10px;display:flex;gap:8px;align-items:center}
-#drawBar[hidden]{display:none}
-#drawBar span{flex:1;font-size:15px}
+#drawBar[hidden],#mapBar[hidden]{display:none}
+#drawBar span,#mapBar .txt{flex:1;font-size:15px;min-width:0}
+#mapBar{flex-wrap:wrap}
+#mapBar input,#mapBar select{height:38px;border:1px solid var(--line);border-radius:8px;padding:0 8px;min-width:0}
+#mapBar input{flex:1 1 140px}
+#mapBar .est{flex-basis:100%;font-size:13px;color:var(--muted)}
+#mapBar .est.err{color:var(--warn)}
+#mapBar .prog{flex-basis:100%;height:6px;background:var(--wash);border-radius:3px;overflow:hidden}
+#mapBar .prog i{display:block;height:100%;width:0;background:var(--magenta)}
 
 /* map markers */
 .wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);
@@ -125,30 +132,58 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
   background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-size:15px;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
 #toast.show{opacity:1}
 :focus-visible{outline:3px solid var(--magenta);outline-offset:2px}
+
+/* tracks, location, trail maps */
+.me.stale{background:#8aa4bd}
+#locBtn.on{background:#1a73e8;color:#fff;border-color:#1a73e8}
+#locBtn.watch{color:#1a73e8;border-color:#1a73e8}
+#coords{position:fixed;right:8px;top:calc(env(safe-area-inset-top,0px) + 54px);z-index:999;background:rgba(255,255,255,.9);
+  border:1px solid var(--line);border-radius:8px;padding:2px 8px;font-size:12px;font-variant-numeric:tabular-nums}
+#coords[hidden]{display:none}
+#nav .rec{color:#ff8a80;font-weight:700}
+#opBar{position:fixed;right:6px;top:40%;z-index:999;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;
+  padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
+#opBar[hidden]{display:none}
+#opacity{writing-mode:vertical-lr;direction:rtl;height:140px;width:24px;accent-color:var(--ink)}
+.nudge{width:22px;height:22px;border-radius:50%;background:var(--magenta);border:3px solid #fff;box-shadow:0 0 0 1px var(--magenta)}
+.nudge-c{width:34px;height:34px;border-radius:50%;background:rgba(18,50,74,.85);color:#fff;font:20px/34px var(--font);text-align:center}
+.cell.wide{grid-column:1/-1}
+.sh h3{margin:14px 0 4px;font-size:16px}
+.sh .item img{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--line);flex:none}
+.sh .item .grow{flex:1}
+.sh .add{width:100%;height:42px;margin-top:4px}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0}
+.choices button{height:56px;border:1px solid var(--line);border-radius:12px;background:var(--paper);font-size:17px;font-weight:700}
+.choices button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.choices small{display:block;font-weight:400;font-size:12px;opacity:.8}
 </style>
 </head>
 <body>
 <div id="map"></div>
 
 <header id="top">
-  <button id="tripBtn" class="pill">New trip</button>
+  <button id="tripBtn" class="pill" aria-label="My trips">New trip</button>
   <input id="date" class="pill" type="date" aria-label="Trip date">
   <span class="grow"></span>
   <button id="layerBtn" class="pill">Chart</button>
-  <button id="locBtn" class="pill icon" aria-label="Show my location">◎</button>
+  <button id="locBtn" class="pill icon" aria-label="Show and follow my location">◎</button>
 </header>
+<div id="coords" hidden></div>
 
 <div id="drawBar" hidden>
   <span>Tap the map to add waypoints. Drag to move. Tap a leg for its details.</span>
   <button id="undoBtn" class="btn">Undo</button>
   <button id="doneBtn" class="btn">Done</button>
 </div>
+<div id="mapBar" hidden></div>
+
+<div id="opBar" hidden><span>Map</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="Trail map opacity"><span id="opVal">80%</span></div>
 
 <div id="nav" hidden>
   <div><div class="k" id="navTo">To 2</div><div class="v" id="navDist">–</div></div>
-  <div><div class="k">Bearing</div><div class="v" id="navBrg">–</div></div>
-  <div><div class="k">Speed</div><div class="v" id="navSog">–</div></div>
-  <div><div class="k">Finish</div><div class="v" id="navEta">–</div></div>
+  <div><div class="k" id="navBrgK">Bearing</div><div class="v" id="navBrg">–</div></div>
+  <div><div class="k" id="navSogK">Speed</div><div class="v" id="navSog">–</div></div>
+  <div><div class="k" id="navEtaK">Finish</div><div class="v" id="navEta">–</div></div>
   <div class="wide"><span id="navLeft">–</span><button id="stopBtn">Stop</button></div>
 </div>
 
@@ -158,9 +193,9 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
   <div class="full">
     <div class="top-row">
       <button id="routeBtn"><span id="dist">0.0 nm</span><span id="legs">Tap Draw to plot a route</span></button>
-      <div class="seg" id="graphSel" role="group" aria-label="Graph"><button data-g="tide">Tide</button><button data-g="wind">Wind</button></div>
+      <div class="seg" id="graphSel" role="group" aria-label="Graph"></div>
     </div>
-    <canvas id="chart" aria-label="Tide and current graph for the trip day"></canvas>
+    <canvas id="chart" aria-label="Day graph for the trip"></canvas>
     <div class="slider">
       <input id="time" type="range" min="0" max="1435" step="5" aria-label="Time of day">
       <output id="timeOut"></output>
@@ -169,7 +204,8 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
   </div>
   <div class="read">
     <div class="cell tidal"><div class="k" id="tideK">Tide</div><div class="v" id="tideV">–</div><div class="s" id="tideS">&nbsp;</div></div>
-    <div class="cell tidal"><div class="k" id="curK">Current</div><div class="v" id="curV">–</div><div class="s" id="curS">&nbsp;</div></div>
+    <div class="cell curc"><div class="k" id="curK">Current</div><div class="v" id="curV">–</div><div class="s" id="curS">&nbsp;</div></div>
+    <div class="cell elevc"><div class="k">Elevation</div><div class="v" id="elevV">–</div><div class="s" id="elevS">&nbsp;</div></div>
     <div class="cell"><div class="k">Wind</div><div class="v" id="windV">–</div><div class="s" id="windS">&nbsp;</div></div>
     <div class="cell"><div class="k">Pressure</div><div class="v" id="presV">–</div><div class="s" id="presS">&nbsp;</div></div>
     <div class="cell"><div class="k">Lightning</div><div class="v" id="ltgV">–</div><div class="s" id="ltgS">&nbsp;</div></div>
@@ -179,7 +215,7 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
   <div class="actions">
     <button id="drawBtn">Draw</button>
     <button id="fcBtn" class="primary">Get forecast</button>
-    <button id="goBtn">Paddle</button>
+    <button id="goBtn">Go</button>
     <button id="menuBtn" aria-label="Menu">☰</button>
   </div>
 </section>
@@ -187,28 +223,37 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
 <dialog id="sheet"></dialog>
 <div id="toast" role="status"></div>
 <input id="file" type="file" accept=".json,.gpx,application/json,application/gpx+xml" hidden>
+<input id="pdfFile" type="file" accept=".pdf,application/pdf" hidden>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="vendor/Leaflet.ImageOverlay.Rotated.js"></script>
 <script>
 'use strict';
 /* ---------- basics ---------- */
 const $ = s => document.querySelector(s);
+// Storage keys keep the original "paddle" names so trips made before the rename to Outback still load.
 const LS = {
   get(k, d){ try{ const v = localStorage.getItem('paddle.'+k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
-const settings = Object.assign({ speed: 3, variation: 13, layer: 'chart', gust: 15, graph: 'tide' }, LS.get('settings', {}));
+const settings = Object.assign({ speeds: { paddle: 3, hike: 2.5 }, variation: 13, layer: 'chart', gust: 15, graph: 'tide', shownMaps: [] }, LS.get('settings', {}));
+if (typeof settings.speed === 'number'){ settings.speeds = { ...settings.speeds, paddle: settings.speed }; delete settings.speed; }
 const saveSettings = () => LS.set('settings', settings);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let toastT;
 function toast(msg, ms = 2800){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
 /* ---------- IndexedDB ---------- */
 let dbp;
 function db(){
   return dbp || (dbp = new Promise((res, rej) => {
-    const r = indexedDB.open('paddle', 1);
-    r.onupgradeneeded = () => { const d = r.result; d.createObjectStore('trips', { keyPath: 'id' }); d.createObjectStore('kv'); };
+    const r = indexedDB.open('paddle', 2);
+    r.onupgradeneeded = () => {
+      const d = r.result;
+      for (const [n, o] of [['trips', { keyPath: 'id' }], ['kv'], ['regions', { keyPath: 'id' }], ['trailMaps', { keyPath: 'id' }]])
+        if (!d.objectStoreNames.contains(n)) d.createObjectStore(n, o);
+    };
     r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
   }));
 }
@@ -225,6 +270,31 @@ const idb = {
   del: (st, k) => tx(st, 'readwrite', s => s.delete(k)),
   all: st => tx(st, 'readonly', s => s.getAll())
 };
+
+/* ---------- activities and settings ---------- */
+// Distances are stored in nautical miles and shown in the activity's unit.
+const ACT = {
+  paddle: { name: 'Paddle', unit: 'nm', k: 1, spd: 'kt', small: [1852, 'm'], arrive: 0.05, layer: 'chart', envs: ['ocean', 'bay', 'slough', 'river', 'lake'] },
+  hike:   { name: 'Hike', unit: 'mi', k: 1.15078, spd: 'mph', small: [6076, 'ft'], arrive: 0.02, layer: 'topo', envs: ['trail', 'coast'] }
+};
+const ENV = {
+  ocean: { name: 'Ocean', tides: true, currents: true }, bay: { name: 'Bay', tides: true, currents: true },
+  slough: { name: 'Slough / estuary', tides: true, currents: true }, river: { name: 'River' }, lake: { name: 'Lake' },
+  trail: { name: 'Trail' }, coast: { name: 'Coast / beach', tides: true }
+};
+const act = () => ACT[trip?.activity] || ACT.paddle;
+const env = () => ENV[trip?.env] || {};
+const isHike = () => trip?.activity === 'hike';
+const isTidal = () => !!env().tides;
+const hasCurrents = () => !!env().currents;
+const speed = () => settings.speeds[trip?.activity || 'paddle'] || 3;
+const dU = nm => nm * act().k;                       // nm -> display unit
+const fmtD = (nm, dp = 1) => dU(nm).toFixed(dp) + ' ' + act().unit;
+const fmtNear = nm => nm < 0.1 ? Math.round(nm * act().small[0]) + ' ' + act().small[1] : fmtD(nm, 2);
+const wU = kt => isHike() ? kt * 1.15078 : kt;      // wind is fetched in knots
+const wUnit = () => isHike() ? 'mph' : 'kt';
+// Hike time uses Naismith's rule: +1 h per 2000 ft of climb.
+const hoursFor = (nm, climbFt = 0) => dU(nm) / speed() + (isHike() ? climbFt / 2000 : 0);
 
 /* ---------- geo + time helpers ---------- */
 const toR = d => d * Math.PI / 180, toD = r => r * 180 / Math.PI;
@@ -244,19 +314,48 @@ const COMPASS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW',
 const compass = d => COMPASS[Math.round(((d % 360) + 360) % 360 / 22.5) % 16];
 const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const shiftDay = (iso, n) => { const d = new Date(iso+'T12:00'); d.setDate(d.getDate()+n); return ymd(d); };
-const hm = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-const dayStart = () => new Date(trip.date + 'T00:00').getTime();
+// Times are shown in the trip's own time zone (learned from the forecast), else the device's.
+const tz = () => trip?.tz || undefined;
+const hm = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', timeZone: tz() });
+function zParts(ms){
+  const o = {}; for (const p of new Intl.DateTimeFormat('en-US', { timeZone: tz(), hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(ms)) o[p.type] = p.value;
+  return { ymd: `${o.year}-${o.month}-${o.day}`, min: (+o.hour % 24) * 60 + +o.minute, off: Date.UTC(+o.year, o.month - 1, +o.day, +o.hour % 24, +o.minute) - Math.floor(ms / 6e4) * 6e4 };
+}
+const todayIso = () => zParts(Date.now()).ymd;
+const nowMin = () => zParts(Date.now()).min;
+function dayStart(){
+  const u = Date.parse(trip.date + 'T00:00Z');
+  let t = u - zParts(u).off; t = u - zParts(t).off; return t;
+}
 const tAt = () => dayStart() + state.tMin * 6e4;
 const routeNm = r => r.reduce((s, p, i) => i ? s + distNm(r[i-1], p) : 0, 0);
+const fmtDur = h => { const m = Math.round(h * 60); return m < 60 ? `${m} min` : `${Math.floor(m/60)} h ${String(m % 60).padStart(2,'0')}`; };
+const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB';
 function centroid(){
   if (trip.route.length){ const n = trip.route.length; return [trip.route.reduce((s,p)=>s+p[0],0)/n, trip.route.reduce((s,p)=>s+p[1],0)/n]; }
   const c = map.getCenter(); return [c.lat, c.lng];
+}
+// Douglas-Peucker, tolerance in nm (flat approximation is fine at trail scale)
+function simplify(pts, tol){
+  if (pts.length < 3) return pts.slice();
+  const k = Math.cos(toR(pts[0][0]));
+  const xy = p => [p[1] * 60 * k, p[0] * 60];
+  const segD = (p, a, b) => { const [px, py] = xy(p), [ax, ay] = xy(a), [bx, by] = xy(b), dx = bx-ax, dy = by-ay, L2 = dx*dx + dy*dy;
+    const t = L2 ? Math.max(0, Math.min(1, ((px-ax)*dx + (py-ay)*dy) / L2)) : 0; return Math.hypot(px - ax - t*dx, py - ay - t*dy); };
+  const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length-1] = 1;
+  const stack = [[0, pts.length - 1]];
+  while (stack.length){
+    const [i, j] = stack.pop(); let md = 0, mi = -1;
+    for (let m = i + 1; m < j; m++){ const d = segD(pts[m], pts[i], pts[j]); if (d > md){ md = d; mi = m; } }
+    if (md > tol){ keep[mi] = 1; stack.push([i, mi], [mi, j]); }
+  }
+  return pts.filter((_, i) => keep[i]);
 }
 
 /* ---------- sun (after SunCalc, V. Agafonkin, BSD) ---------- */
 function sunTimes(dateIso, lat, lng){
   const rad = Math.PI/180, dayMs = 864e5, J1970 = 2440588, J2000 = 2451545, e = rad*23.4397, J0 = 0.0009;
-  const date = new Date(dateIso+'T12:00').getTime();
+  const date = Date.parse(dateIso+'T12:00Z') - lng / 15 * 36e5; // local solar noon
   const d = date/dayMs - 0.5 + J1970 - J2000;
   const lw = rad * -lng, phi = rad * lat;
   const n = Math.round(d - J0 - lw/(2*Math.PI));
@@ -278,10 +377,21 @@ function sunTimes(dateIso, lat, lng){
 }
 
 /* ---------- state ---------- */
-const state = { legs: new Set(), tMin: 600, drawing: false, paddling: false, next: 1, pos: null, sog: null, watch: null, wake: null, follow: false, showStations: false };
+const state = { legs: new Set(), tMin: 600, drawing: false, going: false, next: 1, pos: null, acc: null, sog: null, watch: null, wake: null,
+  follow: false, locating: false, showStations: false, rec: null, recSaved: 0 };
 let trip;
-function newTrip(){
-  return { id: 't' + Date.now().toString(36), name: 'New trip', date: ymd(new Date()), route: [], tide: null, current: null, data: null, fetchedAt: null, updated: Date.now() };
+function newTrip(activity = 'paddle'){
+  return { id: 't' + Date.now().toString(36), name: 'New trip', activity, env: null, envSet: false, date: ymd(new Date()), route: [], tracks: [],
+    tide: null, current: null, data: null, fetchedAt: null, updated: Date.now() };
+}
+// Bring trips saved by older versions (Paddle) up to the current shape.
+function normTrip(t){
+  t.activity = t.activity || 'paddle';
+  if (t.env === undefined){ t.env = t.water === 'tidal' ? 'bay' : t.water === 'lake' ? 'lake' : null; t.envSet = !!t.waterSet; }
+  delete t.water; delete t.waterSet;
+  t.tracks = t.tracks || [];
+  for (const k of t.tracks) if (!k.end) k.end = k.pts.length ? k.pts[k.pts.length - 1][2] : k.start; // recording cut off by a reload
+  return t;
 }
 
 /* ---------- map ---------- */
@@ -290,7 +400,7 @@ const map = L.map('map', { zoomControl: false, attributionControl: true }).setVi
 map.on('moveend', () => LS.set('view', { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() }));
 const LAYERS = {
   chart: { name: 'Chart', url: 'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'NOAA charts · not for navigation' } },
-  street: { name: 'Street', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt: { maxZoom: 19, attribution: '© OpenStreetMap contributors' } },
+  street: { name: 'Street', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt: { maxZoom: 19, attribution: '© OpenStreetMap contributors' }, polite: true },
   topo: { name: 'Topo', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map' } }
 };
 const LAYER_ORDER = ['chart', 'street', 'topo'];
@@ -300,16 +410,17 @@ function setLayer(k){
   settings.layer = k; saveSettings(); tileErr = 0; tileOk = 0;
   base = L.tileLayer(LAYERS[k].url, LAYERS[k].opt).addTo(map);
   base.on('tileload', () => tileOk++);
-  base.on('tileerror', () => { if (++tileErr > 12 && tileOk === 0 && k === 'chart' && navigator.onLine){ toast('Chart tiles are not loading. Switched to Street.'); setLayer('street'); } });
+  base.on('tileerror', () => { if (++tileErr >= 4 && tileOk === 0 && k === 'chart' && navigator.onLine){ toast('Chart tiles are not loading. Switched to Street.'); setLayer('street'); } });
   $('#layerBtn').textContent = LAYERS[k].name;
 }
 setLayer(settings.layer in LAYERS ? settings.layer : 'chart');
 $('#layerBtn').onclick = () => setLayer(LAYER_ORDER[(LAYER_ORDER.indexOf(settings.layer) + 1) % LAYER_ORDER.length]);
 
+const trackLayer = L.layerGroup().addTo(map);
 const routeLayer = L.layerGroup().addTo(map);
 const stationLayer = L.layerGroup().addTo(map);
 const meLayer = L.layerGroup().addTo(map);
-let curArrow = null;
+let curArrow = null, recLine = null;
 
 function drawRoute(){
   routeLayer.clearLayers();
@@ -324,15 +435,24 @@ function drawRoute(){
       if (state.legs.has(i)){
         const d = distNm(a, p);
         L.tooltip({ permanent: true, direction: 'center', className: 'leg' }).setLatLng(mid)
-          .setContent(`${d.toFixed(2)} nm · ${magB(brgT(a,p))} · ${fmtDur(d / settings.speed)}`).addTo(routeLayer);
+          .setContent(`${fmtD(d, 2)} · ${magB(brgT(a,p))} · ${fmtDur(hoursFor(d))}`).addTo(routeLayer);
       }
     }
-    const isNext = state.paddling && i === state.next;
+    const isNext = state.going && i === state.next;
     const m = L.marker(p, { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div class="wp${isNext?' next':''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
     m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = [ll.lat, ll.lng]; changed(); });
     m.bindPopup(() => `<b>Waypoint ${i+1}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
-      ${state.paddling ? `<button class="btn" data-goto="${i}">Steer here</button>` : `<button class="btn" data-del="${i}">Delete</button>`}`);
+      ${state.going ? `<button class="btn" data-goto="${i}">Go here</button>` : `<button class="btn" data-del="${i}">Delete</button>`}`);
   });
+}
+function drawTracks(){
+  trackLayer.clearLayers(); recLine = null;
+  for (const k of trip.tracks){
+    if (k.pts.length < 2) continue;
+    const line = L.polyline(k.pts.map(p => [p[0], p[1]]), { color: '#1a73e8', weight: 3, opacity: .85, dashArray: k === state.rec ? null : '6 6' }).addTo(trackLayer);
+    if (k === state.rec) recLine = line;
+    else line.bindPopup(() => `<b>Track</b><br>${esc(trackLabel(k))}`);
+  }
 }
 map.on('click', e => {
   if (!state.drawing) return;
@@ -351,13 +471,13 @@ const stIcon = (kind, label, dim) => L.divIcon({ className: '', html: `<div clas
 function drawStations(){
   stationLayer.clearLayers();
   if (curArrow){ map.removeLayer(curArrow); curArrow = null; }
-  if (isLake()) return;
+  if (!isTidal()) return;
   if (trip.tide) L.marker([trip.tide.lat, trip.tide.lng], { icon: stIcon('tide', 'T') }).bindPopup(`<b>Tide station</b><br>${esc(trip.tide.name)}<br><small>${esc(trip.tide.id)}</small>`).addTo(stationLayer);
-  if (trip.current) L.marker([trip.current.lat, trip.current.lng], { icon: stIcon('cur', 'C') }).bindPopup(`<b>Current station</b><br>${esc(trip.current.name)}<br><small>${esc(trip.current.id)}${trip.current.depth ? ' · depth '+esc(trip.current.depth)+' ft' : ''}</small>`).addTo(stationLayer);
+  if (hasCurrents() && trip.current) L.marker([trip.current.lat, trip.current.lng], { icon: stIcon('cur', 'C') }).bindPopup(`<b>Current station</b><br>${esc(trip.current.name)}<br><small>${esc(trip.current.id)}${trip.current.depth ? ' · depth '+esc(trip.current.depth)+' ft' : ''}</small>`).addTo(stationLayer);
   if (state.showStations && state.nearby){
     for (const s of state.nearby.tide) if (!trip.tide || s.id !== trip.tide.id)
       L.marker([s.lat, s.lng], { icon: stIcon('tide', 'T', true) }).bindPopup(`<b>${esc(s.name)}</b><br><small>Tide · ${esc(s.id)}</small><br><button class="btn" data-use="tide" data-id="${esc(s.id)}">Use for tides</button>`).addTo(stationLayer);
-    for (const s of state.nearby.current) if (!trip.current || s.id !== trip.current.id)
+    if (hasCurrents()) for (const s of state.nearby.current) if (!trip.current || s.id !== trip.current.id)
       L.marker([s.lat, s.lng], { icon: stIcon('cur', 'C', true) }).bindPopup(`<b>${esc(s.name)}</b><br><small>Current · ${esc(s.id)}${s.depth ? ' · depth '+esc(s.depth)+' ft':''}</small><br><button class="btn" data-use="current" data-id="${esc(s.id)}">Use for currents</button>`).addTo(stationLayer);
   }
 }
@@ -398,7 +518,7 @@ async function useStation(kind, id){
 
 /* ---------- data fetch ---------- */
 async function noaa(p){
-  const q = new URLSearchParams({ ...p, begin_date: shiftDay(trip.date,-1).replace(/-/g,''), end_date: shiftDay(trip.date,1).replace(/-/g,''), time_zone: 'gmt', units: 'english', format: 'json', application: 'Paddle' });
+  const q = new URLSearchParams({ ...p, begin_date: shiftDay(trip.date,-1).replace(/-/g,''), end_date: shiftDay(trip.date,1).replace(/-/g,''), time_zone: 'gmt', units: 'english', format: 'json', application: 'Outback' });
   const r = await fetch('https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?' + q);
   const j = await r.json();
   if (j.error) throw new Error(j.error.message || 'NOAA error');
@@ -424,12 +544,36 @@ async function fetchCurrent(s){
 async function fetchWx(c){
   const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4),
     hourly: 'temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape',
-    wind_speed_unit: 'kn', temperature_unit: 'fahrenheit', timezone: 'GMT', start_date: shiftDay(trip.date,-1), end_date: shiftDay(trip.date,1) });
+    wind_speed_unit: 'kn', temperature_unit: 'fahrenheit', timezone: 'auto', start_date: shiftDay(trip.date,-1), end_date: shiftDay(trip.date,1) });
   const r = await fetch('https://api.open-meteo.com/v1/forecast?' + q);
   const j = await r.json();
   if (j.error) throw new Error(j.reason || 'weather error');
-  const h = j.hourly;
-  return { t: h.time.map(s => Date.parse(s + 'Z')), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
+  const h = j.hourly, off = (j.utc_offset_seconds || 0) * 1000;
+  return { tz: j.timezone, t: h.time.map(s => Date.parse(s + 'Z') - off), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
+}
+// Elevation profile along the route (Open-Meteo, 90 m DEM), up to 100 samples.
+const routeKey = r => r.map(p => p.join(',')).join(';');
+async function fetchElev(route){
+  const total = routeNm(route); if (route.length < 2 || !total) return null;
+  const n = Math.min(100, Math.max(2, Math.ceil(dU(total) * 20) + 1)), pts = [], ds = [];
+  let leg = 1, legStart = 0;
+  for (let k = 0; k < n; k++){
+    const d = total * k / (n - 1);
+    while (leg < route.length - 1 && legStart + distNm(route[leg-1], route[leg]) < d){ legStart += distNm(route[leg-1], route[leg]); leg++; }
+    const a = route[leg-1], b = route[leg], L0 = distNm(a, b) || 1, f = Math.min(1, Math.max(0, (d - legStart) / L0));
+    pts.push([a[0] + (b[0]-a[0]) * f, a[1] + (b[1]-a[1]) * f]); ds.push(d);
+  }
+  const q = new URLSearchParams({ latitude: pts.map(p => p[0].toFixed(5)).join(','), longitude: pts.map(p => p[1].toFixed(5)).join(',') });
+  const r = await fetch('https://api.open-meteo.com/v1/elevation?' + q);
+  const j = await r.json();
+  if (!Array.isArray(j.elevation)) throw new Error(j.reason || 'no elevation');
+  return { key: routeKey(route), d: ds, e: j.elevation.map(m => m * 3.28084) };
+}
+function elevStats(){
+  const el = trip.data?.elev; if (!el || el.key !== routeKey(trip.route)) return null;
+  let up = 0, down = 0, hi = -Infinity, lo = Infinity;
+  el.e.forEach((v, i) => { hi = Math.max(hi, v); lo = Math.min(lo, v); if (i){ const dv = v - el.e[i-1]; dv > 0 ? up += dv : down -= dv; } });
+  return { up, down, hi, lo, start: el.e[0], end: el.e[el.e.length - 1] };
 }
 // NWS probability of thunder (US only, ~7 days)
 function isoDur(d){ const m = /P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/.exec(d || '') || []; return ((+m[1]||0)*24 + (+m[2]||0)) * 36e5 + (+m[3]||0) * 6e4; }
@@ -443,79 +587,93 @@ async function fetchThunder(c){
   if (!vals) throw new Error('NWS: no thunder data');
   return vals.map(v => { const [st, du] = v.validTime.split('/'); const t = Date.parse(st); return { t, end: t + isoDur(du), v: v.value }; });
 }
-const isLake = () => trip?.water === 'lake';
+const validTz = z => { try{ return !!z && z !== 'GMT' && !!new Intl.DateTimeFormat('en', { timeZone: z }); }catch{ return false; } };
 
 async function getForecast(){
   if (!navigator.onLine){ toast('You are offline. Connect to get a forecast.'); return; }
   const btn = $('#fcBtn'); btn.disabled = true; btn.textContent = 'Loading…';
-  const errs = [];
+  const errs = []; let envMsg = '';
   try{
     const c = centroid();
-    try{
-      const nb = await loadNearby();
-      if (!trip.waterSet){
-        const near = nb.tide[0] ? distNm(c, [nb.tide[0].lat, nb.tide[0].lng]) : Infinity;
-        const was = trip.water;
-        trip.water = near > 8 ? 'lake' : 'tidal';
-        if (trip.water !== was) toast(trip.water === 'lake' ? 'No tide stations nearby: treating this as a lake trip. Change in ☰.' : 'Tidal water detected.', 4500);
-        if (isLake() && settings.layer === 'chart') setLayer('topo');
-      }
-      if (!isLake()){
-        if (!trip.tide || distNm(c, [trip.tide.lat, trip.tide.lng]) > 25) trip.tide = nb.tide[0] || null;
-        if (!trip.current || distNm(c, [trip.current.lat, trip.current.lng]) > 25) trip.current = nb.current[0] || null;
-      }
-    }catch(e){ if (!isLake()) errs.push('stations'); }
+    if (!trip.envSet || isTidal()){
+      try{
+        const nb = await loadNearby();
+        if (!trip.envSet){
+          const near = nb.tide[0] ? distNm(c, [nb.tide[0].lat, nb.tide[0].lng]) : Infinity, was = trip.env;
+          trip.env = isHike() ? (near <= 1 ? 'coast' : 'trail') : (near <= 8 ? 'bay' : 'lake');
+          if (trip.env !== was) envMsg = isTidal() ? `Tide stations nearby: treating this as ${env().name.toLowerCase()}. ` : `No tide stations nearby: treating this as ${env().name.toLowerCase()}. `;
+          if (!isTidal() && settings.layer === 'chart') setLayer('topo');
+        }
+        if (isTidal()){
+          if (!trip.tide || distNm(c, [trip.tide.lat, trip.tide.lng]) > 25) trip.tide = nb.tide[0] || null;
+          if (hasCurrents() && (!trip.current || distNm(c, [trip.current.lat, trip.current.lng]) > 25)) trip.current = nb.current[0] || null;
+        }
+      }catch(e){ if (isTidal()) errs.push('stations'); else if (!trip.envSet) trip.env = isHike() ? 'trail' : 'lake'; }
+    }
     const data = trip.data || {};
-    const lake = isLake();
-    const [t, cu, w, th] = await Promise.allSettled([
-      lake ? Promise.resolve(null) : trip.tide ? fetchTide(trip.tide) : Promise.reject(new Error('none nearby')),
-      lake ? Promise.resolve(null) : trip.current ? fetchCurrent(trip.current) : Promise.reject(new Error('none nearby')),
+    const none = () => Promise.reject(new Error('none nearby'));
+    const [t, cu, w, th, el] = await Promise.allSettled([
+      !isTidal() ? null : trip.tide ? fetchTide(trip.tide) : none(),
+      !hasCurrents() ? null : trip.current ? fetchCurrent(trip.current) : none(),
       fetchWx(c),
-      fetchThunder(c)
+      fetchThunder(c),
+      isHike() && trip.route.length > 1 ? fetchElev(trip.route) : null
     ]);
     if (t.status === 'fulfilled') data.tide = t.value; else { data.tide = null; errs.push('tides (' + t.reason.message + ')'); }
     if (cu.status === 'fulfilled'){ if (cu.value) Object.assign(data, cu.value); else data.current = null; } else { data.current = null; errs.push('currents (' + cu.reason.message + ')'); }
-    if (w.status === 'fulfilled') data.wx = w.value; else { data.wx = null; errs.push('weather (' + w.reason.message + ')'); }
+    if (w.status === 'fulfilled'){ data.wx = w.value; if (validTz(w.value.tz) && w.value.tz !== trip.tz){ trip.tz = w.value.tz; if (todayIso() === trip.date) state.tMin = Math.floor(nowMin() / 5) * 5; } }
+    else { data.wx = null; errs.push('weather (' + w.reason.message + ')'); }
     data.thunder = th.status === 'fulfilled' ? th.value : null;
+    if (el.status === 'fulfilled'){ if (el.value) data.elev = el.value; } else errs.push('elevation (' + el.reason.message + ')');
     trip.data = data; trip.fetchedAt = Date.now();
     changed();
     btn.textContent = 'Saving map…';
     const n = await cacheTiles();
-    toast(errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${n} map tiles stored for offline.`, 4500);
+    toast(envMsg + (errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${n} map tiles stored for offline.`), envMsg ? 6000 : 4500);
   }finally{ btn.disabled = false; btn.textContent = 'Get forecast'; }
 }
 
 /* ---------- offline tiles ---------- */
+const lon2tile = (lng, n) => Math.floor((lng + 180) / 360 * n);
+const lat2tile = (lat, n) => { const r = toR(lat); return Math.floor((1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * n); };
+function tileUrls(layerKey, b, z0, z1, max = Infinity){
+  const L0 = LAYERS[layerKey], urls = [];
+  for (let z = z0; z <= z1; z++){
+    const n = 2 ** z, x0 = lon2tile(b.getWest(), n), x1 = lon2tile(b.getEast(), n), y0 = lat2tile(b.getNorth(), n), y1 = lat2tile(b.getSouth(), n);
+    const count = (x1 - x0 + 1) * (y1 - y0 + 1);
+    if (urls.length + count > max) return { urls, capped: true, total: urls.length + count };
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) urls.push(L0.url.replace('{z}', z).replace('{x}', x).replace('{y}', y));
+  }
+  return { urls, capped: false, total: urls.length };
+}
+// OpenStreetMap asks bulk downloaders to go slowly: one request at a time with a pause.
+async function downloadTiles(urls, { polite, onProgress, signal } = {}){
+  const cache = await caches.open('paddle-tiles');
+  let done = 0, failed = 0, i = 0;
+  const worker = async () => {
+    while (i < urls.length && !signal?.aborted){
+      const u = urls[i++];
+      try{
+        if (!(await caches.match(u))){
+          let r; try{ r = await fetch(u, { mode: 'cors' }); }catch{ r = await fetch(u, { mode: 'no-cors' }); }
+          if (r.ok || r.type === 'opaque') await cache.put(u, r); else failed++;
+          if (polite) await new Promise(res => setTimeout(res, 60));
+        }
+      }catch{ failed++; }
+      done++; onProgress?.(done, failed);
+    }
+  };
+  await Promise.all(Array.from({ length: polite ? 1 : 6 }, worker));
+  return { done, failed };
+}
 async function cacheTiles(){
   if (!('caches' in window)) return 0;
   const pts = trip.route.length ? trip.route : [centroid()];
   let b = L.latLngBounds(pts);
   b = L.latLngBounds([b.getSouth() - .03, b.getWest() - .04], [b.getNorth() + .03, b.getEast() + .04]);
-  const L0 = LAYERS[settings.layer], urls = [];
-  const tx = (lng, n) => Math.floor((lng + 180) / 360 * n);
-  const ty = (lat, n) => { const r = toR(lat); return Math.floor((1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * n); };
-  for (let z = 10; z <= 16; z++){
-    const n = 2 ** z, x0 = tx(b.getWest(), n), x1 = tx(b.getEast(), n), y0 = ty(b.getNorth(), n), y1 = ty(b.getSouth(), n);
-    const add = [];
-    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) add.push(L0.url.replace('{z}', z).replace('{x}', x).replace('{y}', y));
-    if (urls.length + add.length > 1500) break;
-    urls.push(...add);
-  }
-  const cache = await caches.open('paddle-tiles');
-  let done = 0, i = 0;
-  const worker = async () => {
-    while (i < urls.length){
-      const u = urls[i++];
-      try{
-        if (!(await cache.match(u))){
-          let r; try{ r = await fetch(u, { mode: 'cors' }); }catch{ r = await fetch(u, { mode: 'no-cors' }); }
-          if (r.ok || r.type === 'opaque') await cache.put(u, r);
-        }
-      }catch{}
-      if (++done % 25 === 0) $('#fcBtn').textContent = `Map ${Math.round(done / urls.length * 100)}%`;
-    }
-  };
-  await Promise.all(Array.from({ length: 6 }, worker));
+  const polite = LAYERS[settings.layer].polite;
+  const { urls } = tileUrls(settings.layer, b, 10, polite ? 15 : 16, polite ? 600 : 1500);
+  await downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Map ${Math.round(d / urls.length * 100)}%`; } });
   return urls.length;
 }
 
@@ -526,11 +684,13 @@ function seg(arr, t){
   return null;
 }
 function tideAt(t){
+  if (!isTidal()) return null;
   const s = seg(trip.data?.tide, t); if (!s) return null;
   const [a, b, f] = s;
   return { v: (a.v + b.v)/2 + (a.v - b.v)/2 * Math.cos(Math.PI * f), rising: b.v > a.v, next: b };
 }
 function curAt(t){
+  if (!hasCurrents()) return null;
   const s = seg(trip.data?.current, t); if (!s) return null;
   const [a, b, f] = s;
   return { v: a.v + (b.v - a.v) * (1 - Math.cos(Math.PI * f)) / 2, next: b };
@@ -563,25 +723,35 @@ function wxText(c){
 }
 
 /* ---------- render ---------- */
+const ft = v => Math.round(v).toLocaleString() + ' ft';
+function graphs(){ const g = []; if (isTidal()) g.push('tide'); if (isHike()) g.push('elev'); g.push('wind'); return g; }
+const GRAPH_NAMES = { tide: 'Tide', elev: 'Elev', wind: 'Wind' };
+function curGraph(){ const g = graphs(); return g.includes(settings.graph) ? settings.graph : g[0]; }
 function render(){
   const t = tAt();
   $('#time').value = state.tMin;
   $('#timeOut').textContent = hm(t);
   $('#tripBtn').textContent = trip.name;
   $('#date').value = trip.date;
+  $('#goBtn').textContent = state.going ? 'Stop' : 'Go';
 
-  const nm = routeNm(trip.route), legs = Math.max(0, trip.route.length - 1);
-  $('#dist').textContent = nm.toFixed(1) + ' nm';
-  $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''} · ${fmtDur(nm / settings.speed)} at ${settings.speed} kt` : 'Tap Draw to plot a route';
+  const nm = routeNm(trip.route), legs = Math.max(0, trip.route.length - 1), es = elevStats();
+  $('#dist').textContent = fmtD(nm);
+  $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''} · ${fmtDur(hoursFor(nm, es?.up))} at ${speed()} ${act().spd}${es ? ' · +' + ft(es.up) : ''}` : `${act().name} · tap Draw to plot a route`;
 
-  const lake = isLake();
-  document.querySelectorAll('.cell.tidal').forEach(el => el.hidden = lake);
-  $('#graphSel').hidden = lake;
-  document.querySelectorAll('#graphSel button').forEach(b => b.classList.toggle('on', b.dataset.g === settings.graph));
+  const tidal = isTidal(), hike = isHike();
+  document.querySelectorAll('.cell.tidal').forEach(el => el.hidden = !tidal);
+  $('.cell.curc').hidden = !hasCurrents();
+  $('.cell.elevc').hidden = !hike;
+  $('.cell.elevc').classList.toggle('wide', hike && !tidal);
+  const gs = graphs(), g = curGraph();
+  $('#graphSel').hidden = gs.length < 2;
+  $('#graphSel').innerHTML = gs.map(k => `<button data-g="${k}" class="${k === g ? 'on' : ''}">${GRAPH_NAMES[k]}</button>`).join('');
+
   const td = tideAt(t);
   $('#tideK').textContent = trip.tide ? 'Tide · ' + trip.tide.name : 'Tide';
   $('#tideV').textContent = td ? td.v.toFixed(1) + ' ft' : '–';
-  $('#tideS').textContent = td ? `${td.rising ? 'Rising' : 'Falling'} · ${td.next.type === 'H' ? 'high' : 'low'} ${td.next.v.toFixed(1)} at ${hm(td.next.t)}` : '\u00a0';
+  $('#tideS').textContent = td ? `${td.rising ? 'Rising' : 'Falling'} · ${td.next.type === 'H' ? 'high' : 'low'} ${td.next.v.toFixed(1)} at ${hm(td.next.t)}` : ' ';
 
   const cu = curAt(t), cv = $('#curV');
   $('#curK').textContent = trip.current ? 'Current · ' + trip.current.name : 'Current';
@@ -593,27 +763,30 @@ function render(){
     const nx = cu.next;
     $('#curS').textContent = `${dir != null && sp >= .1 ? 'toward ' + d3(dir) + '°T · ' : ''}${nx.type === 'slack' ? 'slack' : 'max ' + nx.type + ' ' + Math.abs(nx.v).toFixed(1)} at ${hm(nx.t)}`;
     drawCurArrow(sp >= .1 ? dir : null, sp, flood);
-  } else { cv.textContent = '–'; $('#curS').textContent = '\u00a0'; drawCurArrow(null); }
+  } else { cv.textContent = '–'; $('#curS').textContent = ' '; drawCurArrow(null); }
+
+  $('#elevV').textContent = es ? `+${ft(es.up)} / −${ft(es.down)}` : '–';
+  $('#elevS').textContent = es ? `High ${ft(es.hi)} · low ${ft(es.lo)}` : (trip.route.length > 1 ? 'Tap Get forecast for the profile' : ' ');
 
   const w = wxAt(t);
   const wv = $('#windV');
-  wv.textContent = w ? `${Math.round(w.ws)} kt ${compass(w.wd)}` : '–';
+  wv.textContent = w ? `${Math.round(wU(w.ws))} ${wUnit()} ${compass(w.wd)}` : '–';
   wv.classList.toggle('warn', !!w && w.wg >= settings.gust);
-  $('#windS').textContent = w ? `gusts ${Math.round(w.wg)} · ${Math.round(w.temp)}°F · ${wxText(w.code)}` : '\u00a0';
+  $('#windS').textContent = w ? `gusts ${Math.round(wU(w.wg))} · ${Math.round(w.temp)}°F · ${wxText(w.code)}` : ' ';
 
   const pv = $('#presV');
   pv.classList.remove('warn');
   if (w && w.p != null){
     const dp = w.dp, arrow = dp == null ? '' : dp >= 0.5 ? ' ↑' : dp <= -0.5 ? ' ↓' : ' →';
     pv.textContent = Math.round(w.p) + ' mb' + arrow;
-    if (dp == null) $('#presS').textContent = '\u00a0';
+    if (dp == null) $('#presS').textContent = ' ';
     else if (Math.abs(dp) < 0.5) $('#presS').textContent = 'Steady over 3 h';
     else {
       const fast = Math.abs(dp) >= 2;
       $('#presS').textContent = `${dp > 0 ? 'Rising' : 'Falling'}${fast ? ' fast' : ''} ${Math.abs(dp).toFixed(1)} mb in 3 h`;
       if (fast && dp < 0) pv.classList.add('warn');
     }
-  } else { pv.textContent = '–'; $('#presS').textContent = '\u00a0'; }
+  } else { pv.textContent = '–'; $('#presS').textContent = ' '; }
 
   const lv = $('#ltgV'), th = thunderAt(t);
   lv.classList.remove('warn');
@@ -623,37 +796,37 @@ function render(){
   } else {
     const sr = stormRisk(w);
     lv.textContent = sr ? sr.txt : '–'; if (sr?.warn) lv.classList.add('warn');
-    $('#ltgS').textContent = sr ? `Estimated${w.pop != null ? ' · rain ' + w.pop + '%' : ''}` : '\u00a0';
+    $('#ltgS').textContent = sr ? `Estimated${w.pop != null ? ' · rain ' + w.pop + '%' : ''}` : ' ';
   }
 
   const c = centroid(), sun = sunTimes(trip.date, c[0], c[1]);
   $('#sunV').textContent = sun.rise ? `${hm(sun.rise)} – ${hm(sun.set)}` : '–';
-  $('#sunS').textContent = sun.dawn ? `First light ${hm(sun.dawn)} · last ${hm(sun.dusk)}` : '\u00a0';
+  $('#sunS').textContent = sun.dawn ? `First light ${hm(sun.dawn)} · last ${hm(sun.dusk)}` : ' ';
 
   const st = $('#status'); st.classList.remove('warn');
-  if (!trip.fetchedAt) st.textContent = 'No forecast yet. Plot a route, then tap Get forecast.';
+  const where = `${act().name}${trip.env ? ' · ' + env().name : ''}`;
+  if (!trip.fetchedAt) st.textContent = `${where} · no forecast yet. Plot a route, then tap Get forecast.`;
   else {
     const age = Date.now() - trip.fetchedAt, future = dayStart() + 864e5 > Date.now();
-    st.textContent = `${lake ? 'Lake · ' : ''}Forecast from ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`;
+    st.textContent = `${where} · forecast from ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}`;
     if (!trip.data?.wx) { st.textContent += ' · no wind forecast (only available up to 16 days ahead)'; st.classList.add('warn'); }
     else if (future && age > 18*36e5){ st.textContent += ' · refresh before you go'; st.classList.add('warn'); }
   }
   const parts = [`<b>${hm(t)}</b>`];
-  if (!lake && td) parts.push(`Tide ${td.v.toFixed(1)}${td.rising ? '↑' : '↓'}`);
-  if (!lake && cu) parts.push(Math.abs(cu.v) < .1 ? 'Slack' : `${cu.v >= 0 ? 'Flood' : 'Ebb'} ${Math.abs(cu.v).toFixed(1)}`);
-  if (w) parts.push(`<span class="${w.wg >= settings.gust ? 'w' : ''}">Wind ${Math.round(w.ws)} G${Math.round(w.wg)} ${compass(w.wd)}</span>`);
+  if (td) parts.push(`Tide ${td.v.toFixed(1)}${td.rising ? '↑' : '↓'}`);
+  if (cu) parts.push(Math.abs(cu.v) < .1 ? 'Slack' : `${cu.v >= 0 ? 'Flood' : 'Ebb'} ${Math.abs(cu.v).toFixed(1)}`);
+  if (w) parts.push(`<span class="${w.wg >= settings.gust ? 'w' : ''}">Wind ${Math.round(wU(w.ws))} G${Math.round(wU(w.wg))} ${compass(w.wd)}</span>`);
   if (th != null && th >= 20) parts.push(`<span class="w">⚡${th}%</span>`);
   if (w && w.dp != null && w.dp <= -2) parts.push('<span class="w">Pressure ↓</span>');
-  if (parts.length === 1) parts.push(`${nm.toFixed(1)} nm · tap to expand`);
+  if (parts.length === 1) parts.push(`${fmtD(nm)} · tap to expand`);
   $('#mini').innerHTML = parts.join(' · ');
   drawChart(sun);
-  if (state.paddling) updateNav();
+  if (state.going) updateNav();
 }
-const fmtDur = h => { const m = Math.round(h * 60); return m < 60 ? `${m} min` : `${Math.floor(m/60)} h ${String(m % 60).padStart(2,'0')}`; };
 
 function drawCurArrow(dir, sp, flood){
   if (curArrow){ map.removeLayer(curArrow); curArrow = null; }
-  if (dir == null || !trip.current || isLake()) return;
+  if (dir == null || !trip.current || !hasCurrents()) return;
   const len = 22 + Math.min(sp, 5) * 9, col = flood ? '#1F6FB2' : '#2E8B57';
   const html = `<svg width="${len*2}" height="${len*2}" viewBox="${-len} ${-len} ${len*2} ${len*2}" style="transform:rotate(${dir}deg)">
     <line x1="0" y1="${len-6}" x2="0" y2="${-len+10}" stroke="${col}" stroke-width="5" stroke-linecap="round"/>
@@ -668,17 +841,20 @@ function drawChart(sun){
   if (!W) return;
   cv.width = W * dpr; cv.height = H * dpr;
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const font = getComputedStyle(document.body).fontFamily, kind = curGraph();
+  const note = s => { g.fillStyle = '#5B7183'; g.font = '13px ' + font; g.fillText(s, 8, 22); };
+  if (kind === 'elev') return drawElev(g, W, H, font, note);
   const t0 = dayStart(), t1 = t0 + 864e5, X = t => (t - t0) / (t1 - t0) * W;
   // night
   g.fillStyle = 'rgba(18,50,74,.10)';
   if (sun.rise){ g.fillRect(0, 0, X(sun.rise), H); g.fillRect(X(sun.set), 0, W - X(sun.set), H); }
   // hour grid
-  g.fillStyle = '#5B7183'; g.font = '10px ' + getComputedStyle(document.body).fontFamily;
+  g.fillStyle = '#5B7183'; g.font = '10px ' + font;
   for (let h = 3; h < 24; h += 3){ const x = X(t0 + h*36e5); g.fillRect(x, H - 4, 1, 4); g.fillText(h === 12 ? '12p' : (h > 12 ? h - 12 + 'p' : h + 'a'), x + 2, H - 2); }
+  const cursor = () => { g.fillStyle = '#C8167E'; g.fillRect(X(tAt()) - 1, 0, 2, H); };
+  if (kind === 'wind'){ drawWind(g, W, H, X, t0, t1, font, note); return cursor(); }
   const mid = H * .55;
-  if (isLake() || settings.graph === 'wind'){ drawWind(g, W, H, X, t0, t1); g.fillStyle = '#C8167E'; g.fillRect(X(tAt()) - 1, 0, 2, H); return; }
-  // currents
-  if (trip.data?.current){
+  if (trip.data?.current && hasCurrents()){
     let mx = 1; for (let x = 0; x <= W; x += 3){ const c = curAt(t0 + x / W * 864e5); if (c) mx = Math.max(mx, Math.abs(c.v)); }
     const sc = (H * .42) / mx;
     for (let x = 0; x <= W; x += 2){
@@ -688,7 +864,6 @@ function drawChart(sun){
     }
     g.fillStyle = 'rgba(18,50,74,.25)'; g.fillRect(0, mid, W, 1);
   }
-  // tide
   if (trip.data?.tide){
     let lo = Infinity, hi = -Infinity;
     for (let x = 0; x <= W; x += 3){ const d = tideAt(t0 + x / W * 864e5); if (d){ lo = Math.min(lo, d.v); hi = Math.max(hi, d.v); } }
@@ -699,59 +874,87 @@ function drawChart(sun){
       g.stroke();
     }
   }
-  if (!trip.data?.tide && !trip.data?.current){ g.fillStyle = '#5B7183'; g.font = '13px ' + getComputedStyle(document.body).fontFamily; g.fillText('Tide and current graph appears after Get forecast', 8, 22); }
-  // cursor
-  const cx = X(tAt()); g.fillStyle = '#C8167E'; g.fillRect(cx - 1, 0, 2, H);
+  if (!trip.data?.tide && !trip.data?.current) note(`Tide${hasCurrents() ? ' and current' : ''} graph appears after Get forecast`);
+  cursor();
 }
-function drawWind(g, W, H, X, t0, t1){
-  const w = trip.data?.wx, font = getComputedStyle(document.body).fontFamily;
-  if (!w){ g.fillStyle = '#5B7183'; g.font = '13px ' + font; g.fillText('Wind graph appears after Get forecast', 8, 22); return; }
+function drawWind(g, W, H, X, t0, t1, font, note){
+  const w = trip.data?.wx;
+  if (!w) return note('Wind graph appears after Get forecast');
   const idx = w.t.map((t, i) => i).filter(i => w.t[i] >= t0 - 36e5 && w.t[i] <= t1 + 36e5);
-  if (!idx.length){ g.fillStyle = '#5B7183'; g.font = '13px ' + font; g.fillText('No wind forecast for this day', 8, 22); return; }
+  if (!idx.length) return note('No wind forecast for this day');
   const top = Math.max(settings.gust + 5, ...idx.map(i => w.wg[i] || 0)), Y = v => H - 14 - v / top * (H - 22);
   g.fillStyle = 'rgba(18,50,74,.28)'; g.beginPath(); g.moveTo(X(w.t[idx[0]]), Y(0));
   idx.forEach(i => g.lineTo(X(w.t[i]), Y(w.ws[i]))); g.lineTo(X(w.t[idx[idx.length-1]]), Y(0)); g.fill();
   g.strokeStyle = '#B3261E'; g.lineWidth = 1.5; g.beginPath();
   idx.forEach((i, k) => k ? g.lineTo(X(w.t[i]), Y(w.wg[i])) : g.moveTo(X(w.t[i]), Y(w.wg[i]))); g.stroke();
   g.setLineDash([4, 4]); g.strokeStyle = 'rgba(179,38,30,.6)'; g.beginPath(); g.moveTo(0, Y(settings.gust)); g.lineTo(W, Y(settings.gust)); g.stroke(); g.setLineDash([]);
-  g.fillStyle = '#5B7183'; g.font = '10px ' + font; g.fillText(`${Math.round(top)} kt`, 2, 10); g.fillText(`gust limit ${settings.gust}`, W - 70, Y(settings.gust) - 3);
+  g.fillStyle = '#5B7183'; g.font = '10px ' + font; g.fillText(`${Math.round(wU(top))} ${wUnit()}`, 2, 10); g.fillText(`gust limit ${Math.round(wU(settings.gust))}`, W - 76, Y(settings.gust) - 3);
 }
-document.querySelectorAll('#graphSel button').forEach(b => b.onclick = () => { settings.graph = b.dataset.g; saveSettings(); render(); });
+function drawElev(g, W, H, font, note){
+  const el = trip.data?.elev;
+  if (!el || el.key !== routeKey(trip.route)) return note(trip.route.length > 1 ? 'Elevation profile appears after Get forecast' : 'Plot a route to see its elevation profile');
+  const lo = Math.min(...el.e), hi = Math.max(...el.e), span = Math.max(50, hi - lo), D = el.d[el.d.length - 1] || 1;
+  const X = d => d / D * W, Y = v => 8 + (1 - (v - lo) / span) * (H - 24);
+  g.fillStyle = 'rgba(46,139,87,.30)'; g.beginPath(); g.moveTo(0, H - 14);
+  el.e.forEach((v, i) => g.lineTo(X(el.d[i]), Y(v))); g.lineTo(W, H - 14); g.fill();
+  g.strokeStyle = '#2E8B57'; g.lineWidth = 2; g.beginPath(); el.e.forEach((v, i) => i ? g.lineTo(X(el.d[i]), Y(v)) : g.moveTo(X(el.d[i]), Y(v))); g.stroke();
+  g.fillStyle = '#5B7183'; g.font = '10px ' + font;
+  g.fillText(ft(hi), 2, 10); g.fillText(ft(lo), 2, H - 16);
+  const step = dU(D) > 6 ? 2 : dU(D) > 2 ? 1 : 0.5;
+  for (let u = step; u < dU(D); u += step){ const x = X(u / act().k); g.fillRect(x, H - 4, 1, 4); g.fillText(u + ' ' + act().unit, x + 2, H - 2); }
+  // where you are, when underway on this route
+  if (state.going && state.pos){
+    let best = 0, bd = Infinity; const r = trip.route; let acc = 0;
+    for (let i = 1; i < r.length; i++){ const d = distNm(state.pos, r[i]); acc += distNm(r[i-1], r[i]); if (d < bd){ bd = d; best = acc; } }
+    g.fillStyle = '#C8167E'; g.fillRect(X(Math.min(best, D)) - 1, 0, 2, H);
+  }
+}
+$('#graphSel').addEventListener('click', e => { const b = e.target.closest('button[data-g]'); if (!b) return; settings.graph = b.dataset.g; saveSettings(); render(); });
 function chartTouch(e){
+  if (curGraph() === 'elev') return;
   const r = cv.getBoundingClientRect(), x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-  state.tMin = Math.max(0, Math.min(1435, Math.round(x / r.width * 1440 / 5) * 5)); state.follow = false; render();
+  state.tMin = Math.max(0, Math.min(1435, Math.round(x / r.width * 1440 / 5) * 5)); state.timeFollow = false; render();
 }
 cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); chartTouch(e); });
 cv.addEventListener('pointermove', e => { if (e.buttons) chartTouch(e); });
-$('#time').addEventListener('input', e => { state.tMin = +e.target.value; state.follow = false; render(); });
+$('#time').addEventListener('input', e => { state.tMin = +e.target.value; state.timeFollow = false; render(); });
 function setNow(){
-  const now = new Date();
-  if (ymd(now) !== trip.date){ toast('Trip is on ' + trip.date + '. Showing that day.'); return false; }
-  state.tMin = Math.floor((now.getHours() * 60 + now.getMinutes()) / 5) * 5; render(); return true;
+  if (todayIso() !== trip.date){ toast('Trip is on ' + trip.date + '. Showing that day.'); return false; }
+  state.tMin = Math.floor(nowMin() / 5) * 5; render(); return true;
 }
-$('#nowBtn').onclick = () => { if (setNow()) state.follow = true; };
+$('#nowBtn').onclick = () => { if (setNow()) state.timeFollow = true; };
 
 /* ---------- save / load ---------- */
 let saveT;
 function changed(){
   trip.updated = Date.now();
-  drawRoute(); drawStations(); render();
-  clearTimeout(saveT); saveT = setTimeout(() => { idb.put('trips', trip); LS.set('lastTrip', trip.id); }, 300);
+  drawRoute(); drawTracks(); drawStations(); render();
+  clearTimeout(saveT); saveT = setTimeout(saveNow, 300);
 }
+function saveNow(){
+  clearTimeout(saveT); saveT = null;
+  if (trip) return idb.put('trips', trip).then(() => LS.set('lastTrip', trip.id)).catch(() => {});
+}
+addEventListener('pagehide', () => { if (saveT || state.rec) saveNow(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && (saveT || state.rec)) saveNow(); });
 async function openTrip(t){
-  trip = t; state.next = 1; state.legs.clear(); LS.set('lastTrip', t.id);
-  drawRoute(); drawStations(); render();
-  if (t.route.length) map.fitBounds(L.latLngBounds(t.route), { paddingTopLeft: [30, 70], paddingBottomRight: [30, 380], maxZoom: 15 });
+  if (state.going) stopGo();
+  if (saveT && trip) await saveNow();
+  trip = normTrip(t); state.next = 1; state.legs.clear(); LS.set('lastTrip', t.id);
+  drawRoute(); drawTracks(); drawStations(); render();
+  const pts = [...t.route, ...t.tracks.flatMap(k => k.pts.map(p => [p[0], p[1]]))];
+  if (pts.length) map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [30, 70], paddingBottomRight: [30, 380], maxZoom: 15 });
 }
 
 /* ---------- drawing ---------- */
 function setDrawing(on){
+  if (on) endMapBar();
   state.drawing = on; $('#drawBar').hidden = !on; $('#drawBtn').classList.toggle('on', on);
   map.getContainer().style.cursor = on ? 'crosshair' : '';
   if (on) $('#panel').classList.add('min');
   drawRoute();
 }
-$('#drawBtn').onclick = () => { if (state.paddling) return toast('Stop paddling to edit the route.'); setDrawing(!state.drawing); };
+$('#drawBtn').onclick = () => { if (state.going) return toast('Stop first to edit the route.'); setDrawing(!state.drawing); };
 $('#doneBtn').onclick = () => setDrawing(false);
 $('#undoBtn').onclick = () => { trip.route.pop(); changed(); };
 function setPanel(min){ $('#panel').classList.toggle('min', min); settings.panelMin = min; saveSettings(); render(); }
@@ -766,97 +969,336 @@ $('#mini').onclick = () => setPanel(false);
 if (settings.panelMin) $('#panel').classList.add('min');
 $('#routeBtn').onclick = routeSheet;
 $('#fcBtn').onclick = getForecast;
+$('#tripBtn').onclick = tripsSheet;
 $('#date').onchange = e => {
   if (!e.target.value) return;
   trip.date = e.target.value; trip.data = null; trip.fetchedAt = null; changed();
   toast('Date changed. Tap Get forecast for the new day.');
 };
 
-/* ---------- paddle mode ---------- */
-$('#goBtn').onclick = () => state.paddling ? stopPaddle() : startPaddle();
-$('#stopBtn').onclick = stopPaddle;
-async function startPaddle(){
-  if (trip.route.length < 2) return toast('Plot a route with at least 2 waypoints first.');
-  if (!('geolocation' in navigator)) return toast('GPS is not available on this device.');
-  setDrawing(false);
-  state.paddling = true; state.next = 1; $('#nav').hidden = false; $('#goBtn').classList.add('on'); $('#goBtn').textContent = 'Stop';
-  state.follow = setNow();
+/* ---------- location: one GPS watch shared by "show me" and Go ---------- */
+function ensureWatch(){
+  if (state.watch != null) return true;
+  if (!('geolocation' in navigator)){ toast('GPS is not available on this device.'); return false; }
   state.watch = navigator.geolocation.watchPosition(onPos, err => toast('GPS: ' + err.message), { enableHighAccuracy: true, maximumAge: 2000, timeout: 30000 });
-  try{ state.wake = await navigator.wakeLock?.request('screen'); }catch{}
-  drawRoute(); updateNav();
+  return true;
 }
-function stopPaddle(){
-  state.paddling = false; $('#nav').hidden = true; $('#goBtn').classList.remove('on'); $('#goBtn').textContent = 'Paddle';
-  if (state.watch != null) navigator.geolocation.clearWatch(state.watch); state.watch = null;
-  try{ state.wake?.release(); }catch{} state.wake = null;
-  drawRoute();
+function maybeStopWatch(){
+  if (state.going || state.locating || state.watch == null) return;
+  navigator.geolocation.clearWatch(state.watch); state.watch = null;
 }
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && state.paddling && !state.wake){ try{ state.wake = await navigator.wakeLock?.request('screen'); }catch{} }
-  if (document.visibilityState === 'hidden') state.wake = null;
-});
-let firstFix = true;
+function setFollow(on){ state.follow = on; locBtnState(); if (on && state.pos) map.setView(state.pos, Math.max(map.getZoom(), 14)); }
+function locBtnState(){
+  const b = $('#locBtn'); b.classList.toggle('on', state.follow); b.classList.toggle('watch', state.watch != null && !state.follow);
+  $('#coords').hidden = !(state.locating || state.going) || !state.pos;
+}
+// tap: show + follow · tap while following: stop · tap after panning away: re-center
+$('#locBtn').onclick = () => {
+  if (state.follow && !state.going){ state.locating = false; state.follow = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); return; }
+  if (state.watch == null){ state.locating = true; if (!ensureWatch()) return; }
+  state.locating = state.locating || !state.going; setFollow(true);
+};
+map.on('dragstart', () => { if (state.follow){ state.follow = false; locBtnState(); } });
 function onPos(p){
   const c = p.coords;
-  state.pos = [c.latitude, c.longitude];
+  state.pos = [c.latitude, c.longitude]; state.acc = c.accuracy;
   state.sog = c.speed != null && !isNaN(c.speed) ? c.speed * 1.94384 : null;
   showMe(state.pos, c.accuracy);
-  if (firstFix){ map.setView(state.pos, Math.max(map.getZoom(), 14)); firstFix = false; }
+  $('#coords').textContent = `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)} ±${Math.round(c.accuracy)} m`;
+  if (state.follow) map.setView(state.pos, Math.max(map.getZoom(), 14), { animate: false });
+  locBtnState();
+  if (!state.going) return;
+  record(c, p.timestamp || Date.now());
   const r = trip.route;
-  while (state.next < r.length - 1 && distNm(state.pos, r[state.next]) < 0.05){ state.next++; drawRoute(); toast('Waypoint reached. Next: ' + (state.next + 1)); }
-  if (state.follow){ const now = new Date(); state.tMin = Math.floor((now.getHours()*60 + now.getMinutes()) / 5) * 5; render(); }
+  while (r.length > 1 && state.next < r.length - 1 && distNm(state.pos, r[state.next]) < act().arrive){ state.next++; drawRoute(); toast('Waypoint reached. Next: ' + (state.next + 1)); }
+  if (state.timeFollow){ state.tMin = Math.floor(nowMin() / 5) * 5; render(); }
   else updateNav();
-}
-function updateNav(){
-  const r = trip.route; if (!state.paddling) return;
-  $('#navTo').textContent = `To ${state.next + 1}`;
-  if (!state.pos){ $('#navDist').textContent = '–'; $('#navLeft').textContent = 'Waiting for GPS…'; return; }
-  const tgt = r[state.next], d = distNm(state.pos, tgt);
-  let rest = d; for (let i = state.next + 1; i < r.length; i++) rest += distNm(r[i-1], r[i]);
-  const spd = state.sog != null && state.sog > 0.5 ? state.sog : settings.speed;
-  $('#navDist').textContent = d < 0.1 ? Math.round(d * 1852) + ' m' : d.toFixed(2) + ' nm';
-  $('#navBrg').textContent = magB(brgT(state.pos, tgt)).replace('°M', '°');
-  $('#navSog').textContent = state.sog != null ? state.sog.toFixed(1) : '–';
-  $('#navEta').textContent = hm(Date.now() + rest / spd * 36e5);
-  const arrived = state.next === r.length - 1 && d < 0.05;
-  $('#navLeft').textContent = arrived ? 'Arrived' : `${rest.toFixed(2)} nm to finish · bearing is magnetic · speed in kt`;
 }
 function showMe(p, acc){
   meLayer.clearLayers();
   if (acc) L.circle(p, { radius: acc, color: '#1a73e8', weight: 1, fillOpacity: .08, interactive: false }).addTo(meLayer);
   L.marker(p, { interactive: false, icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [18,18], iconAnchor: [9,9] }) }).addTo(meLayer);
 }
-$('#locBtn').onclick = () => {
-  if (state.pos && state.paddling) return map.setView(state.pos, Math.max(map.getZoom(), 14));
-  navigator.geolocation?.getCurrentPosition(p => { const ll = [p.coords.latitude, p.coords.longitude]; showMe(ll, p.coords.accuracy); map.setView(ll, Math.max(map.getZoom(), 14)); },
-    e => toast('Location unavailable: ' + e.message), { enableHighAccuracy: true, timeout: 15000 });
+
+/* ---------- Go: navigate the route and record a track ---------- */
+$('#goBtn').onclick = () => state.going ? stopGo() : startGo();
+$('#stopBtn').onclick = () => stopGo();
+async function startGo(){
+  if (!ensureWatch()) return;
+  setDrawing(false); endMapBar();
+  state.going = true; state.next = 1; $('#nav').hidden = false; $('#goBtn').classList.add('on');
+  $('#panel').classList.add('min');
+  state.timeFollow = setNow();
+  state.rec = { id: uid(), start: Date.now(), end: null, pts: [] }; state.recSaved = 0;
+  trip.tracks.push(state.rec);
+  setFollow(true);
+  try{ state.wake = await navigator.wakeLock?.request('screen'); }catch{}
+  drawRoute(); drawTracks(); updateNav(); render();
+}
+function stopGo(){
+  if (!state.going) return;
+  state.going = false; $('#nav').hidden = true; $('#goBtn').classList.remove('on');
+  const k = state.rec; state.rec = null;
+  if (k){
+    k.end = Date.now();
+    if (k.pts.length < 2){ trip.tracks.splice(trip.tracks.indexOf(k), 1); }
+    else toast(`Track saved: ${trackLabel(k)}`, 4000);
+  }
+  try{ state.wake?.release(); }catch{} state.wake = null;
+  state.follow = state.locating && state.follow; maybeStopWatch(); locBtnState();
+  if (!state.locating) meLayer.clearLayers();
+  changed();
+}
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && state.going && !state.wake){ try{ state.wake = await navigator.wakeLock?.request('screen'); }catch{} }
+  if (document.visibilityState === 'hidden') state.wake = null;
+});
+// Keep fixes that are accurate enough and far enough from the last one; save every 20 points.
+function record(c, t){
+  const k = state.rec; if (!k || c.accuracy > 50) return;
+  const p = [+c.latitude.toFixed(6), +c.longitude.toFixed(6), t, c.altitude != null ? Math.round(c.altitude * 3.28084) : null];
+  const last = k.pts[k.pts.length - 1];
+  if (last && distNm(last, p) * 1852 < Math.max(isHike() ? 5 : 8, c.accuracy / 2)) return;
+  k.pts.push(p);
+  if (recLine) recLine.addLatLng([p[0], p[1]]); else drawTracks();
+  if (k.pts.length - state.recSaved >= 20){ state.recSaved = k.pts.length; trip.updated = Date.now(); saveNow(); }
+}
+const trackNm = k => routeNm(k.pts);
+function trackLabel(k){
+  const nm = trackNm(k), h = ((k.end || Date.now()) - k.start) / 36e5;
+  return `${fmtD(nm, 2)} in ${fmtDur(h)}${h > 0.01 ? ' · avg ' + (dU(nm) / h).toFixed(1) + ' ' + act().spd : ''}`;
+}
+function updateNav(){
+  if (!state.going) return;
+  const r = trip.route, k = state.rec, routed = r.length > 1;
+  const sogU = state.sog != null ? (isHike() ? state.sog * 1.15078 : state.sog) : null;
+  $('#navSogK').textContent = `Speed ${act().spd}`;
+  $('#navSog').textContent = sogU != null ? sogU.toFixed(1) : '–';
+  const recTxt = k ? `<span class="rec">● REC</span> ${esc(trackLabel(k))}` : '';
+  if (!routed){ // record-only
+    $('#navTo').textContent = 'Track'; $('#navDist').textContent = k ? fmtD(trackNm(k), 2) : '–';
+    $('#navBrgK').textContent = 'Time'; $('#navBrg').textContent = k ? fmtDur((Date.now() - k.start) / 36e5) : '–';
+    $('#navEtaK').textContent = 'Points'; $('#navEta').textContent = k ? k.pts.length : '–';
+    $('#navLeft').innerHTML = state.pos ? recTxt : 'Waiting for GPS…';
+    return;
+  }
+  $('#navTo').textContent = `To ${state.next + 1}`; $('#navBrgK').textContent = 'Bearing'; $('#navEtaK').textContent = 'Finish';
+  if (!state.pos){ $('#navDist').textContent = '–'; $('#navBrg').textContent = '–'; $('#navEta').textContent = '–'; $('#navLeft').textContent = 'Waiting for GPS…'; return; }
+  const tgt = r[state.next], d = distNm(state.pos, tgt);
+  let rest = d; for (let i = state.next + 1; i < r.length; i++) rest += distNm(r[i-1], r[i]);
+  const spdU = sogU != null && sogU > 0.5 ? sogU : speed();
+  $('#navDist').textContent = fmtNear(d);
+  $('#navBrg').textContent = magB(brgT(state.pos, tgt)).replace('°M', '°');
+  $('#navEta').textContent = hm(Date.now() + dU(rest) / spdU * 36e5);
+  const arrived = state.next === r.length - 1 && d < act().arrive;
+  $('#navLeft').innerHTML = arrived ? `Arrived · ${recTxt}` : `${fmtD(rest, 2)} to go · ${recTxt}`;
+}
+
+/* ---------- trail maps (PDF overlays, from GPS Map) ---------- */
+const shownMaps = new Map(); // id -> { layer, url }
+let affine; // { fitAffine, applyAffine } from pdfmap.js
+const loadPdfMod = async () => affine || (affine = await import('./pdfmap.js'));
+function opBarState(){ $('#opBar').hidden = !(shownMaps.size || state.nudge); }
+$('#opacity').addEventListener('input', e => {
+  const op = +e.target.value; $('#opVal').textContent = Math.round(op * 100) + '%';
+  settings.opacity = op; saveSettings();
+  shownMaps.forEach(({ layer }) => layer.setOpacity(op)); state.nudge?.layer.setOpacity(op);
+});
+if (settings.opacity){ $('#opacity').value = settings.opacity; $('#opVal').textContent = Math.round(settings.opacity * 100) + '%'; }
+function showTrailMap(m, on, focus){
+  if (on && !shownMaps.has(m.id)){
+    const url = URL.createObjectURL(m.imageBlob);
+    const layer = L.imageOverlay.rotated(url, L.latLng(m.topLeft), L.latLng(m.topRight), L.latLng(m.bottomLeft), { opacity: +$('#opacity').value, interactive: false }).addTo(map);
+    layer.bringToBack(); shownMaps.set(m.id, { layer, url });
+  } else if (!on && shownMaps.has(m.id)){
+    const { layer, url } = shownMaps.get(m.id); map.removeLayer(layer); URL.revokeObjectURL(url); shownMaps.delete(m.id);
+  }
+  settings.shownMaps = [...shownMaps.keys()]; saveSettings(); opBarState();
+  if (on && focus) map.fitBounds(shownMaps.get(m.id).layer.getBounds());
+}
+function edgePoints(tl, tr, bl, w, h){
+  const at = (fx, fy) => [tl[0] + fx * (tr[0] - tl[0]) + fy * (bl[0] - tl[0]), tl[1] + fx * (tr[1] - tl[1]) + fy * (bl[1] - tl[1])];
+  const pt = (fx, fy, name) => { const [lat, lon] = at(fx, fy); return { px: fx * w, py: fy * h, lat, lon, name }; };
+  return [pt(.5, .08, 'Top edge'), pt(.92, .5, 'Right edge'), pt(.5, .92, 'Bottom edge'), pt(.08, .5, 'Left edge')];
+}
+$('#pdfFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  toast('Reading PDF…', 30000);
+  try{
+    const mod = await loadPdfMod();
+    const res = await Promise.race([mod.parseGeoPdf(f), new Promise((_, rej) => setTimeout(() => rej(new Error('Timed out. The PDF may be too large.')), 60000))]);
+    const name = (prompt('Name this trail map', f.name.replace(/\.pdf$/i, '')) || '').trim() || f.name;
+    let { topLeft: tl, topRight: tr, bottomLeft: bl } = res;
+    if (!tl){ const b = map.getBounds().pad(-0.15); tl = [b.getNorth(), b.getWest()]; tr = [b.getNorth(), b.getEast()]; bl = [b.getSouth(), b.getWest()]; }
+    const m = { id: uid(), name, imageBlob: res.imageBlob, imageWidth: res.imageWidth, imageHeight: res.imageHeight, topLeft: tl, topRight: tr, bottomLeft: bl,
+      controlPoints: edgePoints(tl, tr, bl, res.imageWidth, res.imageHeight), method: res.method, detectedLabels: res.labels || [], createdAt: Date.now() };
+    toast(res.labels?.length ? `Found ${res.labels.length} GPS labels (${res.labels.join(', ')}). Check the placement.` : res.method === 'manual placement' ? 'No position data in this PDF. Drag the points into place.' : 'Placed from the PDF\'s map data. Check it.', 6000);
+    startNudge(m, true);
+  }catch(err){ toast('PDF import failed: ' + err.message, 5000); }
 };
+async function startNudge(m, isNew){
+  const { fitAffine, applyAffine } = await loadPdfMod();
+  setDrawing(false); sheet.close?.();
+  if (!isNew) showTrailMap(m, false);
+  const url = URL.createObjectURL(m.imageBlob);
+  const layer = L.imageOverlay.rotated(url, L.latLng(m.topLeft), L.latLng(m.topRight), L.latLng(m.bottomLeft), { opacity: Math.max(+$('#opacity').value, .7), interactive: false }).addTo(map);
+  const pts = (m.controlPoints?.length === 4 ? m.controlPoints : edgePoints(m.topLeft, m.topRight, m.bottomLeft, m.imageWidth, m.imageHeight)).map(p => ({ ...p }));
+  const W = m.imageWidth, H = m.imageHeight, handles = L.layerGroup().addTo(map);
+  const fit = () => { const a = fitAffine(pts, 'lat'), b = fitAffine(pts, 'lon');
+    const r = { topLeft: applyAffine(a, b, 0, 0), topRight: applyAffine(a, b, W, 0), bottomLeft: applyAffine(a, b, 0, H), a, b };
+    layer.reposition(L.latLng(r.topLeft), L.latLng(r.topRight), L.latLng(r.bottomLeft)); return r; };
+  const centre = () => L.latLng(pts.reduce((s, p) => s + p.lat, 0) / 4, pts.reduce((s, p) => s + p.lon, 0) / 4);
+  const marks = pts.map(p => L.marker([p.lat, p.lon], { draggable: true, icon: L.divIcon({ className: '', html: '<div class="nudge"></div>', iconSize: [22,22], iconAnchor: [11,11] }) }).bindTooltip(p.name, { direction: 'top', offset: [0, -12] }).addTo(handles));
+  const cm = L.marker(centre(), { draggable: true, icon: L.divIcon({ className: '', html: '<div class="nudge-c">✥</div>', iconSize: [34,34], iconAnchor: [17,17] }) }).addTo(handles);
+  let prev = cm.getLatLng();
+  // Drag one point: refit and snap the others to where the fit puts them. Drag the centre: move everything.
+  marks.forEach((mk, i) => mk.on('drag', () => {
+    const ll = mk.getLatLng(); pts[i].lat = ll.lat; pts[i].lon = ll.lng;
+    const { a, b } = fit();
+    pts.forEach((p, j) => { if (j === i) return; [p.lat, p.lon] = applyAffine(a, b, p.px, p.py); marks[j].setLatLng([p.lat, p.lon]); });
+    prev = centre(); cm.setLatLng(prev);
+  }));
+  cm.on('drag', () => { const c = cm.getLatLng(), dLat = c.lat - prev.lat, dLon = c.lng - prev.lng; prev = c;
+    pts.forEach((p, i) => { p.lat += dLat; p.lon += dLon; marks[i].setLatLng([p.lat, p.lon]); }); fit(); });
+  const end = () => { map.removeLayer(handles); map.removeLayer(layer); URL.revokeObjectURL(url); state.nudge = null; endMapBar(); opBarState(); };
+  state.nudge = { layer };
+  showMapBar(`<span class="txt">Drag the 4 points onto matching spots, or ✥ to move it all.</span><button class="btn" id="nCancel">Cancel</button><button class="btn" id="nSave">Save</button>`, end);
+  opBarState(); $('#panel').classList.add('min');
+  $('#nCancel').onclick = () => { end(); if (!isNew) showTrailMap(m, true); };
+  $('#nSave').onclick = async () => {
+    const r = fit();
+    Object.assign(m, { topLeft: r.topLeft, topRight: r.topRight, bottomLeft: r.bottomLeft, controlPoints: pts.map(p => ({ ...p })) });
+    if (!isNew && !/adjusted/.test(m.method)) m.method += ', adjusted';
+    end(); await idb.put('trailMaps', m); showTrailMap(m, true); toast('Trail map saved. Find it under ☰ › Offline maps.');
+  };
+  map.fitBounds(layer.getBounds(), { maxZoom: 18, padding: [40, 40] });
+}
+
+/* ---------- offline map areas (from GPS Map) ---------- */
+let mapBarEnd = null;
+function showMapBar(html, onEnd){ endMapBar(); $('#mapBar').innerHTML = html; $('#mapBar').hidden = false; mapBarEnd = onEnd; }
+function endMapBar(){ const f = mapBarEnd; mapBarEnd = null; $('#mapBar').hidden = true; $('#mapBar').innerHTML = ''; f?.(); }
+const MAX_TILES = 2500;
+function saveAreaBar(){
+  setDrawing(false); $('#panel').classList.add('min');
+  let ctl = null;
+  showMapBar(`<input id="aName" type="text" placeholder="Name this area" aria-label="Area name">
+    <select id="aDepth" aria-label="Detail"><option value="0">Overview</option><option value="2" selected>Detail</option><option value="4">Max detail</option></select>
+    <button class="btn" id="aCancel">Cancel</button><button class="btn" id="aSave">Save</button>
+    <div class="est" id="aEst"></div><div class="prog" hidden><i></i></div>`, () => { ctl?.abort(); map.off('moveend', est); });
+  const est = () => {
+    const z = map.getZoom(), { total } = tileUrls(settings.layer, map.getBounds(), z, Math.min(z + +$('#aDepth').value, 18));
+    const ok = total <= MAX_TILES;
+    $('#aEst').className = 'est' + (ok ? '' : ' err');
+    $('#aEst').textContent = ok ? `${LAYERS[settings.layer].name} map as shown, zoom ${z}–${Math.min(z + +$('#aDepth').value, 18)}: ≈ ${total} tiles, ~${(total * 15 / 1024).toFixed(1)} MB` : `${total} tiles: too many (max ${MAX_TILES}). Zoom in or pick less detail.`;
+    $('#aSave').disabled = !ok;
+    return ok;
+  };
+  map.on('moveend', est); $('#aDepth').onchange = est; est();
+  $('#aCancel').onclick = endMapBar;
+  $('#aSave').onclick = async () => {
+    const name = $('#aName').value.trim();
+    if (!name){ $('#aEst').textContent = 'Give the area a name.'; $('#aEst').className = 'est err'; return $('#aName').focus(); }
+    if (!navigator.onLine) return toast('You are offline. Connect to save a map area.');
+    if (!est()) return;
+    const z = map.getZoom(), z1 = Math.min(z + +$('#aDepth').value, 18), b = map.getBounds(), layer = settings.layer;
+    const { urls } = tileUrls(layer, b, z, z1);
+    ctl = new AbortController();
+    const before = (await navigator.storage?.estimate?.())?.usage ?? null;
+    $('#aSave').disabled = true; $('#mapBar .prog').hidden = false;
+    const { done, failed } = await downloadTiles(urls, { polite: LAYERS[layer].polite, signal: ctl.signal, onProgress: (d, f) => {
+      $('#mapBar .prog i').style.width = Math.round(d / urls.length * 100) + '%';
+      $('#aEst').textContent = `${d} / ${urls.length} tiles${f ? ` (${f} failed)` : ''}`; } });
+    if (ctl.signal.aborted) return;
+    if (failed === urls.length){ $('#aEst').textContent = 'Every tile failed. Check your connection and try again.'; $('#aEst').className = 'est err'; $('#aSave').disabled = false; return; }
+    const after = (await navigator.storage?.estimate?.())?.usage ?? null;
+    const sizeBytes = before != null && after > before ? after - before : urls.length * 15 * 1024;
+    await idb.put('regions', { id: uid(), name, layer, bounds: { n: b.getNorth(), s: b.getSouth(), e: b.getEast(), w: b.getWest() }, minZoom: z, maxZoom: z1, tileCount: done, failed, sizeBytes, createdAt: Date.now() });
+    ctl = null; endMapBar(); toast(`Saved "${name}" (${done} tiles${failed ? `, ${failed} failed` : ''}).`);
+  };
+  $('#aName').focus();
+}
+// The GPS Map app lives on the same origin (hodzic.github.io), so its saved areas and trail maps can be copied over.
+async function gpsMapDb(){
+  try{ if (!(await indexedDB.databases?.())?.some(d => d.name === 'gpsmapdb3')) return null; }catch{ return null; }
+  return new Promise(res => { const r = indexedDB.open('gpsmapdb3'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onupgradeneeded = () => { r.transaction.abort(); res(null); }; });
+}
+async function importGpsMap(){
+  const d = await gpsMapDb(); if (!d) return toast('No GPS Map data found.');
+  const all = n => new Promise(res => { if (!d.objectStoreNames.contains(n)) return res([]); const q = d.transaction(n).objectStore(n).getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); });
+  const [regions, maps] = await Promise.all([all('regions'), all('trailMaps')]); d.close();
+  const have = new Set([...(await idb.all('regions')).map(r => r.id), ...(await idb.all('trailMaps')).map(m => m.id)]);
+  let n = 0;
+  for (const r of regions) if (!have.has(r.id)){ await idb.put('regions', { ...r, layer: 'street' }); n++; }
+  for (const m of maps) if (!have.has(m.id)){ await idb.put('trailMaps', m); n++; }
+  toast(n ? `Copied ${n} item${n > 1 ? 's' : ''} from GPS Map.` : 'Everything from GPS Map is already here.');
+  offlineSheet();
+}
+async function offlineSheet(){
+  const [regions, maps, gm] = await Promise.all([idb.all('regions'), idb.all('trailMaps'), gpsMapDb()]);
+  gm?.close();
+  regions.sort((a, b) => b.createdAt - a.createdAt); maps.sort((a, b) => b.createdAt - a.createdAt);
+  const urls = [];
+  openSheet(`<h2>Offline maps</h2>
+    <p><small>Get forecast also saves the map around your route. Save extra areas here, or overlay a PDF trail map.</small></p>
+    <h3>Map areas</h3><div class="list">${regions.map(r => `<div class="item"><div class="grow"><b>${esc(r.name)}</b>
+      <small>${esc(LAYERS[r.layer]?.name || 'Street')} · ${r.tileCount} tiles · ${fmtSize(r.sizeBytes || 0)} · zoom ${r.minZoom}–${r.maxZoom}</small></div>
+      <button class="btn" data-region="${esc(r.id)}">Show</button><button class="btn" data-rmregion="${esc(r.id)}" aria-label="Delete ${esc(r.name)}">✕</button></div>`).join('') || '<p><small>None saved yet.</small></p>'}</div>
+    <button class="btn add" id="oArea">Save the map area on screen…</button>
+    <h3>Trail maps (PDF)</h3><div class="list">${maps.map(m => { const u = URL.createObjectURL(m.imageBlob); urls.push(u); const on = shownMaps.has(m.id);
+      return `<div class="item"><img src="${u}" alt=""><div class="grow"><b>${esc(m.name)}</b><small>${fmtSize(m.imageBlob.size)} · ${esc(m.method || '')}</small></div>
+      <button class="btn" data-tmap="${esc(m.id)}">${on ? 'Hide' : 'Show'}</button><button class="btn" data-adjust="${esc(m.id)}">Adjust</button><button class="btn" data-rmtmap="${esc(m.id)}" aria-label="Delete ${esc(m.name)}">✕</button></div>`; }).join('') || '<p><small>None yet.</small></p>'}</div>
+    <button class="btn add" id="oPdf">Add a PDF trail map…</button>
+    ${gm ? '<button class="btn add" id="oGps">Copy areas and trail maps from GPS Map</button>' : ''}
+    <div class="row"><button class="btn" data-close>Close</button></div>`);
+  sheet.addEventListener('close', () => urls.forEach(u => URL.revokeObjectURL(u)), { once: true });
+}
 
 /* ---------- sheets ---------- */
 const sheet = $('#sheet');
-function openSheet(html){ sheet.innerHTML = `<div class="sh">${html}</div>`; sheet.showModal(); }
+function openSheet(html){ sheet.innerHTML = `<div class="sh">${html}</div>`; if (!sheet.open) sheet.showModal(); }
 sheet.addEventListener('click', e => { if (e.target === sheet || e.target.closest('[data-close]')) sheet.close(); });
+const activityChoices = cur => `<div class="choices">${Object.entries(ACT).map(([k, a]) => `<button data-activity="${k}" class="${k === cur ? 'on' : ''}">${a.name}<small>${k === 'hike' ? 'trail, coast · mi, elevation' : 'ocean, bay, river, lake · nm'}</small></button>`).join('')}</div>`;
 
 $('#menuBtn').onclick = () => openSheet(`<h2>Menu</h2><div class="menu">
   <button id="mTrips">My trips</button>
   <button id="mNew">New trip</button>
   <button id="mRename">Rename this trip</button>
-  <button id="mWater">Water type: ${isLake() ? 'Lake' : 'Tidal'} (tap to change)</button>
-  ${isLake() ? '' : `<button id="mStations">${state.showStations ? 'Hide' : 'Choose'} tide and current stations</button>`}
+  <button id="mAct">Activity: ${act().name} (tap to change)</button>
+  <button id="mWater">${isHike() ? 'Terrain' : 'Water'}: ${trip.env ? env().name : 'auto-detect'} (tap to change)</button>
+  ${isTidal() ? `<button id="mStations">${state.showStations ? 'Hide' : 'Choose'} tide${hasCurrents() ? ' and current' : ''} stations</button>` : ''}
+  <button id="mTracks">Recorded tracks (${trip.tracks.length})</button>
+  ${trip.route.length > 1 ? '<button id="mBack">Make it out-and-back (add return legs)</button><button id="mReverse">Reverse route</button>' : ''}
+  <button id="mOffline">Offline maps and trail maps</button>
   <button id="mJson">Export trip (.json)</button>
-  <button id="mGpx">Export route (.gpx)</button>
+  <button id="mGpx">Export route and tracks (.gpx)</button>
   <button id="mImport">Import trip or GPX</button>
   <button id="mSettings">Settings</button>
   <button id="mAbout">About</button></div>`);
 sheet.addEventListener('click', async e => {
-  const id = e.target.id;
+  const el = e.target.closest('button'); if (!el) return;
+  const id = el.id, ds = el.dataset;
   if (id === 'mTrips') return tripsSheet();
-  if (id === 'mNew'){ sheet.close(); stopPaddle(); const t = newTrip(); await idb.put('trips', t); openTrip(t); setDrawing(true); return; }
+  if (id === 'mNew') return openSheet(`<h2>New trip</h2>${activityChoices(trip.activity).replace(/data-activity/g, 'data-newact')}<div class="row"><button class="btn" data-close>Cancel</button></div>`);
+  if (ds.newact){
+    sheet.close(); const t = newTrip(ds.newact); await idb.put('trips', t); await openTrip(t);
+    if (ACT[ds.newact].layer !== settings.layer && (ds.newact === 'hike' ? settings.layer === 'chart' : settings.layer === 'topo')) setLayer(ACT[ds.newact].layer);
+    setDrawing(true); return;
+  }
   if (id === 'mRename'){ sheet.close(); const n = prompt('Trip name', trip.name); if (n && n.trim()){ trip.name = n.trim(); changed(); } return; }
-  if (id === 'mWater'){
-    sheet.close(); trip.water = isLake() ? 'tidal' : 'lake'; trip.waterSet = true;
-    if (isLake() && settings.layer === 'chart') setLayer('topo');
-    changed(); toast(isLake() ? 'Lake trip. Tides and currents hidden.' : 'Tidal trip. Tap Get forecast for tides and currents.', 4000); return;
+  if (id === 'mAct') return openSheet(`<h2>Activity</h2>${activityChoices(trip.activity)}<div class="row"><button class="btn" data-close>Close</button></div>`);
+  if (ds.activity){
+    sheet.close(); if (ds.activity === trip.activity) return;
+    trip.activity = ds.activity; trip.env = null; trip.envSet = false; trip.data = null; trip.fetchedAt = null;
+    if (ds.activity === 'hike' && settings.layer === 'chart') setLayer('topo');
+    changed(); toast(`${act().name} trip. Tap Get forecast.`); return;
+  }
+  if (id === 'mWater') return openSheet(`<h2>${isHike() ? 'Terrain' : 'Water'}</h2><div class="choices">${act().envs.map(k => `<button data-env="${k}" class="${k === trip.env ? 'on' : ''}">${ENV[k].name}<small>${ENV[k].currents ? 'tides and currents' : ENV[k].tides ? 'tides' : 'no tides'}</small></button>`).join('')}</div>
+    <p><small>Tides are shown for ocean, bay, slough and coast. Leave it to auto-detect from the nearest NOAA tide station on Get forecast.</small></p><div class="row"><button class="btn" data-close>Close</button></div>`);
+  if (ds.env){
+    sheet.close(); trip.env = ds.env; trip.envSet = true;
+    if (!isTidal() && settings.layer === 'chart') setLayer('topo');
+    changed(); toast(isTidal() ? `${env().name}. Tap Get forecast for tides${hasCurrents() ? ' and currents' : ''}.` : `${env().name}. Tides hidden.`, 4000); return;
   }
   if (id === 'mStations'){
     sheet.close(); state.showStations = !state.showStations;
@@ -866,42 +1308,77 @@ sheet.addEventListener('click', async e => {
     }
     return drawStations();
   }
-  if (id === 'mJson'){ sheet.close(); return shareFile(fileName('json'), JSON.stringify({ app: 'Paddle', version: 1, trip }, null, 1), 'application/json'); }
-  if (id === 'mGpx'){ sheet.close(); if (trip.route.length < 1) return toast('No route to export.'); return shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml'); }
+  if (id === 'mTracks') return tracksSheet();
+  if (ds.trackroute){
+    const k = trip.tracks.find(x => x.id === ds.trackroute); if (!k) return;
+    let tol = 0.002, r = simplify(k.pts.map(p => [p[0], p[1]]), tol);
+    while (r.length > 60) r = simplify(k.pts.map(p => [p[0], p[1]]), tol *= 1.6);
+    trip.route = r; sheet.close(); changed(); toast(`Route made from track: ${r.length} waypoints.`); return;
+  }
+  if (ds.rmtrack){ if (!confirm('Delete this track?')) return; trip.tracks = trip.tracks.filter(x => x.id !== ds.rmtrack); changed(); return tracksSheet(); }
+  if (ds.showtrack){ const k = trip.tracks.find(x => x.id === ds.showtrack); sheet.close(); if (k?.pts.length) map.fitBounds(L.latLngBounds(k.pts.map(p => [p[0], p[1]])), { paddingBottomRight: [30, 200] }); return; }
+  if (id === 'mBack'){ sheet.close(); trip.route = trip.route.concat(trip.route.slice(0, -1).reverse()); changed(); toast('Return legs added: you finish where you started.'); return; }
+  if (id === 'mReverse'){ sheet.close(); trip.route.reverse(); changed(); toast('Route reversed.'); return; }
+  if (id === 'mOffline') return offlineSheet();
+  if (id === 'oArea'){ sheet.close(); return saveAreaBar(); }
+  if (id === 'oPdf'){ sheet.close(); return $('#pdfFile').click(); }
+  if (id === 'oGps') return importGpsMap();
+  if (ds.region){
+    const r = await idb.get('regions', ds.region); sheet.close(); if (!r) return;
+    if (r.layer in LAYERS && r.layer !== settings.layer) setLayer(r.layer);
+    map.fitBounds([[r.bounds.s, r.bounds.w], [r.bounds.n, r.bounds.e]]); return;
+  }
+  if (ds.rmregion){ if (!confirm('Delete this map area?')) return; await idb.del('regions', ds.rmregion); return offlineSheet(); }
+  if (ds.tmap){ const m = await idb.get('trailMaps', ds.tmap); const on = !shownMaps.has(ds.tmap); showTrailMap(m, on, on); if (on) sheet.close(); else offlineSheet(); return; }
+  if (ds.adjust){ const m = await idb.get('trailMaps', ds.adjust); sheet.close(); return startNudge(m, false); }
+  if (ds.rmtmap){ if (!confirm('Delete this trail map?')) return; showTrailMap({ id: ds.rmtmap }, false); await idb.del('trailMaps', ds.rmtmap); return offlineSheet(); }
+  if (id === 'mJson'){ sheet.close(); return shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json'); }
+  if (id === 'mGpx'){ sheet.close(); if (trip.route.length < 1 && !trip.tracks.length) return toast('No route or track to export.'); return shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml'); }
   if (id === 'mImport'){ sheet.close(); return $('#file').click(); }
   if (id === 'mSettings') return settingsSheet();
-  if (id === 'mAbout') return openSheet(`<h2>Paddle</h2>
-    <p>Plan a kayak trip online, then use it offline. Tides and currents: NOAA CO-OPS. Wind, weather and pressure: Open-Meteo. Lightning: NWS thunder probability (US), otherwise estimated from rain chance and atmospheric instability. Map: NOAA charts, OpenStreetMap or USGS topo. Sun times are calculated on the phone.</p>
-    <p>Tide and current curves are smoothed between NOAA high/low and slack/max predictions. Current directions are mean flood and ebb directions in degrees true.</p>
-    <p class="danger"><b>Not for navigation.</b> Check official forecasts and conditions before you launch.</p>
+  if (id === 'mAbout') return openSheet(`<h2>Outback</h2>
+    <p>Plan an out-and-back paddle or hike online, then take it offline. Tides and currents: NOAA CO-OPS. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), otherwise estimated from rain chance and atmospheric instability. Maps: NOAA charts, OpenStreetMap or USGS topo, plus your own PDF trail maps (read on the phone with MuPDF). Sun times are calculated on the phone.</p>
+    <p>Tide and current curves are smoothed between NOAA high/low and slack/max predictions. Current directions are mean flood and ebb directions in degrees true. Hiking times add 1 hour per 2000 ft of climb.</p>
+    <p>Tracks are recorded while Go is on and the screen is awake.</p>
+    <p class="danger"><b>Not for navigation.</b> Check official forecasts and conditions before you set out.</p>
     <div class="row"><button class="btn" data-close>Close</button></div>`);
-  if (e.target.dataset.open){ const t = await idb.get('trips', e.target.dataset.open); sheet.close(); stopPaddle(); return openTrip(t); }
-  if (e.target.dataset.rm){
-    const rid = e.target.dataset.rm;
+  if (ds.open){ const t = await idb.get('trips', ds.open); sheet.close(); return openTrip(t); }
+  if (ds.rm){
+    const rid = ds.rm;
     if (!confirm('Delete this trip?')) return;
     await idb.del('trips', rid);
-    if (rid === trip.id){ const t = newTrip(); await idb.put('trips', t); openTrip(t); }
+    if (rid === trip.id){ const t = newTrip(trip.activity); await idb.put('trips', t); await openTrip(t); }
     return tripsSheet();
   }
   if (id === 'sSave'){
-    const sp = +$('#sSpeed').value, va = +$('#sVar').value, gu = +$('#sGust').value;
-    if (sp > 0) settings.speed = sp; if (isFinite(va)) settings.variation = va; if (gu > 0) settings.gust = gu;
+    const sp = +$('#sSpeed').value, va = $('#sVar').value, gu = +$('#sGust').value;
+    if (sp > 0) settings.speeds[trip.activity] = sp;
+    if (va.trim() !== '' && isFinite(+va)) settings.variation = +va;
+    if (gu > 0) settings.gust = isHike() ? gu / 1.15078 : gu;
     saveSettings(); sheet.close(); changed(); toast('Settings saved');
   }
 });
 async function tripsSheet(){
-  const all = (await idb.all('trips')).sort((a, b) => b.date.localeCompare(a.date) || b.updated - a.updated);
+  const all = (await idb.all('trips')).map(normTrip).sort((a, b) => b.date.localeCompare(a.date) || b.updated - a.updated);
   openSheet(`<h2>My trips</h2><div class="list">${all.map(t => `<div class="item">
-      <div class="grow"><b>${esc(t.name)}</b><small>${esc(t.date)} · ${routeNm(t.route).toFixed(1)} nm${t.fetchedAt ? ' · forecast saved' : ''}</small></div>
+      <div class="grow"><b>${esc(t.name)}</b><small>${esc(ACT[t.activity]?.name || '')} · ${esc(t.date)} · ${(routeNm(t.route) * (ACT[t.activity]?.k || 1)).toFixed(1)} ${ACT[t.activity]?.unit || 'nm'}${t.tracks.length ? ` · ${t.tracks.length} track${t.tracks.length > 1 ? 's' : ''}` : ''}${t.fetchedAt ? ' · forecast saved' : ''}</small></div>
       <button class="btn" data-open="${esc(t.id)}">Open</button><button class="btn" data-rm="${esc(t.id)}" aria-label="Delete ${esc(t.name)}">✕</button></div>`).join('') || '<p>No trips yet.</p>'}</div>
+    <div class="row"><button class="btn" id="mNew">New trip</button><button class="btn" data-close>Close</button></div>`);
+}
+function tracksSheet(){
+  const ks = trip.tracks.slice().reverse();
+  openSheet(`<h2>Recorded tracks</h2><p><small>Tap Go to record. Tracks are saved with this trip and exported in the GPX.</small></p>
+    <div class="list">${ks.map(k => `<div class="item"><div class="grow"><b>${new Date(k.start).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}</b>
+      <small>${esc(trackLabel(k))} · ${k.pts.length} points</small></div>
+      <button class="btn" data-showtrack="${k.id}">Show</button><button class="btn" data-trackroute="${k.id}">Use as route</button><button class="btn" data-rmtrack="${k.id}" aria-label="Delete track">✕</button></div>`).join('') || '<p>No tracks yet.</p>'}</div>
     <div class="row"><button class="btn" data-close>Close</button></div>`);
 }
 function settingsSheet(){
   openSheet(`<h2>Settings</h2>
-    <label for="sSpeed">Paddling speed (kt)</label><input id="sSpeed" type="number" step="0.1" min="0.5" value="${settings.speed}">
+    <label for="sSpeed">${act().name} speed (${act().spd})</label><input id="sSpeed" type="number" step="0.1" min="0.5" value="${speed()}">
     <label for="sVar">Magnetic variation (° east)</label><input id="sVar" type="number" step="0.5" value="${settings.variation}">
     <p><small>SF Bay is about 13° E. Bearings are shown magnetic (°M).</small></p>
-    <label for="sGust">Gust warning (kt)</label><input id="sGust" type="number" step="1" min="1" value="${settings.gust}">
+    <label for="sGust">Gust warning (${wUnit()})</label><input id="sGust" type="number" step="1" min="1" value="${Math.round(wU(settings.gust))}">
     <div class="row"><button class="btn" data-close>Cancel</button><button class="btn" id="sSave">Save</button></div>`);
 }
 function routeSheet(){
@@ -910,18 +1387,21 @@ function routeSheet(){
   const rows = r.map((p, i) => {
     if (!i) return `<tr><td>1</td><td>–</td><td>–</td><td>0.00</td><td>${hm(start)}</td></tr>`;
     const d = distNm(r[i-1], p); cum += d;
-    return `<tr><td>${i+1}</td><td>${d.toFixed(2)}</td><td>${magB(brgT(r[i-1], p))}</td><td>${cum.toFixed(2)}</td><td>${hm(start + cum / settings.speed * 36e5)}</td></tr>`;
+    return `<tr><td>${i+1}</td><td>${dU(d).toFixed(2)}</td><td>${magB(brgT(r[i-1], p))}</td><td>${dU(cum).toFixed(2)}</td><td>${hm(start + hoursFor(cum) * 36e5)}</td></tr>`;
   }).join('');
-  openSheet(`<h2>Route</h2><p><small>Times assume departure at ${hm(start)} (the time slider) and ${settings.speed} kt, without current.</small></p>
-    <table><tr><th>WP</th><th>Leg nm</th><th>Bearing</th><th>Total nm</th><th>Arrive</th></tr>${rows}</table>
+  const es = elevStats();
+  openSheet(`<h2>Route</h2><p><small>Times assume departure at ${hm(start)} (the time slider) and ${speed()} ${act().spd}${isHike() ? ', on the flat' : ', without current'}.${es ? ` Total climb ${ft(es.up)} adds about ${fmtDur(es.up / 2000)}.` : ''}</small></p>
+    <table><tr><th>WP</th><th>Leg ${act().unit}</th><th>Bearing</th><th>Total ${act().unit}</th><th>Arrive</th></tr>${rows}</table>
     <div class="row"><button class="btn" data-close>Close</button></div>`);
 }
 
 /* ---------- export / import ---------- */
-const fileName = ext => `${trip.name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'trip'}_${trip.date}.${ext}`;
+const fileName = ext => `${String(trip.name || '').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'trip'}_${trip.date}.${ext}`;
 function toGpx(){
   const pts = trip.route.map((p, i) => `  <rtept lat="${p[0]}" lon="${p[1]}"><name>WP${i+1}</name></rtept>`).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Paddle" xmlns="http://www.topografix.com/GPX/1/1">\n <rte><name>${esc(trip.name)}</name>\n${pts}\n </rte>\n</gpx>\n`;
+  const trks = trip.tracks.filter(k => k.pts.length > 1).map(k => ` <trk><name>${esc(trip.name)} ${new Date(k.start).toISOString().slice(0, 16).replace('T', ' ')}</name><trkseg>\n${k.pts.map(p =>
+    `  <trkpt lat="${p[0]}" lon="${p[1]}">${p[3] != null ? `<ele>${(p[3] / 3.28084).toFixed(1)}</ele>` : ''}<time>${new Date(p[2]).toISOString()}</time></trkpt>`).join('\n')}\n </trkseg></trk>`).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Outback" xmlns="http://www.topografix.com/GPX/1/1">\n${trip.route.length ? ` <rte><name>${esc(trip.name)}</name>\n${pts}\n </rte>\n` : ''}${trks}\n</gpx>\n`;
 }
 async function shareFile(name, text, type){
   const file = new File([text], name, { type });
@@ -936,22 +1416,30 @@ $('#file').onchange = async e => {
     let t;
     if (/\.gpx$/i.test(f.name) || text.trimStart().startsWith('<')){
       const x = new DOMParser().parseFromString(text, 'application/xml');
-      let pts = [...x.getElementsByTagName('rtept')];
-      if (!pts.length) pts = [...x.getElementsByTagName('trkpt')];
-      if (!pts.length) pts = [...x.getElementsByTagName('wpt')];
-      if (!pts.length) throw new Error('No points found in GPX');
-      if (pts.length > 200) pts = pts.filter((_, i) => i % Math.ceil(pts.length / 200) === 0);
-      t = newTrip();
+      const ll = p => [+(+p.getAttribute('lat')).toFixed(6), +(+p.getAttribute('lon')).toFixed(6)];
+      const rte = [...x.getElementsByTagName('rtept')], trk = [...x.getElementsByTagName('trkpt')], wpt = [...x.getElementsByTagName('wpt')];
+      t = newTrip(trip?.activity || 'paddle');
       t.name = x.querySelector('rte>name,trk>name,metadata>name')?.textContent?.trim() || f.name.replace(/\.gpx$/i, '');
-      t.route = pts.map(p => [+(+p.getAttribute('lat')).toFixed(6), +(+p.getAttribute('lon')).toFixed(6)]);
+      // A timed track is kept as a recorded track; the route comes from route points, else a simplified track.
+      const timed = trk.filter(p => p.getElementsByTagName('time')[0]);
+      if (timed.length > 1){
+        const pts = timed.map(p => { const e = p.getElementsByTagName('ele')[0]; return [...ll(p), Date.parse(p.getElementsByTagName('time')[0].textContent), e ? Math.round(+e.textContent * 3.28084) : null]; });
+        t.tracks.push({ id: uid(), start: pts[0][2], end: pts[pts.length - 1][2], pts });
+        t.date = new Date(pts[0][2]).toISOString().slice(0, 10);
+      }
+      let pts = rte.length ? rte.map(ll) : trk.length ? trk.map(ll) : wpt.map(ll);
+      if (!pts.length) throw new Error('No points found in GPX');
+      if (!rte.length && pts.length > 60){ let tol = 0.002; let s = simplify(pts, tol); while (s.length > 60) s = simplify(pts, tol *= 1.6); pts = s; }
+      t.route = pts;
     } else {
       const j = JSON.parse(text); t = j.trip || j;
-      if (!Array.isArray(t.route) || !t.date) throw new Error('Not a Paddle trip file');
+      if (!Array.isArray(t.route) || !t.date) throw new Error('Not an Outback trip file');
+      t.name = String(t.name || f.name.replace(/\.json$/i, ''));
       t.id = t.id || newTrip().id;
       if (await idb.get('trips', t.id)) t.id = newTrip().id;
     }
     t.updated = Date.now();
-    await idb.put('trips', t); stopPaddle(); openTrip(t); toast('Imported ' + t.name);
+    await idb.put('trips', t); await openTrip(t); toast('Imported ' + t.name);
   }catch(err){ toast('Import failed: ' + err.message, 4000); }
 };
 
@@ -961,11 +1449,12 @@ $('#file').onchange = async e => {
   try{ if (last) t = await idb.get('trips', last); }catch{}
   if (!t){ t = newTrip(); try{ await idb.put('trips', t); }catch{} }
   await openTrip(t);
-  if (ymd(new Date()) === trip.date) setNow();
+  if (todayIso() === trip.date) setNow();
   else render();
+  for (const id of settings.shownMaps || []){ try{ const m = await idb.get('trailMaps', id); if (m) showTrailMap(m, true); }catch{} }
 })();
-addEventListener('resize', () => render());
-addEventListener('offline', () => toast('Offline. Saved trips still work.'));
+addEventListener('resize', () => { if (trip) render(); });
+addEventListener('offline', () => toast('Offline. Saved trips and maps still work.'));
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
