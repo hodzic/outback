@@ -4,7 +4,7 @@ const fs = require('fs'), path = require('path');
 const { open, waitForecast, seedRoute, ready, view, OUT } = require('./harness');
 require('./make-pdf')(OUT);
 // New trip from the Trips view; it lands on the map in draw mode, so finish drawing.
-const newTrip = async (page, kind) => { await view(page, 0); await page.click(kind === 'hike' ? '#newHike' : '#newPaddle'); await page.waitForTimeout(500); await page.click('#doneBtn'); };
+const newTrip = async (page, kind) => { await view(page, 0); await page.click({ hike: '#newHike', bike: '#newBike', paddle: '#newPaddle' }[kind]); await page.waitForTimeout(500); await page.click('#doneBtn'); };
 const DIABLO = [[37.870, -121.930], [37.880, -121.915], [37.882, -121.900]];
 const GG = [[37.80, -122.45], [37.81, -122.42], [37.82, -122.40]];
 
@@ -22,7 +22,7 @@ module.exports = async (browser, url, check) => {
     c('hike activity selected', (await page.text('#actSel .on')) === 'Hike');
     c('terrain choices', (await page.locator('#envSel button').allInnerTexts()).join() === 'Auto,Trail,Coast');
     c('hike distances in miles', (await page.text('#dist')).endsWith(' mi'), await page.text('#dist'));
-    c('speed in mph', /mph/.test(await page.text('#spdK')) && await page.inputValue('#speed') === '2.5');
+    c('hike speed 2.5 mph', (await page.text('#spd')) === '2.5 mph', await page.text('#spd'));
     await page.click('#fcBtn'); await waitForecast(page);
     c('inland hike detected as trail', await page.evaluate(() => trip.env) === 'trail');
     c('no tide cells on a trail', !(await page.isVisible('#tideV')) && !(await page.isVisible('#curV')));
@@ -81,13 +81,16 @@ module.exports = async (browser, url, check) => {
     c('track Map button shows it on the map', await page.evaluate(() => state.view) === 2);
     c('no page errors (tracks)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
-  { // out-and-back, reverse, Go with a route
+  { // clear waypoints, kayak icon, Go with a route
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
-    await page.click('#outBack');
-    c('out-and-back adds return legs', await page.evaluate(() => trip.route.length === 5 && trip.route[4].join() === trip.route[0].join()));
-    await page.click('#reverse');
-    c('reverse route', await page.evaluate(() => trip.route[1].join()) === GG[1].join());
+    c('no out-and-back or reverse buttons', await page.locator('#outBack, #reverse').count() === 0);
+    await page.click('#clearRoute'); await page.waitForTimeout(200);
+    c('clear waypoints empties the route', await page.evaluate(() => trip.route.length) === 0 && /0\.0 nm/.test(await page.text('#dist')));
+    c('clear is disabled with no waypoints', await page.isDisabled('#clearRoute'));
+    await view(page, 0);
+    c('paddle trips show a kayak icon', await page.locator('#tripList .trip .ic svg').count() >= 1 && await page.locator('#tripList .trip', { hasText: '🛶' }).count() === 0);
+    await seedRoute(page, GG); await view(page, 1);
     await page.click('#editRoute'); await page.waitForTimeout(500);
     c('Edit route opens the map in draw mode', await page.evaluate(() => state.view === 2 && state.drawing));
     await page.click('#doneBtn');
@@ -106,7 +109,46 @@ module.exports = async (browser, url, check) => {
     await page.reload(); await ready(page);
     c('legacy trip opens', (await page.text('#tabTrip')) === 'Old paddle');
     c('legacy tidal water -> bay', await page.evaluate(() => trip.activity === 'paddle' && trip.env === 'bay' && trip.envSet === true && Array.isArray(trip.tracks)));
-    c('legacy speed setting migrated', await page.evaluate(() => settings.speeds.paddle) === 3.5);
+    c('legacy speed setting migrated', await page.evaluate(() => settings.speedsKt.paddle) === 3.5);
+    await ctx.close(); }
+
+  { // biking: street map, surfaces, elevation, mph
+    const { ctx, page, errors } = await open(browser, url);
+    await page.goto(url); await ready(page);
+    await newTrip(page, 'bike');
+    c('new bike trip', await page.evaluate(() => trip.activity === 'bike' && trip.name === 'New bike'));
+    c('bike uses the street map', (await page.text('#layerBtn')) === 'Street', await page.text('#layerBtn'));
+    await seedRoute(page, DIABLO); await view(page, 1);
+    c('bike activity selected', (await page.text('#actSel .on')) === 'Bike');
+    c('bike surfaces, no auto-detect', (await page.locator('#envSel button').allInnerTexts()).join() === 'Road,Gravel,Mountain bike' && await page.evaluate(() => trip.env) === 'road');
+    c('bike speed 10 mph', (await page.text('#spd')) === '10 mph', await page.text('#spd'));
+    await page.click('#fcBtn'); await waitForecast(page);
+    c('bike gets elevation, no tides', /^\+[\d,]+ ft/.test(await page.text('#elevV')) && !(await page.isVisible('#tideV')));
+    c('bike climb adds 1 h per 3000 ft', await page.evaluate(() => { const es = elevStats(); return Math.abs(hoursFor(routeNm(trip.route), es.up) - (routeNm(trip.route) / settings.speedsKt.bike + es.up / 3000)) < 1e-9; }));
+    await page.click('#envSel [data-env=gravel]');
+    c('pick gravel', await page.evaluate(() => trip.env) === 'gravel');
+    await view(page, 0);
+    c('bike icon in the list', await page.locator('#tripList .trip', { hasText: 'New bike' }).locator('svg').count() === 1);
+    c('no page errors (bike)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
+  { // per-activity distance unit and speed in Settings
+    const { ctx, page } = await open(browser, url);
+    await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 0);
+    await page.click('#vTrips details summary >> text=Settings');
+    c('settings row per activity', await page.locator('#actSettings tr').count() === 3);
+    c('defaults nm / mi / mi', (await page.$$eval('#actSettings select', ss => ss.map(s => s.value))).join() === 'nm,mi,mi');
+    const nm = await page.evaluate(() => routeNm(trip.route));
+    await page.selectOption('[data-unit=paddle]', 'km');
+    c('paddle in km', (await page.text('#dist')) === (nm * 1.852).toFixed(1) + ' km', await page.text('#dist'));
+    c('speed converts with the unit', await page.inputValue('[data-speed=paddle]') === '5.6' && (await page.text('#spd')) === '5.6 km/h', await page.inputValue('[data-speed=paddle]'));
+    c('wind follows the unit', /km\/h|–/.test(await page.text('#windV')));
+    await page.fill('[data-speed=paddle]', '7.4'); await page.dispatchEvent('[data-speed=paddle]', 'change');
+    c('speed saved in knots', Math.abs(await page.evaluate(() => settings.speedsKt.paddle) - 7.4 / 1.852) < 1e-9);
+    await page.selectOption('[data-unit=hike]', 'km');
+    c('other activities keep their own unit', await page.evaluate(() => settings.units.paddle === 'km' && settings.units.hike === 'km' && settings.units.bike === 'mi'));
+    c('list uses each trip\'s unit', / km/.test(await page.text('#tripList')));
+    await page.reload(); await ready(page);
+    c('units persist', await page.evaluate(() => settings.units.paddle) === 'km' && / km$/.test(await page.text('#dist')));
     await ctx.close(); }
 
   { // settings live in the Trips view

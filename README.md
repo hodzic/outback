@@ -9,12 +9,12 @@ Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over 
 
 Three views; swipe between them or use the tabs at the bottom.
 
-1. **Trips**: your trips (newest date first), *+ Paddle* / *+ Hike*, import a trip or GPX,
-   settings (magnetic variation, gust warning) and about.
+1. **Trips**: your trips (newest date first), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
+   settings (distance unit and speed per activity, magnetic variation, gust warning) and about.
 2. **Trip**: everything about the selected trip:
-   - name, activity (Paddle / Hike), date, water or terrain (auto-detected, or pick one)
-   - route: length, duration, speed, waypoint table, *Out-and-back*, *Reverse*, *Edit route on map*
-   - forecast for the day: tide and current graph, wind, pressure, lightning, sun, elevation for hikes.
+   - name, activity (Paddle / Hike / Bike), date, water or terrain (auto-detected, or pick one)
+   - route: length, duration, speed, waypoint table, *Edit route on map*, *Clear waypoints*
+   - forecast for the day: tide/wind graph (tap or drag it to pick a time; *Now* jumps to now), wind, pressure, lightning, sun, elevation for hikes.
      *Get forecast* also saves the map around the route for offline use.
    - recorded tracks (show on map, use as route, delete), export GPX or trip file, delete trip
 3. **Map**: the route, *Draw*, *Go* (navigate and record a track), live location ◎,
@@ -23,11 +23,15 @@ Three views; swipe between them or use the tabs at the bottom.
 
 ## What it does
 
-- **Activities**: *Paddle* (nautical miles, knots, NOAA chart) and *Hike* (miles, mph, USGS topo).
-- **Water / terrain**: ocean, bay, slough, river, lake for paddling; trail or coast for hiking.
+- **Activities**: *Paddle* (NOAA chart), *Hike* (USGS topo) and *Bike* (street map). Each has its own
+  distance unit (nautical miles, miles or kilometres) and speed in Settings; wind uses the same unit.
+  Defaults: paddle 3 kt, hike 2.5 mph, bike 10 mph.
+- **Water / terrain / surface**: ocean, bay, slough, river, lake for paddling; trail or coast for hiking;
+  road, gravel or mountain bike for biking.
   Tides for ocean, bay, slough and coast; currents for ocean, bay and slough.
 - **Times** are in the trip location's time zone.
-- **Hiking**: elevation profile and total climb (Open-Meteo); time estimates add 1 hour per 2000 ft (Naismith).
+- **Hiking and biking**: elevation profile and total climb (Open-Meteo); time estimates add 1 hour per
+  2000 ft of climb for hiking (Naismith) and per 3000 ft for biking.
 - **Go** navigates waypoint to waypoint (distance, bearing, speed, finish time) and records a GPS track,
   saved with the trip. Go without a route just records.
 - **PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or
