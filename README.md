@@ -5,31 +5,34 @@ route, forecast, maps and your recorded tracks all live on the phone.
 
 Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over (same storage names).
 
+## How it's laid out
+
+Three views; swipe between them or use the tabs at the bottom.
+
+1. **Trips**: your trips (newest date first), *+ Paddle* / *+ Hike*, import a trip or GPX,
+   settings (magnetic variation, gust warning) and about.
+2. **Trip**: everything about the selected trip:
+   - name, activity (Paddle / Hike), date, water or terrain (auto-detected, or pick one)
+   - route: length, duration, speed, waypoint table, *Out-and-back*, *Reverse*, *Edit route on map*
+   - forecast for the day: tide and current graph, wind, pressure, lightning, sun, elevation for hikes.
+     *Get forecast* also saves the map around the route for offline use.
+   - recorded tracks (show on map, use as route, delete), export GPX or trip file, delete trip
+3. **Map**: the route, *Draw*, *Go* (navigate and record a track), live location ◎,
+   map layer (Chart / Street / Topo) and **PDF** map overlays.
+   On the map a horizontal swipe pans the map; use the tabs or the trip name to leave it.
+
 ## What it does
 
 - **Activities**: *Paddle* (nautical miles, knots, NOAA chart) and *Hike* (miles, mph, USGS topo).
-- **Water / terrain**: ocean, bay, slough/estuary, river, lake for paddling; trail or coast/beach for hiking.
-  Auto-detected from the nearest NOAA tide station on *Get forecast*, or set it under ☰.
-  - Tides: ocean, bay, slough, coast. Currents: ocean, bay, slough.
-- **Forecast for the trip day**: tide and current curves, wind and gusts, pressure trend, lightning
-  (NWS thunder probability, else estimated), sunrise/sunset. Times are in the trip location's time zone.
-- **Hiking**: elevation profile along the route (Open-Meteo), total climb, and time estimates that add
-  1 hour per 2000 ft of climb (Naismith).
-- **Routes**: tap to draw, drag to move, leg distance/bearing (magnetic)/time, *Make it out-and-back*
-  (adds return legs), *Reverse route*.
-- **Go**: navigate waypoint to waypoint (distance, bearing, speed, finish time) and **record a GPS track**,
-  saved with the trip. Go without a route just records. A track can become a route (*Use as route*).
-  Tracks export in the GPX; timed GPX tracks import as tracks.
-- **Live location**: ◎ shows and follows you; pan away to stop following, tap again to re-centre,
-  tap while following to turn location off.
-- **Offline maps** (from the GPS Map app):
-  - *Get forecast* saves the map around your route automatically.
-  - *Save the map area on screen*: name it, pick a detail level, see the tile estimate first.
-  - *PDF trail maps*: import a park brochure PDF; it is placed from GeoPDF metadata or printed
-    "GPS Coordinates" labels when present, then you drag 4 points (or the centre) to line it up.
-    Opacity slider on the right. *Adjust* any time later.
-  - *Copy from GPS Map*: GPS Map runs on the same origin (`hodzic.github.io`), so its saved areas and
-    trail maps can be copied in with one tap.
+- **Water / terrain**: ocean, bay, slough, river, lake for paddling; trail or coast for hiking.
+  Tides for ocean, bay, slough and coast; currents for ocean, bay and slough.
+- **Times** are in the trip location's time zone.
+- **Hiking**: elevation profile and total climb (Open-Meteo); time estimates add 1 hour per 2000 ft (Naismith).
+- **Go** navigates waypoint to waypoint (distance, bearing, speed, finish time) and records a GPS track,
+  saved with the trip. Go without a route just records.
+- **PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or
+  printed "GPS Coordinates" labels when present, then you drag 4 points (or the centre) to line it up.
+  Opacity slider on the right. PDF maps saved in GPS Map (same origin) can be copied in.
 
 Not for navigation. Check official forecasts and conditions before you set out.
 
