@@ -1,7 +1,7 @@
 {
-  "name": "Paddle",
-  "short_name": "Paddle",
-  "description": "Kayak trip planning and navigation: tides, currents, wind, sun, routes. Works offline.",
+  "name": "Outback",
+  "short_name": "Outback",
+  "description": "Out-and-back trip planning and navigation for paddling and hiking: tides, currents, wind, elevation, sun, routes, tracks and offline maps.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

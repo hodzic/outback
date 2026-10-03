@@ -7,7 +7,8 @@ module.exports = async (browser, url, check) => {
   page.promptAnswer = 'Golden Gate loop';
   await page.goto(url); await page.waitForFunction(() => typeof trip !== 'undefined' && trip);
   c('loads with a new trip', (await page.text('#tripBtn')) === 'New trip');
-  c('status asks for a forecast', (await page.text('#status')).includes('No forecast'));
+  c('app is named Outback', (await page.title()) === 'Outback');
+  c('status asks for a forecast', /no forecast/i.test(await page.text('#status')));
   c('sun times computed offline', /\d.*–.*\d/.test(await page.text('#sunV')), await page.text('#sunV'));
 
   await page.click('#drawBtn');
@@ -21,6 +22,7 @@ module.exports = async (browser, url, check) => {
   c('panel minimized while drawing', await page.evaluate(() => document.querySelector('#panel').classList.contains('min')));
   await page.click('#mini');
   c('legs summary', (await page.text('#legs')).startsWith('2 legs'), await page.text('#legs'));
+  c('paddle distances in nm', (await page.text('#dist')).endsWith(' nm'));
   c('distance > 0', parseFloat(await page.text('#dist')) > 0, await page.text('#dist'));
 
   await page.click('#fcBtn'); await waitForecast(page); await page.waitForTimeout(200);
@@ -32,6 +34,7 @@ module.exports = async (browser, url, check) => {
   c('wind value', /kt/.test(await page.text('#windV')), await page.text('#windV'));
   c('pressure value', /mb/.test(await page.text('#presV')), await page.text('#presV'));
   c('lightning from NWS', /%/.test(await page.text('#ltgV')), await page.text('#ltgV'));
+  c('tidal water detected as bay', await page.evaluate(() => trip.env) === 'bay');
   c('trip time zone learned', await page.evaluate(() => trip.tz) === 'America/Los_Angeles');
   await page.screenshot({ path: path.join(OUT, 'core-forecast.png') });
 
@@ -78,7 +81,7 @@ module.exports = async (browser, url, check) => {
   await page.setInputFiles('#file', path.join(OUT, 'tahoe.gpx')); await page.waitForTimeout(600);
   c('GPX import', (await page.text('#tripBtn')) === 'Tahoe test' && await page.locator('.wp').count() === 3, await page.text('#tripBtn'));
   await page.click('#fcBtn'); await waitForecast(page);
-  c('no tide stations nearby -> lake', await page.evaluate(() => trip.water) === 'lake');
+  c('no tide stations nearby -> lake', await page.evaluate(() => trip.env) === 'lake');
   c('tidal cells hidden on a lake', !(await page.isVisible('#tideV')));
   c('lake switches chart layer to topo', (await page.text('#layerBtn')) === 'Topo', await page.text('#layerBtn'));
 
@@ -94,7 +97,7 @@ module.exports = async (browser, url, check) => {
   await page.click('#sheet [data-close]');
 
   await page.fill('#date', '2026-12-10'); await page.dispatchEvent('#date', 'change');
-  c('date change clears forecast', (await page.text('#status')).includes('No forecast'));
+  c('date change clears forecast', /no forecast/i.test(await page.text('#status')));
   c('no page errors', errors.length === 0, errors.join(' | '));
   await ctx.close();
 };

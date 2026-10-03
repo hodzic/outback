@@ -1,4 +1,6 @@
 // Shared test plumbing: static server for the repo, browser contexts with mocked network, and a tiny check() log.
+// Let page.route() mocks also see service-worker fetches (Leaflet from the CDN, tiles).
+process.env.PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS = '1';
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium } = require('playwright');
 const { install } = require('./mocks');

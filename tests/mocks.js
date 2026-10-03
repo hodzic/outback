@@ -46,6 +46,10 @@ async function install(ctx, opts = {}){
 
   await ctx.route('https://api.open-meteo.com/**', r => {
     const u = new URL(r.request().url());
+    if (u.pathname.endsWith('/elevation')){ // a single hill: 200 m up to 500 m and back down
+      const n = u.searchParams.get('latitude').split(',').length;
+      return json(r, { elevation: Array.from({ length: n }, (_, i) => 200 + 300 * Math.sin(Math.PI * i / Math.max(1, n - 1))) });
+    }
     const auto = u.searchParams.get('timezone') === 'auto';
     const zone = auto ? (opts.tz || 'America/Los_Angeles') : 'GMT', off = auto ? (opts.tzOffset ?? -25200) : 0;
     const s = Date.parse(u.searchParams.get('start_date') + 'T00:00Z'), e = Date.parse(u.searchParams.get('end_date') + 'T23:00Z');

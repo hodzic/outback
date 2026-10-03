@@ -1,7 +1,10 @@
-// Paddle service worker: app shell + offline map tiles
-const SHELL = 'paddle-shell-v5';
-const TILES = 'paddle-tiles';
-const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+// Outback service worker: app shell + offline map tiles.
+// hodzic.github.io hosts several apps on one origin and they share Cache Storage,
+// so only ever delete caches this app owns (old Paddle/Outback shell versions).
+const SHELL = 'outback-shell-v1';
+const TILES = 'paddle-tiles'; // name kept so tiles saved before the rename stay usable
+const OWN = k => /^(paddle|outback)-shell-/.test(k);
+const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './pdfmap.js', './vendor/Leaflet.ImageOverlay.Rotated.js'];
 const REMOTE = [
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'
@@ -20,7 +23,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== SHELL && k !== TILES) await caches.delete(k);
+    for (const k of await caches.keys()) if (OWN(k) && k !== SHELL) await caches.delete(k);
     await self.clients.claim();
   })());
 });
@@ -30,28 +33,29 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 
-  // Map tiles: cache first, store whatever we see
-  if (TILE_HOSTS.includes(url.hostname)) {
+  // Map tiles: cache first (any cache on this origin, so GPS Map's saved tiles count too), store what we see
+  if (TILE_HOSTS.includes(url.hostname)){
     e.respondWith((async () => {
-      const c = await caches.open(TILES);
-      const hit = await c.match(req.url);
+      const hit = await caches.match(req.url);
       if (hit) return hit;
-      try {
+      try{
         const r = await fetch(req);
-        if (r.ok || r.type === 'opaque') c.put(req.url, r.clone());
+        if (r.ok || r.type === 'opaque') (await caches.open(TILES)).put(req.url, r.clone());
         return r;
-      } catch { return new Response('', { status: 504 }); }
+      }catch{ return new Response('', { status: 504 }); }
     })());
     return;
   }
 
-  // App shell + libraries + fonts: cache first, refresh in background
-  if (url.origin === location.origin || STATIC_HOSTS.includes(url.hostname)) {
+  // App shell + libraries + fonts: cache first, refresh in background.
+  // Only this app's own folder: other apps on the origin have their own workers.
+  const scope = new URL(self.registration.scope);
+  if ((url.origin === location.origin && url.pathname.startsWith(scope.pathname)) || STATIC_HOSTS.includes(url.hostname)){
     e.respondWith((async () => {
       const c = await caches.open(SHELL);
       const hit = await c.match(req, { ignoreSearch: url.origin === location.origin });
       const net = fetch(req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; }).catch(() => null);
-      if (hit) { e.waitUntil(net); return hit; }
+      if (hit){ e.waitUntil(net); return hit; }
       const r = await net;
       if (r) return r;
       if (req.mode === 'navigate') return (await c.match('./index.html')) || new Response('Offline', { status: 503 });

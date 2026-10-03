@@ -41,7 +41,7 @@ module.exports = async (browser, url, check) => {
     await ctx.setGeolocation({ latitude: 37.8101, longitude: -122.4201 }); await page.waitForTimeout(800);
     c('reaching a waypoint advances', (await page.text('#navTo')) === 'To 3', await page.text('#navTo'));
     await ctx.setGeolocation({ latitude: 37.82, longitude: -122.40 }); await page.waitForTimeout(800);
-    c('arrival detected', (await page.text('#navLeft')) === 'Arrived', await page.text('#navLeft'));
+    c('arrival detected', (await page.text('#navLeft')).startsWith('Arrived'), await page.text('#navLeft'));
     await page.click('#stopBtn'); await page.click('#goBtn'); await page.waitForTimeout(600);
     c('restart resets to waypoint 2', (await page.text('#navTo')) === 'To 2');
     await page.click('#stopBtn');
@@ -58,7 +58,7 @@ module.exports = async (browser, url, check) => {
 
   { const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page);
-    for (let i = 0; i < 2; i++){ await page.click('#menuBtn'); await page.click('#mNew'); await page.waitForTimeout(200); }
+    for (let i = 0; i < 2; i++){ await page.click('#menuBtn'); await page.click('#mNew'); await page.click('[data-newact=paddle]'); await page.waitForTimeout(200); }
     await page.click('#menuBtn'); await page.click('#mTrips'); await page.waitForSelector('#sheet .item');
     const n0 = await page.locator('#sheet .item').count();
     await page.locator('#sheet [data-rm]').last().click(); await page.waitForTimeout(400);
