@@ -39,6 +39,13 @@ module.exports = async (browser, url, check) => {
   c('current station deduped to shallowest bin', await page.evaluate(() => state.nearby.current.find(s => s.id === 'SFB1201')?.bin === 2));
   c('current value', /kt|Slack/.test(await page.text('#curV')), await page.text('#curV'));
   c('wind value', /kt/.test(await page.text('#windV')), await page.text('#windV'));
+  const tv = await page.text('#tempV'), m = tv.match(/Low (\d+)° · High (\d+)°F/);
+  c('day low and high temperature shown', !!m && +m[1] <= +m[2], tv);
+  c('low/high is the trip day only', await page.evaluate(() => { const d = dayTemps(), w = trip.data.wx, t0 = dayStart();
+    const v = w.temp.filter((_, i) => w.t[i] >= t0 && w.t[i] < t0 + 864e5); return d.lo === Math.min(...v) && d.hi === Math.max(...v); }));
+  c('temperature at the selected time', /°F at \d/.test(await page.text('#tempS')), await page.text('#tempS'));
+  c('temperature is the first, full-width reading', await page.evaluate(() => document.querySelector('.read').firstElementChild.id === '' && document.querySelector('.read .cell').classList.contains('tempc')));
+  c('map summary shows the range', /\d+°–\d+°/.test(await page.text('#mini')), await page.text('#mini'));
   c('pressure value', /mb/.test(await page.text('#presV')), await page.text('#presV'));
   c('lightning from NWS', /%/.test(await page.text('#ltgV')), await page.text('#ltgV'));
   c('trip time zone learned', await page.evaluate(() => trip.tz) === 'America/Los_Angeles');
