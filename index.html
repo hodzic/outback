@@ -91,6 +91,10 @@ table.acts td,table.acts th{padding:5px 3px}
 .v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
 #status{margin:6px 0;font-size:13px;color:var(--muted)}
 #status.warn{color:var(--warn)}
+.help h3{font-size:15px;margin:12px 0 4px}
+.help p,.help li{font-size:14px;line-height:1.45}
+.help ol,.help ul{margin:0;padding-left:20px}
+.help li{margin:3px 0}
 .track{display:flex;align-items:center;gap:6px;padding:8px 0;border-bottom:1px solid var(--line)}
 .track .grow{flex:1;min-width:0} .track small{display:block;color:var(--muted)}
 
@@ -169,6 +173,29 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card" style="margin-top:16px"><summary>Settings</summary>
         <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
+      </details>
+      <details class="card help" id="helpOffline"><summary>Help: using it offline</summary>
+        <p>Outback works offline once each trip has been prepared while you still have a connection.</p>
+        <h3>Before you leave</h3>
+        <ol>
+          <li>Open the trip, choose the map layer you'll use (Chart, Street or Topo), then tap <b>Get forecast</b>. Wait until the status says the map was saved offline.</li>
+          <li>Open the Map view once and zoom in to the detail you'll want.</li>
+          <li>Add the app to your home screen. iPhones can clear saved data for websites that aren't installed and haven't been used for a while.</li>
+        </ol>
+        <h3>Works offline</h3>
+        <ul>
+          <li><b>The app itself</b>, once you've opened it online.</li>
+          <li><b>Your trips</b>: routes, settings, recorded tracks and PDF maps are stored on the phone.</li>
+          <li><b>The forecast you already fetched</b>: tides, currents, wind, pressure, lightning and elevation. It can't refresh; the status line says when it was fetched.</li>
+          <li><b>GPS</b>: your location, Go and track recording use satellites, not data. Keep the screen on while recording.</li>
+          <li><b>Map tiles</b> that Get forecast saved around the route, and areas you've already looked at.</li>
+        </ul>
+        <h3>Needs a connection</h3>
+        <ul>
+          <li>Getting or refreshing a forecast, or changing tide stations.</li>
+          <li>Map areas you haven't saved or viewed, and map layers you didn't save (Get forecast saves only the layer selected at the time).</li>
+          <li>Importing your first PDF map (the PDF reader downloads on first use). PDF maps you've imported show fine offline.</li>
+        </ul>
       </details>
       <details class="card"><summary>About</summary>
         <p class="muted">Plan an out-and-back paddle or hike online, then take it offline. Tides and currents: NOAA CO-OPS. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA charts, OpenStreetMap, USGS topo, and your own PDF maps. Hiking times add 1 hour per 2000 ft of climb. Tracks record while Go is on and the screen is awake.</p>

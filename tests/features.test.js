@@ -159,6 +159,15 @@ module.exports = async (browser, url, check) => {
     c('units persist', await page.evaluate(() => settings.units.paddle) === 'km' && / km$/.test(await page.text('#dist')));
     await ctx.close(); }
 
+  { // offline help on the Trips view
+    const { ctx, page } = await open(browser, url);
+    await page.goto(url); await ready(page); await view(page, 0);
+    c('offline help is collapsed at first', !(await page.isVisible('#helpOffline ol')));
+    await page.click('#helpOffline summary');
+    const t = await page.text('#helpOffline');
+    c('offline help explains preparing, offline and online parts', /Before you leave/.test(t) && /Works offline/.test(t) && /Needs a connection/.test(t) && /Get forecast/.test(t), t.slice(0, 80));
+    await ctx.close(); }
+
   { // settings live in the Trips view
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);

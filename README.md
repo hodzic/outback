@@ -10,7 +10,7 @@ Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over 
 Three views; swipe between them or use the tabs at the bottom.
 
 1. **Trips**: your trips (newest date first), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
-   settings (distance unit, speed and gust warning per activity; magnetic variation) and about.
+   settings (distance unit, speed and gust warning per activity; magnetic variation), offline help and about.
 2. **Trip**: everything about the selected trip:
    - name, date (with the weekday), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
    - route: length, duration, speed, waypoint table, *Edit route on map*, *Clear waypoints*
