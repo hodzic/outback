@@ -32,6 +32,8 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Times** are in the trip location's time zone.
 - **Hiking and biking**: elevation profile and total climb (Open-Meteo); time estimates add 1 hour per
   2000 ft of climb for hiking (Naismith) and per 3000 ft for biking.
+- **GPX import**: route points become the trip's route (simplified to at most 100 waypoints, keeping the shape
+  within a few metres); a timed track is kept as a recorded track.
 - **Go** navigates waypoint to waypoint (distance, bearing, speed, finish time) and records a GPS track,
   saved with the trip. Go without a route just records.
 - **PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or

@@ -64,6 +64,39 @@ module.exports = async (browser, url, check) => {
     await page.waitForTimeout(500);
     c('edit before switching trip is saved', await page.evaluate(async id => (await idb.get('trips', id)).route.length, id) === 1); await ctx.close(); }
 
+  { // big GPX routes (thousands of <rtept>) used to make every redraw take over a second
+    const fs = require('fs'), path = require('path'), { OUT } = require('./harness');
+    const N = 3000, pts = Array.from({ length: N }, (_, i) => { const a = i / (N - 1) * Math.PI; return [37.80 + 0.03 * Math.sin(a), -122.45 + 0.08 * i / (N - 1)]; });
+    fs.writeFileSync(path.join(OUT, 'big-route.gpx'), `<gpx><rte><name>Big route</name>${pts.map(p => `<rtept lat="${p[0]}" lon="${p[1]}"/>`).join('')}</rte></gpx>`);
+    const { ctx, page, errors } = await open(browser, url);
+    await page.goto(url); await ready(page);
+    const t0 = Date.now();
+    await page.setInputFiles('#file', path.join(OUT, 'big-route.gpx'));
+    await page.waitForFunction(() => trip.name === 'Big route', null, { timeout: 20000 });
+    c('big route imports quickly', Date.now() - t0 < 3000, (Date.now() - t0) + ' ms');
+    const r = await page.evaluate(pts => ({ n: trip.route.length, first: trip.route[0].join(), last: trip.route[trip.route.length - 1].join(),
+      ratio: routeNm(trip.route) / routeNm(pts),
+      dev: Math.max(...pts.map(p => Math.min(...trip.route.slice(1).map((b, i) => { const a = trip.route[i], k = Math.cos(p[0] * Math.PI / 180);
+        const ax = a[1] * k, ay = a[0], bx = b[1] * k, by = b[0], px = p[1] * k, py = p[0], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+        const f = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0; return Math.hypot(px - ax - f * dx, py - ay - f * dy) * 60 * 1852; })))) }), pts);
+    c('big route simplified to at most 100 waypoints', r.n <= 100 && r.n >= 10, r.n);
+    c('start and finish kept', r.first === pts[0].map(v => +v.toFixed(6)).join() && r.last === pts[N - 1].map(v => +v.toFixed(6)).join());
+    c('shape kept within 10 m', r.dev < 10, r.dev.toFixed(1) + ' m');
+    c('length kept within 1%', Math.abs(r.ratio - 1) < 0.01, r.ratio.toFixed(4));
+    c('import says it simplified', /3,000 route points simplified/.test(await page.text('#toast')), await page.text('#toast'));
+    const ms = await page.evaluate(() => { const s = performance.now(); for (let i = 0; i < 10; i++) render(); return (performance.now() - s) / 10; });
+    c('redraw stays fast', ms < 50, ms.toFixed(1) + ' ms');
+    c('waypoint table only built when opened', await page.locator('#routeTable tr').count() === 0);
+    await page.click('#wpDetails summary'); await page.waitForFunction(() => document.querySelectorAll('#routeTable tr').length > 0);
+    c('waypoint table fills when opened', await page.locator('#routeTable tr').count() === r.n + 1);
+    // a trip saved with a huge route before this fix is simplified when opened
+    await page.evaluate(async pts => { await idb.put('trips', { id: 'huge', name: 'Huge', activity: 'paddle', env: null, envSet: false, date: '2026-10-04', route: pts, tracks: [], data: null, fetchedAt: null, updated: 1 }); }, pts);
+    await page.evaluate(async () => openTrip(await idb.get('trips', 'huge'))); await page.waitForTimeout(600);
+    c('old huge route simplified on open and saved', await page.evaluate(async () => trip.route.length <= 100 && (await idb.get('trips', 'huge')).route.length <= 100));
+    c('says it simplified the old route', /3,000 points; simplified/.test(await page.text('#toast')), await page.text('#toast'));
+    c('no errors with big routes', errors.length === 0, errors.join(' | '));
+    await ctx.close(); }
+
   { // service worker: shell + Leaflet cached, app opens offline
     const { ctx, page, errors } = await open(browser, url, { serviceWorkers: 'allow' });
     await page.goto(url); await ready(page);
