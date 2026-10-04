@@ -469,6 +469,9 @@ function simplify(pts, tol){
   }
   return pts.filter((_, i) => keep[i]);
 }
+// Routes are edited and navigated waypoint by waypoint; thousands of points (e.g. a GPX route
+// from a planner) make every redraw slow, so big routes are simplified to at most MAX_WPS.
+const MAX_WPS = 100;
 const simplifyTo = (pts, max) => { let tol = 0.002, r = simplify(pts, tol); while (r.length > max) r = simplify(pts, tol *= 1.6); return r; };
 
 /* ---------- sun (after SunCalc, V. Agafonkin, BSD) ---------- */
@@ -894,7 +897,7 @@ function render(){
   $('#spd').textContent = `${speed()} ${u().spd}`;
   $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''}${es ? ` · climb +${ft(es.up)}, adds ${fmtDur(es.up / act().climb)}` : hike ? ' · Get forecast for the climb' : ''}` : 'Tap Edit route to draw it on the map.';
   $('#clearRoute').disabled = !trip.route.length;
-  routeTable();
+  if ($('#wpDetails').open) routeTable();
   // forecast
   document.querySelectorAll('.cell.tidal').forEach(el => el.hidden = !tidal);
   $('.cell.curc').hidden = !hasCurrents();
@@ -983,6 +986,7 @@ function render(){
   drawChart(sun);
   if (state.going) updateNav();
 }
+$('#wpDetails').addEventListener('toggle', () => { if ($('#wpDetails').open) routeTable(); });
 function routeTable(){
   const r = trip.route;
   if (r.length < 2){ $('#routeTable').innerHTML = '<p class="muted">No route yet.</p>'; return; }
@@ -1195,6 +1199,10 @@ async function openTrip(t){
   if (state.going) stopGo();
   if (saveT && trip) await saveNow();
   trip = normTrip(t); state.next = 1; state.legs.clear(); state.showStations = false; LS.set('lastTrip', t.id);
+  if (trip.route.length > MAX_WPS * 1.5){ // imported before routes were simplified
+    const n0 = trip.route.length; trip.route = simplifyTo(trip.route, MAX_WPS); trip.updated = Date.now(); idb.put('trips', trip).catch(() => {});
+    setTimeout(() => toast(`This route had ${n0.toLocaleString()} points; simplified to ${trip.route.length} waypoints to keep the app fast.`, 5000), 300);
+  }
   setDrawing(false);
   drawRoute(); drawTracks(); drawStations(); render(); renderList();
   fitTrip();
@@ -1297,7 +1305,8 @@ function record(c, t){
   if (recLine) recLine.addLatLng([p[0], p[1]]); else drawTracks();
   if (k.pts.length - state.recSaved >= 20){ state.recSaved = k.pts.length; trip.updated = Date.now(); saveNow(); }
 }
-const trackNm = k => routeNm(k.pts);
+const trackLen = new WeakMap(); // track -> [point count, nm]; recomputed only when points are added
+const trackNm = k => { const c = trackLen.get(k); if (c && c[0] === k.pts.length) return c[1]; const nm = routeNm(k.pts); trackLen.set(k, [k.pts.length, nm]); return nm; };
 function trackLabel(k){
   const nm = trackNm(k), h = ((k.end || Date.now()) - k.start) / 36e5;
   return `${fmtD(nm, 2)} in ${fmtDur(h)}${h > 0.01 ? ' · avg ' + (dU(nm) / h).toFixed(1) + ' ' + u().spd : ''}`;
@@ -1487,7 +1496,9 @@ $('#file').onchange = async e => {
       }
       let pts = rte.length ? rte.map(ll) : trk.length ? trk.map(ll) : wpt.map(ll);
       if (!pts.length) throw new Error('No points found in GPX');
-      if (!rte.length && pts.length > 60) pts = simplifyTo(pts, 60);
+      const n0 = pts.length;
+      if (pts.length > (rte.length ? MAX_WPS : 60)) pts = simplifyTo(pts, rte.length ? MAX_WPS : 60);
+      if (rte.length && pts.length < n0) t.simplifiedFrom = n0;
       t.route = pts;
     } else {
       const j = JSON.parse(text); t = j.trip || j;
@@ -1497,7 +1508,9 @@ $('#file').onchange = async e => {
       if (await idb.get('trips', t.id)) t.id = newTrip().id;
     }
     t.updated = Date.now();
-    await idb.put('trips', t); await openTrip(t); showView(1); toast('Imported ' + t.name);
+    await idb.put('trips', t); await openTrip(t); showView(1);
+    toast(t.simplifiedFrom ? `Imported ${t.name}: ${t.simplifiedFrom.toLocaleString()} route points simplified to ${t.route.length} waypoints.` : 'Imported ' + t.name, t.simplifiedFrom ? 5000 : 2800);
+    delete t.simplifiedFrom;
   }catch(err){ toast('Import failed: ' + err.message, 4000); }
 };
 

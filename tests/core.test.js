@@ -63,7 +63,7 @@ module.exports = async (browser, url, check) => {
   c('chart tap sets time', (await page.text('#timeOut')).includes('6:00'), await page.text('#timeOut'));
   await page.click('#graphSel button[data-g=wind]'); await page.click('#graphSel button[data-g=tide]');
 
-  await page.click('#wpDetails summary');
+  await page.click('#wpDetails summary'); await page.waitForFunction(() => document.querySelectorAll('#routeTable tr').length > 0);
   c('waypoint table', await page.locator('#routeTable tr').count() === 4);
   c('speed shown in the Trip view', (await page.text('#spd')) === '3 kt', await page.text('#spd'));
   await page.fill('#tripName', 'Golden Gate loop'); await page.press('#tripName', 'Enter');
