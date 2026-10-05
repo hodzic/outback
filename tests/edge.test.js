@@ -33,18 +33,14 @@ module.exports = async (browser, url, check) => {
     c('wind sample matches trip-local hour', await page.evaluate(() => trip.data.wx.t.includes(tAt())));
     await ctx.close(); }
 
-  { const { ctx, page, errors } = await open(browser, url);
+  { // location button: moving position updates the dot, no navigation side effects
+    const { ctx, page, errors } = await open(browser, url);
     await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 2);
-    await page.click('#goBtn'); await page.waitForTimeout(800);
-    c('nav starts at waypoint 2', (await page.text('#navTo')) === 'To 2');
+    await page.click('#locBtn'); await page.waitForTimeout(600);
     await ctx.setGeolocation({ latitude: 37.8101, longitude: -122.4201 }); await page.waitForTimeout(800);
-    c('reaching a waypoint advances', (await page.text('#navTo')) === 'To 3', await page.text('#navTo'));
-    await ctx.setGeolocation({ latitude: 37.82, longitude: -122.40 }); await page.waitForTimeout(800);
-    c('arrival detected', (await page.text('#navLeft')).startsWith('Arrived'), await page.text('#navLeft'));
-    await page.click('#stopBtn'); await page.click('#goBtn'); await page.waitForTimeout(600);
-    c('restart resets to waypoint 2', (await page.text('#navTo')) === 'To 2');
-    await page.click('#stopBtn');
-    c('no errors in nav mode', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+    c('location follows position updates', await page.evaluate(() => Math.abs(state.pos[0] - 37.8101) < 1e-6) && /37\.81010/.test(await page.text('#coords')), await page.text('#coords'));
+    c('route unchanged by moving', await page.evaluate(() => trip.route.length) === 3 && await page.evaluate(() => trip.tracks.length) === 0);
+    c('no errors with location on', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 2); await seedRoute(page, GG);

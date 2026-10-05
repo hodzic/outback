@@ -1,7 +1,7 @@
 # Outback
 
 Plan an out-and-back paddle or hike while you have a connection, then take it offline:
-route, forecast, maps and your recorded tracks all live on the phone.
+route, forecast, maps and imported tracks all live on the phone.
 
 Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over (same storage names).
 
@@ -16,8 +16,8 @@ Three views; swipe between them or use the tabs at the bottom.
    - route: length, duration, speed, waypoint table, *Edit route on map*, *Clear waypoints*
    - forecast for the day: low and high temperature (large, at the top), tide/wind graph (tap or drag it to pick a time; *Now* jumps to now), wind, pressure, lightning, sun, elevation for hikes.
      *Get forecast* also saves the map around the route for offline use.
-   - recorded tracks (show on map, use as route, delete), export GPX or trip file, delete trip
-3. **Map**: the route, *Draw*, *Go* (navigate and record a track), live location ◎,
+   - tracks from imported GPX files (show on map, use as route, delete), export GPX or trip file, delete trip
+3. **Map**: the route, *Draw route*, live location ◎,
    map layer (Chart / Street / Topo) and **PDF** map overlays.
    On the map a horizontal swipe pans the map; use the tabs or the trip name to leave it.
 
@@ -34,8 +34,6 @@ Three views; swipe between them or use the tabs at the bottom.
   2000 ft of climb for hiking (Naismith) and per 3000 ft for biking.
 - **GPX import**: route points become the trip's route (simplified to at most 100 waypoints, keeping the shape
   within a few metres); a timed track is kept as a recorded track.
-- **Go** navigates waypoint to waypoint (distance, bearing, speed, finish time) and records a GPS track,
-  saved with the trip. Go without a route just records.
 - **PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or
   printed "GPS Coordinates" labels when present, then you drag 4 points (or the centre) to line it up.
   Opacity slider on the right. PDF maps saved in GPS Map (same origin) can be copied in.
@@ -53,7 +51,7 @@ The app works offline once each trip has been prepared while you still have a co
 - **The forecast you already fetched.** *Get forecast* saves tides, currents, wind, pressure, lightning and
   elevation with the trip. Offline you see that saved copy; it can't refresh, and the status line says when
   it was fetched.
-- **GPS.** Your location, *Go* and track recording use satellites, not data. Keep the screen on while recording.
+- **GPS.** Your location on the map (◎) uses satellites, not data.
 - **Map tiles:**
   - *Get forecast* saves the map around the route (a few miles beyond it), from region-wide down to fairly close zoom.
   - Areas you have already looked at while online are kept too.
