@@ -10,7 +10,7 @@ Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over 
 Three views; swipe between them or use the tabs at the bottom.
 
 1. **Trips**: your trips (newest date first), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
-   settings (distance unit, speed and gust warning per activity; magnetic variation), offline help and about.
+   settings (distance unit, speed and gust warning per activity; magnetic variation), install and offline help, and about.
 2. **Trip**: everything about the selected trip:
    - name, date (with the weekday), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
    - route: length, duration, speed, waypoint table, *Edit route on map*, *Clear waypoints*
@@ -44,6 +44,16 @@ Three views; swipe between them or use the tabs at the bottom.
   Opacity slider on the right. PDF maps saved in GPS Map (same origin) can be copied in.
 
 Not for navigation. Check official forecasts and conditions before you set out.
+
+## Installing on your phone
+
+**Android (Chrome):** open hodzic.github.io/paddle in Chrome, tap the ⋮ menu, then *Install app*
+(or *Add to Home screen*), then *Install*.
+
+**iPhone and iPad (Safari):** open hodzic.github.io/paddle in Safari, tap the *Share* button
+(square with an arrow), then *Add to Home Screen*, then *Add*.
+
+Then open Outback from its home screen icon: it runs full screen and keeps its offline data.
 
 ## Using it offline
 

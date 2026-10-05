@@ -7,6 +7,9 @@
 <title>Outback</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-title" content="Outback">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap">
 <style>
@@ -169,6 +172,22 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card" style="margin-top:16px"><summary>Settings</summary>
         <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
+      </details>
+      <details class="card help" id="helpInstall"><summary>Help: install on your phone</summary>
+        <p>Installing puts Outback on your home screen. It opens full screen and keeps its offline data.</p>
+        <h3>Android (Chrome)</h3>
+        <ol>
+          <li>Open <b>hodzic.github.io/paddle</b> in Chrome.</li>
+          <li>Tap the <b>⋮</b> menu, then <b>Install app</b> (or <b>Add to Home screen</b>).</li>
+          <li>Tap <b>Install</b>.</li>
+        </ol>
+        <h3>iPhone and iPad (Safari)</h3>
+        <ol>
+          <li>Open <b>hodzic.github.io/paddle</b> in Safari.</li>
+          <li>Tap the <b>Share</b> button (square with an arrow), then <b>Add to Home Screen</b>.</li>
+          <li>Tap <b>Add</b>.</li>
+        </ol>
+        <p>From then on, open Outback from its home screen icon.</p>
       </details>
       <details class="card help" id="helpOffline"><summary>Help: using it offline</summary>
         <p>Outback works offline once each trip has been prepared while you still have a connection.</p>

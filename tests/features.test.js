@@ -197,6 +197,17 @@ module.exports = async (browser, url, check) => {
     c('units persist', await page.evaluate(() => settings.units.paddle) === 'km' && / km$/.test(await page.text('#dist')));
     await ctx.close(); }
 
+  { // install help on the Trips view
+    const { ctx, page } = await open(browser, url);
+    await page.goto(url); await ready(page); await view(page, 0);
+    c('install help is collapsed at first', !(await page.isVisible('#helpInstall ol')));
+    await page.click('#helpInstall summary');
+    const t = await page.text('#helpInstall');
+    c('install help covers Android and iPhone', /Android \(Chrome\)/.test(t) && /Install app/.test(t) && /iPhone and iPad \(Safari\)/.test(t) && /Add to Home Screen/.test(t), t.slice(0, 80));
+    c('install help comes before offline help', await page.evaluate(() => document.querySelector('#helpInstall').nextElementSibling.id === 'helpOffline'));
+    c('iPhone home-screen icon and name set', await page.evaluate(() => !!document.querySelector('link[rel=apple-touch-icon]') && document.querySelector('meta[name=apple-mobile-web-app-title]').content === 'Outback'));
+    await ctx.close(); }
+
   { // offline help on the Trips view
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);
