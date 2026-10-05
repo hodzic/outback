@@ -52,6 +52,8 @@ module.exports = async (browser, url, check) => {
   c('status says the map is saved offline', /map saved offline/.test(await page.text('#status')), await page.text('#status'));
   await page.screenshot({ path: path.join(OUT, 'core-trip.png') });
 
+  // start from a fixed time, not 'now' (which could be 3:00 PM itself)
+  await page.evaluate(() => { state.tMin = 9 * 60; render(); });
   const before = await page.text('#tideV');
   c('no time slider; time and Now sit by the graph buttons', await page.locator('#time').count() === 0 && await page.evaluate(() => document.querySelector('#graphSel').parentElement.contains(document.querySelector('#nowBtn'))));
   await page.evaluate(() => { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width * 0.625, clientY: r.top + 30, pointerId: 1, bubbles: true })); });
@@ -79,10 +81,15 @@ module.exports = async (browser, url, check) => {
   c('reload restores trip and view', (await page.text('#tabTrip')) === 'Golden Gate loop' && await page.evaluate(() => state.view) === 1 && await page.locator('.wp').count() === 3);
   c('reload keeps forecast', /ft$/.test(await page.text('#tideV')));
 
-  // Map view: no Go / navigation, just Draw route
+  // Map view: Draw in the top bar
   await view(page, 2);
   c('no Go button or navigation strip', await page.locator('#goBtn, #nav, #stopBtn').count() === 0);
-  c('Draw route is the map action', (await page.text('#drawBtn')) === 'Draw route');
+  c('Draw sits in the top bar next to PDF and location', await page.evaluate(() => { const top = document.querySelector('.mtop'), d = document.querySelector('#drawBtn');
+    return top.contains(d) && d.nextElementSibling.id === 'mapsBtn' && document.querySelector('#mapsBtn').nextElementSibling.id === 'locBtn'; }));
+  c('top bar fits on a phone', await page.evaluate(() => { const r = document.querySelector('#locBtn').getBoundingClientRect(); return r.right <= innerWidth && document.querySelector('.mtop').scrollWidth <= innerWidth; }));
+  await page.click('#drawBtn');
+  c('Draw toggles draw mode and shows as on', await page.evaluate(() => state.drawing && document.querySelector('#drawBtn').classList.contains('on')));
+  await page.click('#doneBtn');
 
   // Trips view: import
   await view(page, 0);
