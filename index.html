@@ -293,7 +293,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <button id="layerBtn" class="pill">Chart</button>
       <button id="drawBtn" class="pill" aria-label="Edit the route">Route</button>
       <button id="mapsBtn" class="pill" aria-label="PDF map overlays">PDF</button>
-      <button id="locBtn" class="pill icon" aria-label="Show and follow my location">◎</button>
+      <button id="locBtn" class="pill icon" aria-label="Show my location">◎</button>
     </div>
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     <div id="drawBar" class="mbar" hidden><span class="txt">Tap the map to add waypoints, or Marker for a named point. Drag to move. Tap a waypoint to name it.</span>
@@ -520,7 +520,7 @@ function sunTimes(dateIso, lat, lng){
 
 /* ---------- state ---------- */
 const state = { legs: new Set(), tMin: 600, drawing: false, pos: null, watch: null,
-  follow: false, locating: false, showStations: false, nextWp: null, view: -1 };
+  follow: false, locating: false, anchor: null, showStations: false, nextWp: null, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
   return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), route: [], tracks: [], marks: [],
@@ -1318,25 +1318,35 @@ function maybeStopWatch(){
   if (state.locating || state.watch == null) return;
   navigator.geolocation.clearWatch(state.watch); state.watch = null;
 }
-function setFollow(on){ state.follow = on; locBtnState(); if (on && state.pos) map.setView(state.pos, Math.max(map.getZoom(), 14)); }
+// The map moves only when you ask: following saves the view first (the anchor), stopping returns to it.
+function setFollow(on){
+  if (on && !state.anchor) state.anchor = { c: map.getCenter(), z: map.getZoom() };
+  state.follow = on; locBtnState(); if (on && state.pos) map.setView(state.pos, Math.max(map.getZoom(), 14));
+}
 function locBtnState(){
   const b = $('#locBtn'); b.classList.toggle('on', state.follow); b.classList.toggle('watch', state.watch != null && !state.follow);
+  b.setAttribute('aria-label', state.follow ? 'Stop location and go back to the trip' : state.locating ? 'Centre on and follow my location' : 'Show my location');
   $('#coords').hidden = !state.locating || !state.pos;
 }
-// tap: show + follow · tap while following: stop · tap after panning away: re-centre
+// tap: show where you are (map stays put) · tap again: centre and follow · tap while following: stop and go back
 $('#locBtn').onclick = () => {
-  if (state.follow){ state.locating = false; state.follow = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); showToNext(); return; }
-  if (state.watch == null){ state.locating = true; if (!ensureWatch()) return; }
-  state.locating = true; setFollow(true);
+  if (state.follow){
+    state.locating = false; state.follow = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); showToNext();
+    if (state.anchor){ map.setView(state.anchor.c, state.anchor.z); state.anchor = null; }
+    return;
+  }
+  if (!state.locating){ state.locating = true; state.offHint = true; if (!ensureWatch()){ state.locating = false; return; } if (state.pos) onPos(state.lastFix); locBtnState(); return; }
+  setFollow(true);
 };
 map.on('dragstart', () => { if (state.follow){ state.follow = false; locBtnState(); } });
 function onPos(p){
-  const c = p.coords;
+  const c = p.coords; state.lastFix = p;
   state.pos = [c.latitude, c.longitude];
   showMe(state.pos, c.accuracy);
   $('#coordTxt').textContent = `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)} ±${Math.round(c.accuracy)} m`;
   showToNext();
   if (state.follow) map.setView(state.pos, Math.max(map.getZoom(), 14), { animate: false });
+  else if (state.offHint && state.locating){ state.offHint = false; if (!map.getBounds().contains(state.pos)) toast('You are outside this view. Tap ◎ again to centre on you.', 3500); }
   locBtnState();
 }
 // Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.

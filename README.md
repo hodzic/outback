@@ -32,7 +32,8 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Times** are in the trip location's time zone.
 - **Hiking and biking**: elevation profile and total climb (Open-Meteo); time estimates add 1 hour per
   2000 ft of climb for hiking (Naismith) and per 3000 ft for biking.
-- **Location ◎** shows where you are and follows you until you pan. With a route, it also shows the next
+- **Location ◎**: the first tap shows where you are without moving the map; the second centres on you and
+  follows until you pan; the third stops and returns the map to where it was. With a route, it also shows the next
   waypoint (the end of the leg you're closest to), the distance to it and the magnetic bearing, and highlights it.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
   **Markers** are named points saved with the trip (long-press the map, or *Marker* while editing the route);
