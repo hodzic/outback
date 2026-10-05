@@ -9,7 +9,7 @@ Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over 
 
 Three views; swipe between them or use the tabs at the bottom.
 
-1. **Trips**: your trips (newest date first), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
+1. **Trips**: *Share Outback* (sends the app's link), your trips (newest date first), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
    settings (distance unit, speed and gust warning per activity; magnetic variation), install and offline help, and about.
 2. **Trip**: everything about the selected trip:
    - name, date (with the weekday), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
@@ -47,10 +47,10 @@ Not for navigation. Check official forecasts and conditions before you set out.
 
 ## Installing on your phone
 
-**Android (Chrome):** open hodzic.github.io/paddle in Chrome, tap the ⋮ menu, then *Install app*
+**Android (Chrome):** open https://hodzic.github.io/outback/ in Chrome, tap the ⋮ menu, then *Install app*
 (or *Add to Home screen*), then *Install*.
 
-**iPhone and iPad (Safari):** open hodzic.github.io/paddle in Safari, tap the *Share* button
+**iPhone and iPad (Safari):** open https://hodzic.github.io/outback/ in Safari, tap the *Share* button
 (square with an arrow), then *Add to Home Screen*, then *Add*.
 
 Then open Outback from its home screen icon: it runs full screen and keeps its offline data.
@@ -99,8 +99,8 @@ The app works offline once each trip has been prepared while you still have a co
 
 ## Deploying
 
-GitHub Pages from the repo root. If the repo is renamed (for example to `outback`), the URL becomes
-`https://hodzic.github.io/outback/` and existing data still loads, because storage is per origin.
+GitHub Pages from the repo root: https://hodzic.github.io/outback/ (the repo was renamed from `paddle`).
+Trips made at the old /paddle/ address still load, because storage is per origin.
 
 ## Tests
 
