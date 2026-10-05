@@ -134,7 +134,12 @@ table.acts td,table.acts th{padding:5px 3px}
 #markBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .wp.next{background:var(--magenta);color:#fff}
 #toNext{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}
-.wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);font:700 12px/20px var(--font);text-align:center;color:var(--magenta)}
+.wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);font:700 12px/20px var(--font);text-align:center;color:var(--magenta);transition:transform .15s}
+/* zoomed out: smaller waypoints (not while drawing, so they stay easy to drag) */
+.wp-mid .wp{transform:scale(.75)}
+.wp-far .wp{transform:scale(.45);color:transparent;border-width:4px}
+.wp-far .wp.next{background:var(--magenta)}
+.wp-far .wpname{display:none}
 .leg{background:rgba(255,255,255,.92);border:1px solid var(--magenta);color:var(--magenta);font:700 12px var(--font);padding:1px 5px;border-radius:6px;box-shadow:none}
 .leg::before{display:none}
 .st{width:22px;height:22px;border-radius:4px;background:#fff;border:2px solid var(--ink);font:700 11px/18px var(--font);text-align:center}
@@ -552,6 +557,18 @@ addEventListener('resize', () => { views.scrollLeft = Math.max(0, state.view) * 
 /* ---------- map ---------- */
 const view = LS.get('view', { c: [37.82, -122.38], z: 11 });
 const map = L.map('map', { zoomControl: false, attributionControl: true }).setView(view.c, view.z);
+// Smaller waypoints when zoomed out or crowded: by zoom level, and by the typical on-screen gap between them
+function wpSize(){
+  const z = map.getZoom(), c = map.getContainer().classList, draw = state.drawing, r = trip?.route || [];
+  let gap = Infinity;
+  if (r.length > 2){
+    const px = r.map(p => map.latLngToContainerPoint(ll2(p))), d = px.slice(1).map((p, i) => p.distanceTo(px[i])).sort((a, b) => a - b);
+    gap = d[Math.floor(d.length / 2)];
+  }
+  const far = !draw && (z <= 12 || gap < 28), mid = !draw && !far && (z === 13 || gap < 44);
+  c.toggle('wp-far', far); c.toggle('wp-mid', mid);
+}
+map.on('zoomend', wpSize);
 map.on('moveend', () => LS.set('view', { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() }));
 const LAYERS = {
   chart: { name: 'Chart', url: 'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'NOAA charts · not for navigation' } },
@@ -585,7 +602,7 @@ function fitTrip(){
 }
 
 function drawRoute(){
-  routeLayer.clearLayers();
+  routeLayer.clearLayers(); wpSize();
   const r = trip.route;
   if (r.length > 1) L.polyline(r.map(ll2), { color: '#C8167E', weight: 4, opacity: .9, interactive: false }).addTo(routeLayer);
   r.forEach((p, i) => {
@@ -1267,7 +1284,7 @@ async function openTrip(t){
 /* ---------- drawing ---------- */
 function setDrawing(on){
   if (on) endMapBar();
-  state.drawing = on; $('#drawBar').hidden = !on; $('#drawBtn').classList.toggle('on', on);
+  state.drawing = on; $('#drawBar').hidden = !on; $('#drawBtn').classList.toggle('on', on); wpSize();
   map.getContainer().style.cursor = on ? 'crosshair' : '';
   state.markMode = false; $('#markBtn')?.classList.remove('on');
   if (trip){ drawRoute(); drawMarks(); }
