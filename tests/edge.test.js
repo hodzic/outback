@@ -70,6 +70,27 @@ module.exports = async (browser, url, check) => {
     await page.mouse.click(off.x + p.x, off.y + p.y); await page.waitForTimeout(200);
     c('tap a leg shows its label', await page.locator('.leg').count() === 1); await ctx.close(); }
 
+  { // waypoints shrink when zoomed out, but not while drawing
+    const { ctx, page } = await open(browser, url);
+    await page.goto(url); await ready(page); await view(page, 2); await seedRoute(page, [[37.80, -122.45, 'Start'], ...GG.slice(1)]);
+    const size = () => page.evaluate(() => document.querySelector('.wp').getBoundingClientRect().width);
+    await page.evaluate(() => map.setZoom(15, { animate: false })); await page.waitForTimeout(300);
+    const full = await size();
+    await page.evaluate(() => map.setZoom(13, { animate: false })); await page.waitForTimeout(300);
+    const mid = await size();
+    await page.evaluate(() => map.setZoom(11, { animate: false })); await page.waitForTimeout(300);
+    const far = await size();
+    c('waypoints shrink as you zoom out', full > mid && mid > far && far < full * 0.5, `${full} > ${mid} > ${far}`);
+    c('zoomed out: no numbers or name labels', await page.evaluate(() => getComputedStyle(document.querySelector('.wp')).color === 'rgba(0, 0, 0, 0)' && getComputedStyle(document.querySelector('.wpname')).display === 'none'));
+    await page.click('#drawBtn'); await page.waitForTimeout(300);
+    c('full size while drawing', Math.abs(await size() - full) < 1, await size());
+    await page.click('#doneBtn'); await page.waitForTimeout(300);
+    c('small again after drawing', Math.abs(await size() - far) < 1, await size());
+    await page.evaluate(() => { trip.route = Array.from({ length: 40 }, (_, i) => [37.80 + i * 0.0004, -122.45 + i * 0.0004]); changed(); map.setView([37.808, -122.442], 14, { animate: false }); });
+    await page.waitForTimeout(300);
+    c('crowded waypoints are small even zoomed in', await page.evaluate(() => map.getContainer().classList.contains('wp-far')) && await size() < full * 0.5, await size());
+    await ctx.close(); }
+
   { // an edit made right before switching trips used to be dropped by the save debounce
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page);
