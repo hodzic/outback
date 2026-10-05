@@ -79,15 +79,10 @@ module.exports = async (browser, url, check) => {
   c('reload restores trip and view', (await page.text('#tabTrip')) === 'Golden Gate loop' && await page.evaluate(() => state.view) === 1 && await page.locator('.wp').count() === 3);
   c('reload keeps forecast', /ft$/.test(await page.text('#tideV')));
 
-  // Map view: Go
+  // Map view: no Go / navigation, just Draw route
   await view(page, 2);
-  await page.click('#goBtn'); await page.waitForTimeout(1000);
-  c('nav strip shown', await page.isVisible('#nav'));
-  c('nav distance and bearing', /\d/.test(await page.text('#navDist')) && /°/.test(await page.text('#navBrg')), await page.text('#navDist') + ' ' + await page.text('#navBrg'));
-  await page.click('#drawBtn');
-  c('drawing blocked while underway', /Stop/.test(await page.text('#toast')), await page.text('#toast'));
-  await page.click('#stopBtn');
-  c('nav hidden after stop', !(await page.isVisible('#nav')));
+  c('no Go button or navigation strip', await page.locator('#goBtn, #nav, #stopBtn').count() === 0);
+  c('Draw route is the map action', (await page.text('#drawBtn')) === 'Draw route');
 
   // Trips view: import
   await view(page, 0);

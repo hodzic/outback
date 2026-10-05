@@ -33,18 +33,32 @@ module.exports = async (browser, url, check) => {
     c('wind sample matches trip-local hour', await page.evaluate(() => trip.data.wx.t.includes(tAt())));
     await ctx.close(); }
 
-  { const { ctx, page, errors } = await open(browser, url);
+  { // location button: moving position updates the dot, no navigation side effects
+    const { ctx, page, errors } = await open(browser, url);
     await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 2);
-    await page.click('#goBtn'); await page.waitForTimeout(800);
-    c('nav starts at waypoint 2', (await page.text('#navTo')) === 'To 2');
+    await page.click('#locBtn'); await page.waitForTimeout(600);
     await ctx.setGeolocation({ latitude: 37.8101, longitude: -122.4201 }); await page.waitForTimeout(800);
-    c('reaching a waypoint advances', (await page.text('#navTo')) === 'To 3', await page.text('#navTo'));
-    await ctx.setGeolocation({ latitude: 37.82, longitude: -122.40 }); await page.waitForTimeout(800);
-    c('arrival detected', (await page.text('#navLeft')).startsWith('Arrived'), await page.text('#navLeft'));
-    await page.click('#stopBtn'); await page.click('#goBtn'); await page.waitForTimeout(600);
-    c('restart resets to waypoint 2', (await page.text('#navTo')) === 'To 2');
-    await page.click('#stopBtn');
-    c('no errors in nav mode', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+    c('location follows position updates', await page.evaluate(() => Math.abs(state.pos[0] - 37.8101) < 1e-6) && /37\.81010/.test(await page.text('#coords')), await page.text('#coords'));
+    c('route unchanged by moving', await page.evaluate(() => trip.route.length) === 3 && await page.evaluate(() => trip.tracks.length) === 0);
+    // distance and bearing to the next waypoint, shown with the location
+    await ctx.setGeolocation({ latitude: 37.8001, longitude: -122.4497 }); await page.waitForTimeout(700);
+    const want = await page.evaluate(() => `→ 2 · ${fmtShort(distNm(state.pos, trip.route[1]))} · ${magB(brgT(state.pos, trip.route[1]))}`);
+    c('location shows distance and bearing to the next waypoint', (await page.text('#toNext')) === want, await page.text('#toNext') + ' vs ' + want);
+    c('bearing is magnetic', /°M$/.test(await page.text('#toNext')));
+    c('next waypoint highlighted on the map', (await page.locator('.wp.next').innerText()) === '2');
+    await ctx.setGeolocation({ latitude: 37.81005, longitude: -122.42005 }); await page.waitForTimeout(700);
+    c('reaching a waypoint moves on to the next', (await page.text('#toNext')).startsWith('→ Finish'), await page.text('#toNext'));
+    await ctx.setGeolocation({ latitude: 37.8150, longitude: -122.4100 }); await page.waitForTimeout(700);
+    c('closest leg decides the next waypoint', (await page.text('#toNext')).startsWith('→ Finish') && (await page.locator('.wp.next').innerText()) === '3');
+    await ctx.setGeolocation({ latitude: 37.82001, longitude: -122.40001 }); await page.waitForTimeout(700);
+    c('at the finish', (await page.text('#toNext')) === 'At the finish', await page.text('#toNext'));
+    await page.evaluate(() => { trip.route = []; changed(); }); await page.waitForTimeout(200);
+    c('no line without a route', await page.isHidden('#toNext'));
+    await page.evaluate(() => { trip.route = [[37.80, -122.45], [37.81, -122.42], [37.82, -122.40]]; changed(); }); await page.waitForTimeout(200);
+    c('line returns when a route is drawn', await page.isVisible('#toNext'));
+    await page.click('#locBtn'); if (await page.evaluate(() => state.locating)) await page.click('#locBtn'); await page.waitForTimeout(300);
+    c('turning location off hides the line and highlight', await page.evaluate(() => !state.locating) && await page.locator('.wp.next').count() === 0);
+    c('no errors with location on', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 2); await seedRoute(page, GG);

@@ -1,4 +1,4 @@
-// Outback features: activity and terrain, elevation, track recording, out-and-back,
+// Outback features: activity and terrain, elevation, imported tracks, navigation,
 // legacy migration, PDF map overlays, GPS Map import, live location, cache sharing.
 const fs = require('fs'), path = require('path');
 const { open, waitForecast, seedRoute, ready, view, OUT } = require('./harness');
@@ -53,35 +53,30 @@ module.exports = async (browser, url, check) => {
     c('back to auto-detect', await page.evaluate(() => trip.envSet) === false);
     await ctx.close(); }
 
-  { // record a track with no route, then reuse it
+  { // tracks come only from GPX import and can be reused
     const { ctx, page, errors } = await open(browser, url, { geolocation: { latitude: 37.80, longitude: -122.45 } });
-    await page.goto(url); await ready(page); await view(page, 2);
-    await page.click('#goBtn'); await page.waitForTimeout(600);
-    c('Go without a route records', await page.isVisible('#nav') && (await page.text('#navTo')) === 'Track', await page.text('#navTo'));
-    for (let i = 1; i <= 8; i++){ await ctx.setGeolocation({ latitude: 37.80 + i * 0.001, longitude: -122.45 + i * 0.0012, accuracy: 8 }); await page.waitForTimeout(250); }
-    const pts = await page.evaluate(() => state.rec?.pts.length);
-    c('track points recorded', pts >= 8, pts);
-    c('REC indicator', /REC/.test(await page.text('#navLeft')), await page.text('#navLeft'));
-    c('recorded line drawn', await page.evaluate(() => !!recLine && recLine.getLatLngs().length >= 8));
-    await page.click('#stopBtn');
-    c('track saved on stop', /Track saved/.test(await page.text('#toast')), await page.text('#toast'));
-    await page.waitForTimeout(500); await page.reload(); await ready(page);
-    c('track persists across reload', await page.evaluate(() => trip.tracks.length === 1 && trip.tracks[0].pts.length >= 8 && !!trip.tracks[0].end));
-    await view(page, 1);
-    c('Trip view lists the track', await page.locator('#trackList [data-trackroute]').count() === 1);
+    await page.goto(url); await ready(page); await view(page, 1);
+    c('Tracks section hidden with no tracks', await page.isHidden('#tracksCard'));
+    const t0 = Date.parse('2026-09-27T17:00:00Z');
+    const pts = Array.from({ length: 12 }, (_, i) => [37.80 + i * 0.001, -122.45 + i * 0.0012]);
+    fs.writeFileSync(path.join(OUT, 'watch.gpx'), `<gpx><trk><name>Watch track</name><trkseg>${pts.map((p, i) => `<trkpt lat="${p[0]}" lon="${p[1]}"><ele>3</ele><time>${new Date(t0 + i * 60000).toISOString()}</time></trkpt>`).join('')}</trkseg></trk></gpx>`);
+    await page.setInputFiles('#file', path.join(OUT, 'watch.gpx')); await page.waitForTimeout(600);
+    c('GPX import keeps the timed track', await page.evaluate(() => trip.tracks.length === 1 && trip.tracks[0].pts.length === 12 && trip.tracks[0].pts[0][2] > 0));
+    c('Trip view lists the imported track', await page.isVisible('#tracksCard') && await page.locator('#trackList [data-trackroute]').count() === 1);
+    c('track label has distance and time', /in 11 min/.test(await page.text('#trackList')), await page.text('#trackList'));
     await page.click('#trackList [data-trackroute]');
     c('track becomes a route', await page.evaluate(() => trip.route.length >= 2 && trip.route.length <= 60), await page.evaluate(() => trip.route.length));
     const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#exportGpx')]);
     const gpx = fs.readFileSync(await dl.path(), 'utf8');
-    c('GPX has route and timed track', /<rte>/.test(gpx) && (gpx.match(/<trkpt/g) || []).length >= 8 && /<time>/.test(gpx));
-    fs.writeFileSync(path.join(OUT, 'with-track.gpx'), gpx);
-    await page.setInputFiles('#file', path.join(OUT, 'with-track.gpx')); await page.waitForTimeout(500);
-    c('GPX import keeps the timed track', await page.evaluate(() => trip.tracks.length === 1 && trip.tracks[0].pts[0][2] > 0));
+    c('GPX export has route and timed track', /<rte>/.test(gpx) && (gpx.match(/<trkpt/g) || []).length === 12 && /<time>/.test(gpx));
     await page.click('#trackList [data-showtrack]'); await page.waitForTimeout(600);
     c('track Map button shows it on the map', await page.evaluate(() => state.view) === 2);
+    await page.click('#locBtn'); await page.waitForTimeout(400);
+    for (let i = 1; i <= 4; i++){ await ctx.setGeolocation({ latitude: 37.80 + i * 0.001, longitude: -122.45 + i * 0.0012, accuracy: 8 }); await page.waitForTimeout(250); }
+    c('location shown; moving records nothing', await page.locator('.me').count() === 1 && await page.evaluate(() => trip.tracks.length) === 1);
     c('no page errors (tracks)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
-  { // clear waypoints, kayak icon, Go with a route
+  { // clear waypoints, kayak icon, edit route
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
     c('no out-and-back or reverse buttons', await page.locator('#outBack, #reverse').count() === 0);
@@ -94,9 +89,8 @@ module.exports = async (browser, url, check) => {
     await page.click('#editRoute'); await page.waitForTimeout(500);
     c('Edit route opens the map in draw mode', await page.evaluate(() => state.view === 2 && state.drawing));
     await page.click('#doneBtn');
-    await page.click('#goBtn'); await page.waitForTimeout(500);
-    c('Go with a route navigates and records', (await page.text('#navTo')) === 'To 2' && await page.evaluate(() => !!state.rec));
-    await page.click('#stopBtn'); await ctx.close(); }
+    c('Done leaves draw mode', await page.evaluate(() => !state.drawing));
+    await ctx.close(); }
 
   { // trips saved by the old Paddle app still open
     const { ctx, page } = await open(browser, url);

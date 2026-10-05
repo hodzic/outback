@@ -117,27 +117,19 @@ table.acts td,table.acts th{padding:5px 3px}
 .mbar .txt{flex:1;font-size:15px;min-width:0}
 #coords{position:absolute;right:8px;top:calc(var(--top) + 54px);z-index:999;background:rgba(255,255,255,.9);border:1px solid var(--line);
   border-radius:8px;padding:2px 8px;font-size:12px;font-variant-numeric:tabular-nums}
-#nav{position:absolute;left:8px;right:8px;top:calc(var(--top) + 56px);z-index:1000;background:var(--ink);color:#fff;border-radius:14px;
-  padding:10px 12px;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
-#nav .k{font-size:12px;opacity:.75}
-#nav .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1;white-space:nowrap}
-#nav .wide{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px}
-#nav button{background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:16px;padding:4px 12px}
-#nav .rec{color:#ff8a80;font-weight:700}
 .mbottom{position:absolute;left:8px;right:8px;bottom:22px;z-index:1000;display:flex;flex-direction:column;gap:8px}
 #mini{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:8px 12px;text-align:left;font-size:15px;
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(18,50,74,.18)}
 #mini .w{color:var(--warn);font-weight:700}
-.mact{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mact{display:grid;grid-template-columns:1fr;gap:8px}
 .mact button{height:48px;border-radius:12px;border:1px solid var(--line);background:var(--paper);font-size:17px;font-weight:700;box-shadow:0 1px 3px rgba(18,50,74,.18)}
 .mact .on{background:var(--ink);border-color:var(--ink);color:#fff}
-#goBtn{background:var(--magenta);border-color:var(--magenta);color:#fff}
-#goBtn.on{background:var(--ink);border-color:var(--ink)}
 #opBar{position:absolute;right:6px;top:38%;z-index:999;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;
   padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
 #opacity{writing-mode:vertical-lr;direction:rtl;height:130px;width:24px;accent-color:var(--ink)}
-.wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);font:700 12px/20px var(--font);text-align:center;color:var(--magenta)}
 .wp.next{background:var(--magenta);color:#fff}
+#toNext{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}
+.wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);font:700 12px/20px var(--font);text-align:center;color:var(--magenta)}
 .leg{background:rgba(255,255,255,.92);border:1px solid var(--magenta);color:var(--magenta);font:700 12px var(--font);padding:1px 5px;border-radius:6px;box-shadow:none}
 .leg::before{display:none}
 .st{width:22px;height:22px;border-radius:4px;background:#fff;border:2px solid var(--ink);font:700 11px/18px var(--font);text-align:center}
@@ -189,7 +181,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>The app itself</b>, once you've opened it online.</li>
           <li><b>Your trips</b>: routes, settings, recorded tracks and PDF maps are stored on the phone.</li>
           <li><b>The forecast you already fetched</b>: tides, currents, wind, pressure, lightning and elevation. It can't refresh; the status line says when it was fetched.</li>
-          <li><b>GPS</b>: your location, Go and track recording use satellites, not data. Keep the screen on while recording.</li>
+          <li><b>GPS</b>: your location on the map (◎) uses satellites, not data.</li>
           <li><b>Map tiles</b> that Get forecast saved around the route, and areas you've already looked at.</li>
         </ul>
         <h3>Needs a connection</h3>
@@ -200,7 +192,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         </ul>
       </details>
       <details class="card"><summary>About</summary>
-        <p class="muted">Plan an out-and-back paddle or hike online, then take it offline. Tides and currents: NOAA CO-OPS. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA charts, OpenStreetMap, USGS topo, and your own PDF maps. Hiking times add 1 hour per 2000 ft of climb. Tracks record while Go is on and the screen is awake.</p>
+        <p class="muted">Plan an out-and-back paddle or hike online, then take it offline. Tides and currents: NOAA CO-OPS. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA charts, OpenStreetMap, USGS topo, and your own PDF maps. Hiking times add 1 hour per 2000 ft of climb. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation.</b> Check official forecasts and conditions before you set out.</p>
       </details>
     </div>
@@ -248,10 +240,10 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <div class="row" style="margin-top:8px" id="stationRow"><button class="btn" id="stationsBtn">Choose tide stations on the map</button></div>
       </div>
 
-      <div class="card">
+      <div class="card" id="tracksCard">
         <h2>Tracks</h2>
         <div id="trackList"></div>
-        <p class="muted">Tap Go on the map to record a track.</p>
+        <p class="muted">Tracks from imported GPX files (e.g. from your watch).</p>
       </div>
 
       <div class="row"><button class="btn" id="exportGpx">Export GPX</button><button class="btn" id="exportJson">Export trip file</button><span class="grow"></span><button class="btn danger" id="deleteTrip">Delete trip</button></div>
@@ -268,21 +260,15 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <button id="mapsBtn" class="pill" aria-label="PDF map overlays">PDF</button>
       <button id="locBtn" class="pill icon" aria-label="Show and follow my location">◎</button>
     </div>
-    <div id="coords" hidden></div>
+    <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     <div id="drawBar" class="mbar" hidden><span class="txt">Tap the map to add waypoints. Drag to move. Tap a leg for its details.</span>
       <button id="undoBtn" class="btn">Undo</button><button id="doneBtn" class="btn">Done</button></div>
     <div id="mapBar" class="mbar" hidden></div>
-    <div id="nav" hidden>
-      <div><div class="k" id="navTo">To 2</div><div class="v" id="navDist">–</div></div>
-      <div><div class="k" id="navBrgK">Bearing</div><div class="v" id="navBrg">–</div></div>
-      <div><div class="k" id="navSogK">Speed</div><div class="v" id="navSog">–</div></div>
-      <div><div class="k" id="navEtaK">Finish</div><div class="v" id="navEta">–</div></div>
-      <div class="wide"><span id="navLeft">–</span><button id="stopBtn">Stop</button></div>
     </div>
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="PDF map opacity"><span id="opVal">80%</span></div>
     <div class="mbottom">
       <button id="mini" aria-label="Conditions; open trip details"></button>
-      <div class="mact"><button id="drawBtn">Draw</button><button id="goBtn">Go</button></div>
+      <div class="mact"><button id="drawBtn">Draw route</button></div>
     </div>
   </section>
 </main>
@@ -366,15 +352,15 @@ const BIKE = `<svg viewBox="0 0 64 40" width="40" height="25" aria-hidden="true"
   <path d="M14 27L24 12H44L50 27M24 12L32 27L44 12M32 27H14M21 7H28M44 12L42 5H48" stroke="#C8167E" stroke-width="3"/></svg>`;
 // climb: feet of ascent that add one hour (hike: Naismith's rule); detect: water/terrain from distance to the nearest tide station (nm)
 const ACT = {
-  paddle: { name: 'Paddle', icon: KAYAK, arrive: 0.05, minStep: 8, layer: 'chart', envLabel: 'Water', envs: ['ocean', 'bay', 'slough', 'river', 'lake'], detect: near => near <= 8 ? 'bay' : 'lake' },
-  hike:   { name: 'Hike', icon: '🥾', arrive: 0.02, minStep: 5, layer: 'topo', envLabel: 'Terrain', envs: ['trail', 'coast'], detect: near => near <= 1 ? 'coast' : 'trail', climb: 2000 },
-  bike:   { name: 'Bike', icon: BIKE, arrive: 0.03, minStep: 10, layer: 'street', envLabel: 'Surface', envs: ['road', 'gravel', 'mtb'], climb: 3000 }
+  paddle: { name: 'Paddle', icon: KAYAK, layer: 'chart', envLabel: 'Water', envs: ['ocean', 'bay', 'slough', 'river', 'lake'], detect: near => near <= 8 ? 'bay' : 'lake' },
+  hike:   { name: 'Hike', icon: '🥾', layer: 'topo', envLabel: 'Terrain', envs: ['trail', 'coast'], detect: near => near <= 1 ? 'coast' : 'trail', climb: 2000 },
+  bike:   { name: 'Bike', icon: BIKE, layer: 'street', envLabel: 'Surface', envs: ['road', 'gravel', 'mtb'], climb: 3000 }
 };
 // k: display units per nautical mile; wind is fetched in knots and shown in the matching speed unit
 const UNITS = {
-  nm: { k: 1, spd: 'kt', small: [1852, 'm'], metric: true },
-  mi: { k: 1.15078, spd: 'mph', small: [6076, 'ft'], metric: false },
-  km: { k: 1.852, spd: 'km/h', small: [1852, 'm'], metric: true }
+  nm: { k: 1, spd: 'kt', metric: true },
+  mi: { k: 1.15078, spd: 'mph', metric: false },
+  km: { k: 1.852, spd: 'km/h', metric: true }
 };
 const ENV = {
   ocean: { name: 'Ocean', tides: true, currents: true }, bay: { name: 'Bay', tides: true, currents: true },
@@ -394,7 +380,6 @@ const speedKt = () => settings.speedsKt[trip?.activity || 'paddle'] || 3;
 const speed = () => +(speedKt() * u().k).toFixed(1);  // in the display unit
 const dU = nm => nm * u().k;
 const fmtD = (nm, dp = 1) => dU(nm).toFixed(dp) + ' ' + unitName();
-const fmtNear = nm => nm < 0.1 ? Math.round(nm * u().small[0]) + ' ' + u().small[1] : fmtD(nm, 2);
 const wU = kt => kt * u().k;
 const wUnit = () => u().spd;
 const hasElev = () => !!act().climb;
@@ -499,8 +484,8 @@ function sunTimes(dateIso, lat, lng){
 }
 
 /* ---------- state ---------- */
-const state = { legs: new Set(), tMin: 600, drawing: false, going: false, next: 1, pos: null, sog: null, watch: null, wake: null,
-  follow: false, locating: false, timeFollow: false, showStations: false, rec: null, recSaved: 0, view: -1 };
+const state = { legs: new Set(), tMin: 600, drawing: false, pos: null, watch: null,
+  follow: false, locating: false, showStations: false, nextWp: null, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
   return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), route: [], tracks: [],
@@ -512,7 +497,7 @@ function normTrip(t){
   if (t.env === undefined){ t.env = t.water === 'tidal' ? 'bay' : t.water === 'lake' ? 'lake' : null; t.envSet = !!t.waterSet; }
   delete t.water; delete t.waterSet;
   t.tracks = t.tracks || [];
-  for (const k of t.tracks) if (!k.end) k.end = k.pts.length ? k.pts[k.pts.length - 1][2] : k.start; // recording cut off by a reload
+  for (const k of t.tracks) if (!k.end) k.end = k.pts.length ? k.pts[k.pts.length - 1][2] : k.start; // recording cut off by a reload (older versions)
   return t;
 }
 
@@ -563,7 +548,7 @@ const trackLayer = L.layerGroup().addTo(map);
 const routeLayer = L.layerGroup().addTo(map);
 const stationLayer = L.layerGroup().addTo(map);
 const meLayer = L.layerGroup().addTo(map);
-let curArrow = null, recLine = null;
+let curArrow = null;
 function fitTrip(){
   const pts = [...trip.route, ...trip.tracks.flatMap(k => k.pts.map(p => [p[0], p[1]]))];
   if (pts.length) map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [30, 70], paddingBottomRight: [30, 150], maxZoom: 15 });
@@ -585,20 +570,18 @@ function drawRoute(){
           .setContent(`${fmtD(d, 2)} · ${magB(brgT(a,p))} · ${fmtDur(hoursFor(d))}`).addTo(routeLayer);
       }
     }
-    const isNext = state.going && i === state.next;
-    const m = L.marker(p, { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div class="wp${isNext?' next':''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
+    const m = L.marker(p, { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div class="wp${state.locating && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
     m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = [ll.lat, ll.lng]; changed(); });
     m.bindPopup(() => `<b>Waypoint ${i+1}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
-      ${state.going ? `<button class="btn" data-goto="${i}">Go here</button>` : `<button class="btn" data-del="${i}">Delete</button>`}`);
+      <button class="btn" data-del="${i}">Delete</button>`);
   });
 }
 function drawTracks(){
-  trackLayer.clearLayers(); recLine = null;
+  trackLayer.clearLayers();
   for (const k of trip.tracks){
     if (k.pts.length < 2) continue;
-    const line = L.polyline(k.pts.map(p => [p[0], p[1]]), { color: '#1a73e8', weight: 3, opacity: .85, dashArray: k === state.rec ? null : '6 6' }).addTo(trackLayer);
-    if (k === state.rec) recLine = line;
-    else line.bindPopup(() => `<b>Track</b><br>${esc(trackLabel(k))}`);
+    const line = L.polyline(k.pts.map(p => [p[0], p[1]]), { color: '#1a73e8', weight: 3, opacity: .85, dashArray: '6 6' }).addTo(trackLayer);
+    line.bindPopup(() => `<b>Track</b><br>${esc(trackLabel(k))}`);
   }
 }
 map.on('click', e => {
@@ -607,9 +590,8 @@ map.on('click', e => {
   changed();
 });
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-del],[data-goto],[data-use]'); if (!t) return;
+  const t = e.target.closest('[data-del],[data-use]'); if (!t) return;
   if (t.dataset.del){ trip.route.splice(+t.dataset.del, 1); map.closePopup(); changed(); }
-  if (t.dataset.goto){ state.next = +t.dataset.goto; map.closePopup(); drawRoute(); updateNav(); }
   if (t.dataset.use){ useStation(t.dataset.use, t.dataset.id); map.closePopup(); }
 });
 
@@ -981,10 +963,8 @@ function render(){
   if (w && w.dp != null && w.dp <= -2) parts.push('<span class="w">Pressure ↓</span>');
   parts.push(fmtD(nm));
   $('#mini').innerHTML = parts.join(' · ');
-  $('#goBtn').textContent = state.going ? 'Stop' : 'Go';
   renderTracks();
   drawChart(sun);
-  if (state.going) updateNav();
 }
 $('#wpDetails').addEventListener('toggle', () => { if ($('#wpDetails').open) routeTable(); });
 function routeTable(){
@@ -999,7 +979,8 @@ function routeTable(){
     }).join('')}</table>`;
 }
 function renderTracks(){
-  const ks = trip.tracks.filter(k => k !== state.rec).slice().reverse();
+  const ks = trip.tracks.slice().reverse();
+  $('#tracksCard').hidden = !ks.length;
   $('#trackList').innerHTML = ks.map(k => `<div class="track"><div class="grow"><b>${new Date(k.start).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}</b>
     <small>${esc(trackLabel(k))}</small></div><button class="btn" data-showtrack="${k.id}">Map</button><button class="btn" data-trackroute="${k.id}">Use as route</button><button class="btn" data-rmtrack="${k.id}" aria-label="Delete track">✕</button></div>`).join('');
 }
@@ -1092,7 +1073,7 @@ $('#graphSel').addEventListener('click', e => { const b = e.target.closest('butt
 function chartTouch(e){
   if (curGraph() === 'elev') return;
   const r = cv.getBoundingClientRect(), x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-  state.tMin = Math.max(0, Math.min(1435, Math.round(x / r.width * 1440 / 5) * 5)); state.timeFollow = false; render();
+  state.tMin = Math.max(0, Math.min(1435, Math.round(x / r.width * 1440 / 5) * 5)); render();
 }
 cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); chartTouch(e); });
 cv.addEventListener('pointermove', e => { if (e.buttons) chartTouch(e); });
@@ -1100,7 +1081,7 @@ function setNow(){
   if (todayIso() !== trip.date){ toast('Trip is on ' + trip.date + '. Showing that day.'); return false; }
   state.tMin = Math.floor(nowMin() / 5) * 5; render(); return true;
 }
-$('#nowBtn').onclick = () => { if (setNow()) state.timeFollow = true; };
+$('#nowBtn').onclick = setNow;
 
 /* ---------- trip details: editing ---------- */
 $('#tripName').addEventListener('change', e => { const n = e.target.value.trim(); if (n){ trip.name = n; changed(); } else e.target.value = trip.name; });
@@ -1125,17 +1106,16 @@ $('#envSel').addEventListener('click', e => {
   changed();
   if (isTidal() && !trip.data?.tide) toast(`Tap Get forecast for tides${hasCurrents() ? ' and currents' : ''}.`);
 });
-$('#editRoute').onclick = () => { showView(2); if (!state.going) setDrawing(true); };
+$('#editRoute').onclick = () => { showView(2); setDrawing(true); };
 $('#clearRoute').onclick = () => {
   if (!trip.route.length || !confirm(`Clear all ${trip.route.length} waypoints?`)) return;
-  if (state.going) stopGo();
   trip.route = []; state.legs.clear(); changed(); toast('Waypoints cleared.');
 };
 $('#exportGpx').onclick = () => (trip.route.length || trip.tracks.length) ? shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml') : toast('No route or track to export.');
 $('#exportJson').onclick = () => shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json');
 $('#deleteTrip').onclick = async () => {
   if (!confirm(`Delete "${trip.name}"?`)) return;
-  const id = trip.id; if (state.going) stopGo();
+  const id = trip.id;
   clearTimeout(saveT); saveT = null; await idb.del('trips', id);
   const rest = (await idb.all('trips')).sort((a, b) => b.updated - a.updated);
   let t = rest[0]; if (!t){ t = newTrip(); await idb.put('trips', t); }
@@ -1186,25 +1166,25 @@ $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.tar
 let saveT, listT;
 function changed(){
   trip.updated = Date.now();
-  drawRoute(); drawTracks(); drawStations(); render();
+  if (state.locating && state.pos) state.nextWp = nextWaypoint(state.pos, trip.route); // highlight drawn below
+  drawRoute(); drawTracks(); drawStations(); render(); showToNext();
   clearTimeout(saveT); saveT = setTimeout(saveNow, 300);
 }
 function saveNow(){
   clearTimeout(saveT); saveT = null;
   if (trip) return idb.put('trips', trip).then(() => { LS.set('lastTrip', trip.id); clearTimeout(listT); listT = setTimeout(renderList, 50); }).catch(() => {});
 }
-addEventListener('pagehide', () => { if (saveT || state.rec) saveNow(); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && (saveT || state.rec)) saveNow(); });
+addEventListener('pagehide', () => { if (saveT) saveNow(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveT) saveNow(); });
 async function openTrip(t){
-  if (state.going) stopGo();
   if (saveT && trip) await saveNow();
-  trip = normTrip(t); state.next = 1; state.legs.clear(); state.showStations = false; LS.set('lastTrip', t.id);
+  trip = normTrip(t); state.legs.clear(); state.showStations = false; LS.set('lastTrip', t.id);
   if (trip.route.length > MAX_WPS * 1.5){ // imported before routes were simplified
     const n0 = trip.route.length; trip.route = simplifyTo(trip.route, MAX_WPS); trip.updated = Date.now(); idb.put('trips', trip).catch(() => {});
     setTimeout(() => toast(`This route had ${n0.toLocaleString()} points; simplified to ${trip.route.length} waypoints to keep the app fast.`, 5000), 300);
   }
   setDrawing(false);
-  drawRoute(); drawTracks(); drawStations(); render(); renderList();
+  state.nextWp = null; drawRoute(); drawTracks(); drawStations(); render(); renderList(); showToNext();
   fitTrip();
 }
 
@@ -1215,11 +1195,11 @@ function setDrawing(on){
   map.getContainer().style.cursor = on ? 'crosshair' : '';
   if (trip) drawRoute();
 }
-$('#drawBtn').onclick = () => { if (state.going) return toast('Stop first to edit the route.'); setDrawing(!state.drawing); };
+$('#drawBtn').onclick = () => setDrawing(!state.drawing);
 $('#doneBtn').onclick = () => setDrawing(false);
 $('#undoBtn').onclick = () => { trip.route.pop(); changed(); };
 
-/* ---------- location: one GPS watch shared by "show me" and Go ---------- */
+/* ---------- location ---------- */
 function ensureWatch(){
   if (state.watch != null) return true;
   if (!('geolocation' in navigator)){ toast('GPS is not available on this device.'); return false; }
@@ -1227,35 +1207,55 @@ function ensureWatch(){
   return true;
 }
 function maybeStopWatch(){
-  if (state.going || state.locating || state.watch == null) return;
+  if (state.locating || state.watch == null) return;
   navigator.geolocation.clearWatch(state.watch); state.watch = null;
 }
 function setFollow(on){ state.follow = on; locBtnState(); if (on && state.pos) map.setView(state.pos, Math.max(map.getZoom(), 14)); }
 function locBtnState(){
   const b = $('#locBtn'); b.classList.toggle('on', state.follow); b.classList.toggle('watch', state.watch != null && !state.follow);
-  $('#coords').hidden = !state.locating || !state.pos || state.going;
+  $('#coords').hidden = !state.locating || !state.pos;
 }
 // tap: show + follow · tap while following: stop · tap after panning away: re-centre
 $('#locBtn').onclick = () => {
-  if (state.follow && !state.going){ state.locating = false; state.follow = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); return; }
+  if (state.follow){ state.locating = false; state.follow = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); showToNext(); return; }
   if (state.watch == null){ state.locating = true; if (!ensureWatch()) return; }
-  state.locating = state.locating || !state.going; setFollow(true);
+  state.locating = true; setFollow(true);
 };
 map.on('dragstart', () => { if (state.follow){ state.follow = false; locBtnState(); } });
 function onPos(p){
   const c = p.coords;
   state.pos = [c.latitude, c.longitude];
-  state.sog = c.speed != null && !isNaN(c.speed) ? c.speed * 1.94384 : null;
   showMe(state.pos, c.accuracy);
-  $('#coords').textContent = `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)} ±${Math.round(c.accuracy)} m`;
+  $('#coordTxt').textContent = `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)} ±${Math.round(c.accuracy)} m`;
+  showToNext();
   if (state.follow) map.setView(state.pos, Math.max(map.getZoom(), 14), { animate: false });
   locBtnState();
-  if (!state.going) return;
-  record(c, p.timestamp || Date.now());
-  const r = trip.route;
-  while (r.length > 1 && state.next < r.length - 1 && distNm(state.pos, r[state.next]) < act().arrive){ state.next++; drawRoute(); toast('Waypoint reached. Next: ' + (state.next + 1)); }
-  if (state.timeFollow){ state.tMin = Math.floor(nowMin() / 5) * 5; render(); }
-  else updateNav();
+}
+// Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.
+const NEAR_M = 25;
+function nextWaypoint(pos, r){
+  if (r.length < 2) return null;
+  const k = Math.cos(toR(pos[0])), xy = p => [p[1] * k * 60 * 1852, p[0] * 60 * 1852]; // metres, flat
+  const [px, py] = xy(pos);
+  let best = 1, bd = Infinity;
+  for (let i = 1; i < r.length; i++){
+    const [ax, ay] = xy(r[i-1]), [bx, by] = xy(r[i]), dx = bx - ax, dy = by - ay, L2 = dx*dx + dy*dy;
+    const f = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0;
+    const d = Math.hypot(px - ax - f * dx, py - ay - f * dy);
+    if (d < bd - 1e-9){ bd = d; best = i; }
+  }
+  if (best < r.length - 1 && distNm(pos, r[best]) * 1852 < NEAR_M) best++;
+  return best;
+}
+const fmtShort = nm => nm >= 0.1 ? fmtD(nm, 2) : unitName() === 'mi' ? Math.round(nm * 6076) + ' ft' : Math.round(nm * 1852) + ' m';
+function showToNext(){
+  const el = $('#toNext'), r = trip?.route || [];
+  const i = state.pos && state.locating ? nextWaypoint(state.pos, r) : null;
+  if (i !== state.nextWp){ state.nextWp = i; drawRoute(); }
+  if (i == null){ el.hidden = true; return; }
+  const d = distNm(state.pos, r[i]), last = i === r.length - 1;
+  el.textContent = last && d * 1852 < NEAR_M ? 'At the finish' : `→ ${last ? 'Finish' : i + 1} · ${fmtShort(d)} · ${magB(brgT(state.pos, r[i]))}`;
+  el.hidden = false;
 }
 function showMe(p, acc){
   meLayer.clearLayers();
@@ -1263,78 +1263,12 @@ function showMe(p, acc){
   L.marker(p, { interactive: false, icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [18,18], iconAnchor: [9,9] }) }).addTo(meLayer);
 }
 
-/* ---------- Go: navigate the route and record a track ---------- */
-$('#goBtn').onclick = () => state.going ? stopGo() : startGo();
-$('#stopBtn').onclick = () => stopGo();
-async function startGo(){
-  if (!ensureWatch()) return;
-  setDrawing(false); endMapBar();
-  state.going = true; state.next = 1; $('#nav').hidden = false; $('#goBtn').classList.add('on');
-  state.timeFollow = todayIso() === trip.date && setNow();
-  state.rec = { id: uid(), start: Date.now(), end: null, pts: [] }; state.recSaved = 0;
-  trip.tracks.push(state.rec);
-  setFollow(true); locBtnState();
-  try{ state.wake = await navigator.wakeLock?.request('screen'); }catch{}
-  drawRoute(); drawTracks(); updateNav(); render();
-}
-function stopGo(){
-  if (!state.going) return;
-  state.going = false; $('#nav').hidden = true; $('#goBtn').classList.remove('on');
-  const k = state.rec; state.rec = null;
-  if (k){
-    k.end = Date.now();
-    if (k.pts.length < 2) trip.tracks.splice(trip.tracks.indexOf(k), 1);
-    else toast(`Track saved: ${trackLabel(k)}`, 4000);
-  }
-  try{ state.wake?.release(); }catch{} state.wake = null;
-  state.follow = state.locating && state.follow; maybeStopWatch(); locBtnState();
-  if (!state.locating) meLayer.clearLayers();
-  changed();
-}
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && state.going && !state.wake){ try{ state.wake = await navigator.wakeLock?.request('screen'); }catch{} }
-  if (document.visibilityState === 'hidden') state.wake = null;
-});
-// Keep fixes that are accurate enough and far enough from the last one; save every 20 points.
-function record(c, t){
-  const k = state.rec; if (!k || c.accuracy > 50) return;
-  const p = [+c.latitude.toFixed(6), +c.longitude.toFixed(6), t, c.altitude != null ? Math.round(c.altitude * 3.28084) : null];
-  const last = k.pts[k.pts.length - 1];
-  if (last && distNm(last, p) * 1852 < Math.max(act().minStep, c.accuracy / 2)) return;
-  k.pts.push(p);
-  if (recLine) recLine.addLatLng([p[0], p[1]]); else drawTracks();
-  if (k.pts.length - state.recSaved >= 20){ state.recSaved = k.pts.length; trip.updated = Date.now(); saveNow(); }
-}
-const trackLen = new WeakMap(); // track -> [point count, nm]; recomputed only when points are added
+/* ---------- imported tracks ---------- */
+const trackLen = new WeakMap(); // track -> [point count, nm]
 const trackNm = k => { const c = trackLen.get(k); if (c && c[0] === k.pts.length) return c[1]; const nm = routeNm(k.pts); trackLen.set(k, [k.pts.length, nm]); return nm; };
 function trackLabel(k){
   const nm = trackNm(k), h = ((k.end || Date.now()) - k.start) / 36e5;
   return `${fmtD(nm, 2)} in ${fmtDur(h)}${h > 0.01 ? ' · avg ' + (dU(nm) / h).toFixed(1) + ' ' + u().spd : ''}`;
-}
-function updateNav(){
-  if (!state.going) return;
-  const r = trip.route, k = state.rec, routed = r.length > 1;
-  const sogU = state.sog != null ? state.sog * u().k : null;
-  $('#navSogK').textContent = `Speed ${u().spd}`;
-  $('#navSog').textContent = sogU != null ? sogU.toFixed(1) : '–';
-  const recTxt = k ? `<span class="rec">● REC</span> ${esc(trackLabel(k))}` : '';
-  if (!routed){ // record-only
-    $('#navTo').textContent = 'Track'; $('#navDist').textContent = k ? fmtD(trackNm(k), 2) : '–';
-    $('#navBrgK').textContent = 'Time'; $('#navBrg').textContent = k ? fmtDur((Date.now() - k.start) / 36e5) : '–';
-    $('#navEtaK').textContent = 'Points'; $('#navEta').textContent = k ? k.pts.length : '–';
-    $('#navLeft').innerHTML = state.pos ? recTxt : 'Waiting for GPS…';
-    return;
-  }
-  $('#navTo').textContent = `To ${state.next + 1}`; $('#navBrgK').textContent = 'Bearing'; $('#navEtaK').textContent = 'Finish';
-  if (!state.pos){ $('#navDist').textContent = '–'; $('#navBrg').textContent = '–'; $('#navEta').textContent = '–'; $('#navLeft').textContent = 'Waiting for GPS…'; return; }
-  const tgt = r[state.next], d = distNm(state.pos, tgt);
-  let rest = d; for (let i = state.next + 1; i < r.length; i++) rest += distNm(r[i-1], r[i]);
-  const spdU = sogU != null && sogU > 0.5 ? sogU : speed();
-  $('#navDist').textContent = fmtNear(d);
-  $('#navBrg').textContent = magB(brgT(state.pos, tgt)).replace('°M', '°');
-  $('#navEta').textContent = hm(Date.now() + dU(rest) / spdU * 36e5);
-  const arrived = state.next === r.length - 1 && d < act().arrive;
-  $('#navLeft').innerHTML = arrived ? `Arrived · ${recTxt}` : `${fmtD(rest, 2)} to go · ${recTxt}`;
 }
 
 /* ---------- PDF map overlays (from GPS Map) ---------- */
