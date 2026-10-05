@@ -106,10 +106,10 @@ table.acts td,table.acts th{padding:5px 3px}
 .leaflet-control-attribution{font-size:10px}
 .mtop{position:absolute;left:0;right:0;top:0;z-index:1000;display:flex;gap:6px;align-items:center;padding:calc(var(--top) + 8px) 8px 0;pointer-events:none}
 .mtop>*{pointer-events:auto}
-.pill{background:var(--paper);border:1px solid var(--line);border-radius:22px;height:40px;padding:0 14px;box-shadow:0 1px 3px rgba(18,50,74,.18);font-size:15px}
+.pill{background:var(--paper);border:1px solid var(--line);border-radius:22px;height:40px;padding:0 12px;box-shadow:0 1px 3px rgba(18,50,74,.18);font-size:15px}
 .pill.icon{width:40px;padding:0;font-size:20px}
 .pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-#tripChip{font-weight:700;max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tripChip{font-weight:700;max-width:30vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #locBtn.on{background:var(--me);color:#fff;border-color:var(--me)}
 #locBtn.watch{color:var(--me);border-color:var(--me)}
 .mbar{position:absolute;left:8px;right:8px;top:calc(var(--top) + 56px);z-index:1000;background:var(--paper);border:2px solid var(--magenta);
@@ -121,9 +121,6 @@ table.acts td,table.acts th{padding:5px 3px}
 #mini{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:8px 12px;text-align:left;font-size:15px;
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(18,50,74,.18)}
 #mini .w{color:var(--warn);font-weight:700}
-.mact{display:grid;grid-template-columns:1fr;gap:8px}
-.mact button{height:48px;border-radius:12px;border:1px solid var(--line);background:var(--paper);font-size:17px;font-weight:700;box-shadow:0 1px 3px rgba(18,50,74,.18)}
-.mact .on{background:var(--ink);border-color:var(--ink);color:#fff}
 #opBar{position:absolute;right:6px;top:38%;z-index:999;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;
   padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
 #opacity{writing-mode:vertical-lr;direction:rtl;height:130px;width:24px;accent-color:var(--ink)}
@@ -257,6 +254,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <button id="tripChip" class="pill" aria-label="Trip details">New trip</button>
       <span style="flex:1"></span>
       <button id="layerBtn" class="pill">Chart</button>
+      <button id="drawBtn" class="pill" aria-label="Draw route">Draw</button>
       <button id="mapsBtn" class="pill" aria-label="PDF map overlays">PDF</button>
       <button id="locBtn" class="pill icon" aria-label="Show and follow my location">◎</button>
     </div>
@@ -268,7 +266,6 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="PDF map opacity"><span id="opVal">80%</span></div>
     <div class="mbottom">
       <button id="mini" aria-label="Conditions; open trip details"></button>
-      <div class="mact"><button id="drawBtn">Draw route</button></div>
     </div>
   </section>
 </main>
