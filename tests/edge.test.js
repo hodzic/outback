@@ -73,7 +73,10 @@ module.exports = async (browser, url, check) => {
   { // waypoints shrink when zoomed out, but not while drawing
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 2); await seedRoute(page, [[37.80, -122.45, 'Start'], ...GG.slice(1)]);
-    const size = () => page.evaluate(() => document.querySelector('.wp').getBoundingClientRect().width);
+    // visible size of a waypoint: the dot drawn by ::after when small, else the marker itself
+    const size = () => page.evaluate(() => { const e = document.querySelector('.wp'), c = map.getContainer().classList;
+      return c.contains('wp-far') || c.contains('wp-mid') ? parseFloat(getComputedStyle(e, '::after').width) : e.getBoundingClientRect().width; });
+    const hit = () => page.evaluate(() => document.querySelector('.wp').getBoundingClientRect().width);
     await page.evaluate(() => map.setZoom(15, { animate: false })); await page.waitForTimeout(300);
     const full = await size();
     await page.evaluate(() => map.setZoom(13, { animate: false })); await page.waitForTimeout(300);
@@ -81,6 +84,10 @@ module.exports = async (browser, url, check) => {
     await page.evaluate(() => map.setZoom(11, { animate: false })); await page.waitForTimeout(300);
     const far = await size();
     c('waypoints shrink as you zoom out', full > mid && mid > far && far < full * 0.5, `${full} > ${mid} > ${far}`);
+    c('small waypoints keep a full-size tap area', await hit() >= 26, await hit());
+    await page.locator('.wp').nth(1).click(); await page.waitForTimeout(200);
+    c('small waypoint still opens its popup', await page.locator('.leaflet-popup [data-move]').count() === 1);
+    await page.evaluate(() => map.closePopup());
     c('zoomed out: no numbers or name labels', await page.evaluate(() => getComputedStyle(document.querySelector('.wp')).color === 'rgba(0, 0, 0, 0)' && getComputedStyle(document.querySelector('.wpname')).display === 'none'));
     await page.click('#drawBtn'); await page.waitForTimeout(300);
     c('full size while drawing', Math.abs(await size() - full) < 1, await size());

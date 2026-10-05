@@ -136,9 +136,11 @@ table.acts td,table.acts th{padding:5px 3px}
 #toNext{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}
 .wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);font:700 12px/20px var(--font);text-align:center;color:var(--magenta);transition:transform .15s}
 /* zoomed out: smaller waypoints (not while drawing, so they stay easy to drag) */
-.wp-mid .wp{transform:scale(.75)}
-.wp-far .wp{transform:scale(.45);color:transparent;border-width:4px}
-.wp-far .wp.next{background:var(--magenta)}
+.wp-mid .wp,.wp-far .wp{background:transparent;border-color:transparent;color:transparent;position:relative}
+.wp-mid .wp::after,.wp-far .wp::after{content:'';position:absolute;left:50%;top:50%;border-radius:50%;background:#fff;border:3px solid var(--magenta);transform:translate(-50%,-50%)}
+.wp-mid .wp::after{content:attr(data-n);width:20px;height:20px;font:700 10px/14px var(--font);color:var(--magenta);text-align:center}
+.wp-far .wp::after{width:12px;height:12px;border-width:3px}
+.wp-mid .wp.next::after,.wp-far .wp.next::after{background:var(--magenta);color:#fff}
 .wp-far .wpname{display:none}
 .leg{background:rgba(255,255,255,.92);border:1px solid var(--magenta);color:var(--magenta);font:700 12px var(--font);padding:1px 5px;border-radius:6px;box-shadow:none}
 .leg::before{display:none}
@@ -617,11 +619,11 @@ function drawRoute(){
           .setContent(`${fmtD(d, 2)} · ${magB(brgT(a,p))} · ${fmtDur(hoursFor(d))}`).addTo(routeLayer);
       }
     }
-    const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div class="wp${state.locating && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
+    const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div data-n="${i+1}" class="wp${state.locating && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
     if (p[2]) m.bindTooltip(esc(p[2]), { permanent: true, direction: 'right', offset: [12, 0], className: 'wpname' });
     m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = p[2] ? [ll.lat, ll.lng, p[2]] : [ll.lat, ll.lng]; changed(); });
     m.bindPopup(() => `<b>Waypoint ${i+1}${p[2] ? ': ' + esc(p[2]) : ''}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
-      <button class="btn" data-name="${i}">${p[2] ? 'Rename' : 'Name'}</button> <button class="btn" data-del="${i}">Delete</button>`);
+      <button class="btn" data-name="${i}">${p[2] ? 'Rename' : 'Name'}</button> <button class="btn" data-move="${i}">Move</button> <button class="btn" data-del="${i}">Delete</button>`);
   });
 }
 // Named markers: points of interest saved with the trip, separate from the route
@@ -659,7 +661,8 @@ map.on('click', e => {
   changed();
 });
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-del],[data-use],[data-name],[data-mkname],[data-mkdel]'); if (!t) return;
+  const t = e.target.closest('[data-del],[data-use],[data-name],[data-move],[data-mkname],[data-mkdel]'); if (!t) return;
+  if (t.dataset.move){ map.closePopup(); if (!state.drawing) setDrawing(true); toast(`Drag waypoint ${+t.dataset.move + 1} to its new spot, then tap Done.`, 4000); return; }
   if (t.dataset.del){ trip.route.splice(+t.dataset.del, 1); map.closePopup(); changed(); }
   if (t.dataset.name){
     const i = +t.dataset.name, p = trip.route[i]; map.closePopup();
