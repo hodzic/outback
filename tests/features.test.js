@@ -103,7 +103,7 @@ module.exports = async (browser, url, check) => {
     c('naming keeps the elevation profile valid', await page.evaluate(() => routeKey(trip.route)) === key0);
     await page.click('#locBtn'); await page.waitForTimeout(700);
     c('next-waypoint line uses the name', (await page.text('#toNext')).startsWith('→ 2 Bonita'), await page.text('#toNext'));
-    await page.click('#locBtn'); await page.click('#locBtn');
+    await page.click('#locBtn');
     page.promptAnswer = 'Kirby Cove';
     const mb = await page.locator('#map').boundingBox();
     await page.mouse.click(mb.x + 120, mb.y + 420, { button: 'right' }); await page.waitForTimeout(300);
@@ -309,27 +309,31 @@ module.exports = async (browser, url, check) => {
     c('GPS Map PDF maps copied', /Pleasanton Ridge/.test(await page.text('#sheet')));
     await ctx.close(); }
 
-  { // live location: show without moving the map, follow, pan away, re-centre, stop and go back
+  { // live location: on/off only, never moves the map; Get forecast saves the trip's map view
     const { ctx, page } = await open(browser, url, { geolocation: { latitude: 37.79, longitude: -122.40 } });
     await page.goto(url); await ready(page); await seedRoute(page, [[37.70, -122.60], [37.71, -122.58]]); await view(page, 2);
     await page.evaluate(() => fitTrip()); await page.waitForTimeout(300);
-    const home = await page.evaluate(() => [map.getCenter().lat, map.getCenter().lng, map.getZoom()]);
-    const same = () => page.evaluate(h => { const c = map.getCenter(); return Math.abs(c.lat - h[0]) < 1e-6 && Math.abs(c.lng - h[1]) < 1e-6 && map.getZoom() === h[2]; }, home);
+    const at = () => page.evaluate(() => [map.getCenter().lat, map.getCenter().lng, map.getZoom()]);
+    const near = (a, b) => Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6 && a[2] === b[2];
+    const home = await at();
     await page.click('#locBtn'); await page.waitForTimeout(600);
-    c('first tap shows location without moving the map', await page.locator('.me').count() === 1 && !(await page.evaluate(() => state.follow)) && await page.isVisible('#coords') && await same());
-    c('says when you are outside the view', /outside this view/.test(await page.text('#toast')), await page.text('#toast'));
+    c('location on shows the dot without moving the map', await page.locator('.me').count() === 1 && await page.isVisible('#coords') && near(await at(), home));
     await ctx.setGeolocation({ latitude: 37.791, longitude: -122.401 }); await page.waitForTimeout(500);
-    c('position updates do not move the map', await same());
-    await page.click('#locBtn'); await page.waitForTimeout(400);
-    c('second tap centres and follows', await page.evaluate(() => state.follow && map.getBounds().contains([37.791, -122.401])));
+    c('position updates do not move the map', near(await at(), home));
     await page.mouse.move(200, 400); await page.mouse.down(); await page.mouse.move(260, 460, { steps: 5 }); await page.mouse.up();
-    c('panning stops following', await page.evaluate(() => !state.follow && state.watch != null));
-    await page.click('#locBtn'); await page.waitForTimeout(300);
-    c('tap re-centres', await page.evaluate(() => state.follow && map.getBounds().contains([37.791, -122.401])));
-    await page.click('#locBtn'); await page.waitForTimeout(300);
-    c('tap again stops location', await page.evaluate(() => state.watch == null) && await page.locator('.me').count() === 0);
-    c('stopping returns the map to the trip', await same());
+    c('panning keeps location on', await page.evaluate(() => state.locating && state.watch != null));
+    await page.waitForTimeout(500); const panned = await at();
     c('map drag does not switch views', await page.evaluate(() => state.view) === 2);
+    await page.click('#locBtn'); await page.waitForTimeout(300);
+    c('tap again turns location off, map stays', await page.evaluate(() => state.watch == null) && await page.locator('.me').count() === 0 && near(await at(), panned));
+    await page.evaluate(() => map.setView([37.705, -122.59], 13)); await page.waitForTimeout(300);
+    await view(page, 1); await page.click('#fcBtn'); await waitForecast(page);
+    c('Get forecast saves the current map view as the trip view', await page.evaluate(() => trip.anchor && trip.anchor.z === 13 && Math.abs(trip.anchor.c[0] - 37.705) < 1e-3), await page.evaluate(() => JSON.stringify([trip.anchor, state.view])));
+    await page.evaluate(() => map.setView([37.79, -122.40], 15));
+    await page.evaluate(async () => { await saveNow(); await openTrip(await idb.get('trips', trip.id)); }); await page.waitForTimeout(300);
+    c('opening the trip returns to its saved view', await page.evaluate(() => { const c = map.getCenter(); return map.getZoom() === trip.anchor.z && Math.abs(c.lat - trip.anchor.c[0]) < 1e-6 && Math.abs(c.lng - trip.anchor.c[1]) < 1e-6; }));
+    await page.evaluate(() => map.setView([38.5, -121.0], 12)); await page.click('#fcBtn'); await waitForecast(page);
+    c('forecast with the trip off screen fits the trip instead', await page.evaluate(() => L.latLng(trip.anchor.c).distanceTo([37.705, -122.59]) < 5000));
     await ctx.close(); }
 
   { // service worker must not delete other apps' caches on the shared origin

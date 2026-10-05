@@ -114,7 +114,6 @@ table.acts td,table.acts th{padding:5px 3px}
 .pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #tripChip{font-weight:700;max-width:30vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #locBtn.on{background:var(--me);color:#fff;border-color:var(--me)}
-#locBtn.watch{color:var(--me);border-color:var(--me)}
 .mbar{position:absolute;left:8px;right:8px;top:calc(var(--top) + 56px);z-index:1000;background:var(--paper);border:2px solid var(--magenta);
   border-radius:14px;padding:8px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .mbar .txt{flex:1;font-size:15px;min-width:0}
@@ -520,7 +519,7 @@ function sunTimes(dateIso, lat, lng){
 
 /* ---------- state ---------- */
 const state = { legs: new Set(), tMin: 600, drawing: false, pos: null, watch: null,
-  follow: false, locating: false, anchor: null, showStations: false, nextWp: null, view: -1 };
+  locating: false, showStations: false, nextWp: null, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
   return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), route: [], tracks: [], marks: [],
@@ -598,7 +597,9 @@ const stationLayer = L.layerGroup().addTo(map);
 const meLayer = L.layerGroup().addTo(map);
 const markLayer = L.layerGroup().addTo(map);
 let curArrow = null;
-function fitTrip(){
+// The trip's map view: saved by Get forecast, restored when the trip opens. Nothing else changes it.
+function fitTrip(refit){
+  if (trip.anchor && !refit){ map.setView(trip.anchor.c, trip.anchor.z); return; }
   const pts = [...trip.route.map(ll2), ...trip.marks.map(m => [m.lat, m.lng]), ...trip.tracks.flatMap(k => k.pts.map(ll2))];
   if (pts.length) map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [30, 70], paddingBottomRight: [30, 150], maxZoom: 15 });
 }
@@ -848,6 +849,8 @@ async function getForecast(){
     data.thunder = th.status === 'fulfilled' ? th.value : null;
     if (el.status === 'fulfilled'){ if (el.value) data.elev = el.value; } else errs.push('elevation (' + el.reason.message + ')');
     trip.data = data; trip.fetchedAt = Date.now();
+    if (!trip.route.length || !map.getBounds().contains(centroid())) fitTrip(true); // keep the view you set up, if it shows the trip
+    trip.anchor = { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() };
     changed();
     btn.textContent = 'Saving map…';
     trip.mapTiles = await cacheTiles(); changed();
@@ -1318,35 +1321,23 @@ function maybeStopWatch(){
   if (state.locating || state.watch == null) return;
   navigator.geolocation.clearWatch(state.watch); state.watch = null;
 }
-// The map moves only when you ask: following saves the view first (the anchor), stopping returns to it.
-function setFollow(on){
-  if (on && !state.anchor) state.anchor = { c: map.getCenter(), z: map.getZoom() };
-  state.follow = on; locBtnState(); if (on && state.pos) map.setView(state.pos, Math.max(map.getZoom(), 14));
-}
 function locBtnState(){
-  const b = $('#locBtn'); b.classList.toggle('on', state.follow); b.classList.toggle('watch', state.watch != null && !state.follow);
-  b.setAttribute('aria-label', state.follow ? 'Stop location and go back to the trip' : state.locating ? 'Centre on and follow my location' : 'Show my location');
+  $('#locBtn').classList.toggle('on', state.locating);
+  $('#locBtn').setAttribute('aria-label', state.locating ? 'Hide my location' : 'Show my location');
   $('#coords').hidden = !state.locating || !state.pos;
 }
-// tap: show where you are (map stays put) · tap again: centre and follow · tap while following: stop and go back
+// On/off only: shows the blue dot and the next waypoint; never moves the map (zoom out if you're off screen).
 $('#locBtn').onclick = () => {
-  if (state.follow){
-    state.locating = false; state.follow = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); showToNext();
-    if (state.anchor){ map.setView(state.anchor.c, state.anchor.z); state.anchor = null; }
-    return;
-  }
-  if (!state.locating){ state.locating = true; state.offHint = true; if (!ensureWatch()){ state.locating = false; return; } if (state.pos) onPos(state.lastFix); locBtnState(); return; }
-  setFollow(true);
+  if (state.locating){ state.locating = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); showToNext(); return; }
+  state.locating = true; if (!ensureWatch()){ state.locating = false; return; }
+  locBtnState();
 };
-map.on('dragstart', () => { if (state.follow){ state.follow = false; locBtnState(); } });
 function onPos(p){
-  const c = p.coords; state.lastFix = p;
+  const c = p.coords;
   state.pos = [c.latitude, c.longitude];
   showMe(state.pos, c.accuracy);
   $('#coordTxt').textContent = `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)} ±${Math.round(c.accuracy)} m`;
   showToNext();
-  if (state.follow) map.setView(state.pos, Math.max(map.getZoom(), 14), { animate: false });
-  else if (state.offHint && state.locating){ state.offHint = false; if (!map.getBounds().contains(state.pos)) toast('You are outside this view. Tap ◎ again to centre on you.', 3500); }
   locBtnState();
 }
 // Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.
