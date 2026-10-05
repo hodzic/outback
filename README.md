@@ -17,7 +17,7 @@ Three views; swipe between them or use the tabs at the bottom.
    - forecast for the day: low and high temperature (large, at the top), tide/wind graph (tap or drag it to pick a time; *Now* jumps to now), wind, pressure, lightning, sun, elevation for hikes.
      *Get forecast* also saves the map around the route for offline use.
    - tracks from imported GPX files (show on map, use as route, delete), export GPX or trip file, delete trip
-3. **Map**: the route, *Draw route*, live location ◎,
+3. **Map**: the route, *Draw route*, live location ◎ (with distance and magnetic bearing to the next waypoint),
    map layer (Chart / Street / Topo) and **PDF** map overlays.
    On the map a horizontal swipe pans the map; use the tabs or the trip name to leave it.
 
@@ -32,6 +32,8 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Times** are in the trip location's time zone.
 - **Hiking and biking**: elevation profile and total climb (Open-Meteo); time estimates add 1 hour per
   2000 ft of climb for hiking (Naismith) and per 3000 ft for biking.
+- **Location ◎** shows where you are and follows you until you pan. With a route, it also shows the next
+  waypoint (the end of the leg you're closest to), the distance to it and the magnetic bearing, and highlights it.
 - **GPX import**: route points become the trip's route (simplified to at most 100 waypoints, keeping the shape
   within a few metres); a timed track is kept as a recorded track.
 - **PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or

@@ -127,6 +127,8 @@ table.acts td,table.acts th{padding:5px 3px}
 #opBar{position:absolute;right:6px;top:38%;z-index:999;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;
   padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
 #opacity{writing-mode:vertical-lr;direction:rtl;height:130px;width:24px;accent-color:var(--ink)}
+.wp.next{background:var(--magenta);color:#fff}
+#toNext{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}
 .wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);font:700 12px/20px var(--font);text-align:center;color:var(--magenta)}
 .leg{background:rgba(255,255,255,.92);border:1px solid var(--magenta);color:var(--magenta);font:700 12px var(--font);padding:1px 5px;border-radius:6px;box-shadow:none}
 .leg::before{display:none}
@@ -258,7 +260,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <button id="mapsBtn" class="pill" aria-label="PDF map overlays">PDF</button>
       <button id="locBtn" class="pill icon" aria-label="Show and follow my location">◎</button>
     </div>
-    <div id="coords" hidden></div>
+    <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     <div id="drawBar" class="mbar" hidden><span class="txt">Tap the map to add waypoints. Drag to move. Tap a leg for its details.</span>
       <button id="undoBtn" class="btn">Undo</button><button id="doneBtn" class="btn">Done</button></div>
     <div id="mapBar" class="mbar" hidden></div>
@@ -483,7 +485,7 @@ function sunTimes(dateIso, lat, lng){
 
 /* ---------- state ---------- */
 const state = { legs: new Set(), tMin: 600, drawing: false, pos: null, watch: null,
-  follow: false, locating: false, showStations: false, view: -1 };
+  follow: false, locating: false, showStations: false, nextWp: null, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
   return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), route: [], tracks: [],
@@ -568,7 +570,7 @@ function drawRoute(){
           .setContent(`${fmtD(d, 2)} · ${magB(brgT(a,p))} · ${fmtDur(hoursFor(d))}`).addTo(routeLayer);
       }
     }
-    const m = L.marker(p, { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div class="wp">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
+    const m = L.marker(p, { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div class="wp${state.locating && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
     m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = [ll.lat, ll.lng]; changed(); });
     m.bindPopup(() => `<b>Waypoint ${i+1}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
       <button class="btn" data-del="${i}">Delete</button>`);
@@ -1164,7 +1166,8 @@ $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.tar
 let saveT, listT;
 function changed(){
   trip.updated = Date.now();
-  drawRoute(); drawTracks(); drawStations(); render();
+  if (state.locating && state.pos) state.nextWp = nextWaypoint(state.pos, trip.route); // highlight drawn below
+  drawRoute(); drawTracks(); drawStations(); render(); showToNext();
   clearTimeout(saveT); saveT = setTimeout(saveNow, 300);
 }
 function saveNow(){
@@ -1181,7 +1184,7 @@ async function openTrip(t){
     setTimeout(() => toast(`This route had ${n0.toLocaleString()} points; simplified to ${trip.route.length} waypoints to keep the app fast.`, 5000), 300);
   }
   setDrawing(false);
-  drawRoute(); drawTracks(); drawStations(); render(); renderList();
+  state.nextWp = null; drawRoute(); drawTracks(); drawStations(); render(); renderList(); showToNext();
   fitTrip();
 }
 
@@ -1214,7 +1217,7 @@ function locBtnState(){
 }
 // tap: show + follow · tap while following: stop · tap after panning away: re-centre
 $('#locBtn').onclick = () => {
-  if (state.follow){ state.locating = false; state.follow = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); return; }
+  if (state.follow){ state.locating = false; state.follow = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); showToNext(); return; }
   if (state.watch == null){ state.locating = true; if (!ensureWatch()) return; }
   state.locating = true; setFollow(true);
 };
@@ -1223,9 +1226,36 @@ function onPos(p){
   const c = p.coords;
   state.pos = [c.latitude, c.longitude];
   showMe(state.pos, c.accuracy);
-  $('#coords').textContent = `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)} ±${Math.round(c.accuracy)} m`;
+  $('#coordTxt').textContent = `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)} ±${Math.round(c.accuracy)} m`;
+  showToNext();
   if (state.follow) map.setView(state.pos, Math.max(map.getZoom(), 14), { animate: false });
   locBtnState();
+}
+// Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.
+const NEAR_M = 25;
+function nextWaypoint(pos, r){
+  if (r.length < 2) return null;
+  const k = Math.cos(toR(pos[0])), xy = p => [p[1] * k * 60 * 1852, p[0] * 60 * 1852]; // metres, flat
+  const [px, py] = xy(pos);
+  let best = 1, bd = Infinity;
+  for (let i = 1; i < r.length; i++){
+    const [ax, ay] = xy(r[i-1]), [bx, by] = xy(r[i]), dx = bx - ax, dy = by - ay, L2 = dx*dx + dy*dy;
+    const f = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0;
+    const d = Math.hypot(px - ax - f * dx, py - ay - f * dy);
+    if (d < bd - 1e-9){ bd = d; best = i; }
+  }
+  if (best < r.length - 1 && distNm(pos, r[best]) * 1852 < NEAR_M) best++;
+  return best;
+}
+const fmtShort = nm => nm >= 0.1 ? fmtD(nm, 2) : unitName() === 'mi' ? Math.round(nm * 6076) + ' ft' : Math.round(nm * 1852) + ' m';
+function showToNext(){
+  const el = $('#toNext'), r = trip?.route || [];
+  const i = state.pos && state.locating ? nextWaypoint(state.pos, r) : null;
+  if (i !== state.nextWp){ state.nextWp = i; drawRoute(); }
+  if (i == null){ el.hidden = true; return; }
+  const d = distNm(state.pos, r[i]), last = i === r.length - 1;
+  el.textContent = last && d * 1852 < NEAR_M ? 'At the finish' : `→ ${last ? 'Finish' : i + 1} · ${fmtShort(d)} · ${magB(brgT(state.pos, r[i]))}`;
+  el.hidden = false;
 }
 function showMe(p, acc){
   meLayer.clearLayers();
