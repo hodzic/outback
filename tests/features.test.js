@@ -103,7 +103,7 @@ module.exports = async (browser, url, check) => {
     c('naming keeps the elevation profile valid', await page.evaluate(() => routeKey(trip.route)) === key0);
     await page.click('#locBtn'); await page.waitForTimeout(700);
     c('next-waypoint line uses the name', (await page.text('#toNext')).startsWith('→ 2 Bonita'), await page.text('#toNext'));
-    await page.click('#locBtn');
+    await page.click('#locBtn'); await page.click('#locBtn');
     page.promptAnswer = 'Kirby Cove';
     const mb = await page.locator('#map').boundingBox();
     await page.mouse.click(mb.x + 120, mb.y + 420, { button: 'right' }); await page.waitForTimeout(300);
@@ -309,17 +309,26 @@ module.exports = async (browser, url, check) => {
     c('GPS Map PDF maps copied', /Pleasanton Ridge/.test(await page.text('#sheet')));
     await ctx.close(); }
 
-  { // live location: follow, pan away, re-centre, stop
+  { // live location: show without moving the map, follow, pan away, re-centre, stop and go back
     const { ctx, page } = await open(browser, url, { geolocation: { latitude: 37.79, longitude: -122.40 } });
-    await page.goto(url); await ready(page); await view(page, 2);
+    await page.goto(url); await ready(page); await seedRoute(page, [[37.70, -122.60], [37.71, -122.58]]); await view(page, 2);
+    await page.evaluate(() => fitTrip()); await page.waitForTimeout(300);
+    const home = await page.evaluate(() => [map.getCenter().lat, map.getCenter().lng, map.getZoom()]);
+    const same = () => page.evaluate(h => { const c = map.getCenter(); return Math.abs(c.lat - h[0]) < 1e-6 && Math.abs(c.lng - h[1]) < 1e-6 && map.getZoom() === h[2]; }, home);
     await page.click('#locBtn'); await page.waitForTimeout(600);
-    c('location shown and followed', await page.locator('.me').count() === 1 && await page.evaluate(() => state.follow) && await page.isVisible('#coords'));
+    c('first tap shows location without moving the map', await page.locator('.me').count() === 1 && !(await page.evaluate(() => state.follow)) && await page.isVisible('#coords') && await same());
+    c('says when you are outside the view', /outside this view/.test(await page.text('#toast')), await page.text('#toast'));
+    await ctx.setGeolocation({ latitude: 37.791, longitude: -122.401 }); await page.waitForTimeout(500);
+    c('position updates do not move the map', await same());
+    await page.click('#locBtn'); await page.waitForTimeout(400);
+    c('second tap centres and follows', await page.evaluate(() => state.follow && map.getBounds().contains([37.791, -122.401])));
     await page.mouse.move(200, 400); await page.mouse.down(); await page.mouse.move(260, 460, { steps: 5 }); await page.mouse.up();
     c('panning stops following', await page.evaluate(() => !state.follow && state.watch != null));
     await page.click('#locBtn'); await page.waitForTimeout(300);
-    c('tap re-centres', await page.evaluate(() => state.follow && map.getBounds().contains([37.79, -122.40])));
-    await page.click('#locBtn');
+    c('tap re-centres', await page.evaluate(() => state.follow && map.getBounds().contains([37.791, -122.401])));
+    await page.click('#locBtn'); await page.waitForTimeout(300);
     c('tap again stops location', await page.evaluate(() => state.watch == null) && await page.locator('.me').count() === 0);
+    c('stopping returns the map to the trip', await same());
     c('map drag does not switch views', await page.evaluate(() => state.view) === 2);
     await ctx.close(); }
 
