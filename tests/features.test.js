@@ -134,6 +134,13 @@ module.exports = async (browser, url, check) => {
     page.promptAnswer = '';
     await view(page, 2); await page.locator('.wp', { hasText: /^2$/ }).click(); await page.click('.leaflet-popup [data-name]'); await page.waitForTimeout(200);
     c('empty name clears it', await page.evaluate(() => trip.route[1].length) === 2);
+    await page.locator('.wp', { hasText: /^2$/ }).click(); await page.click('.leaflet-popup [data-move]'); await page.waitForTimeout(200);
+    c('Move in the popup switches on draw mode', await page.evaluate(() => state.drawing) && /Drag waypoint 2/.test(await page.text('#toast')), await page.text('#toast'));
+    const before = await page.evaluate(() => trip.route[1].join());
+    const wb = await page.locator('.wp', { hasText: /^2$/ }).boundingBox();
+    await page.mouse.move(wb.x + 13, wb.y + 13); await page.mouse.down(); await page.mouse.move(wb.x + 70, wb.y + 50, { steps: 8 }); await page.mouse.up(); await page.waitForTimeout(300);
+    c('then the waypoint can be dragged', await page.evaluate(() => trip.route[1].join()) !== before && await page.evaluate(() => trip.route.length) === 3);
+    await page.click('#doneBtn');
     c('no page errors (names)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // trips saved by the old Paddle app still open
