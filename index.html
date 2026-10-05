@@ -124,6 +124,11 @@ table.acts td,table.acts th{padding:5px 3px}
 #opBar{position:absolute;right:6px;top:38%;z-index:999;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;
   padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
 #opacity{writing-mode:vertical-lr;direction:rtl;height:130px;width:24px;accent-color:var(--ink)}
+.mk{width:18px;height:18px;background:#F2B705;border:2px solid var(--ink);border-radius:50% 50% 50% 0;transform:rotate(-45deg)}
+.mkname,.wpname{background:rgba(255,255,255,.92);border:1px solid var(--line);color:var(--ink);font:700 12px var(--font);padding:1px 5px;border-radius:6px;box-shadow:none}
+.mkname::before,.wpname::before{display:none}
+.wpname{color:var(--magenta);border-color:var(--magenta)}
+#markBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .wp.next{background:var(--magenta);color:#fff}
 #toNext{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}
 .wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);font:700 12px/20px var(--font);text-align:center;color:var(--magenta)}
@@ -237,6 +242,12 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <div class="row" style="margin-top:8px" id="stationRow"><button class="btn" id="stationsBtn">Choose tide stations on the map</button></div>
       </div>
 
+      <div class="card" id="marksCard">
+        <h2>Markers</h2>
+        <div id="markList"></div>
+        <p class="muted">Long-press the map, or use Marker while drawing, to add a named point.</p>
+      </div>
+
       <div class="card" id="tracksCard">
         <h2>Tracks</h2>
         <div id="trackList"></div>
@@ -259,7 +270,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <button id="locBtn" class="pill icon" aria-label="Show and follow my location">◎</button>
     </div>
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
-    <div id="drawBar" class="mbar" hidden><span class="txt">Tap the map to add waypoints. Drag to move. Tap a leg for its details.</span>
+    <div id="drawBar" class="mbar" hidden><span class="txt">Tap the map to add waypoints, or Marker for a named point. Drag to move. Tap a waypoint to name it.</span>
+      <button id="markBtn" class="btn">Marker</button>
       <button id="undoBtn" class="btn">Undo</button><button id="doneBtn" class="btn">Done</button></div>
     <div id="mapBar" class="mbar" hidden></div>
     </div>
@@ -485,7 +497,7 @@ const state = { legs: new Set(), tMin: 600, drawing: false, pos: null, watch: nu
   follow: false, locating: false, showStations: false, nextWp: null, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
-  return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), route: [], tracks: [],
+  return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), route: [], tracks: [], marks: [],
     tide: null, current: null, data: null, fetchedAt: null, updated: Date.now() };
 }
 // Bring trips saved by older versions (Paddle) up to the current shape.
@@ -494,6 +506,7 @@ function normTrip(t){
   if (t.env === undefined){ t.env = t.water === 'tidal' ? 'bay' : t.water === 'lake' ? 'lake' : null; t.envSet = !!t.waterSet; }
   delete t.water; delete t.waterSet;
   t.tracks = t.tracks || [];
+  t.marks = t.marks || [];
   for (const k of t.tracks) if (!k.end) k.end = k.pts.length ? k.pts[k.pts.length - 1][2] : k.start; // recording cut off by a reload (older versions)
   return t;
 }
@@ -545,21 +558,22 @@ const trackLayer = L.layerGroup().addTo(map);
 const routeLayer = L.layerGroup().addTo(map);
 const stationLayer = L.layerGroup().addTo(map);
 const meLayer = L.layerGroup().addTo(map);
+const markLayer = L.layerGroup().addTo(map);
 let curArrow = null;
 function fitTrip(){
-  const pts = [...trip.route, ...trip.tracks.flatMap(k => k.pts.map(p => [p[0], p[1]]))];
+  const pts = [...trip.route.map(ll2), ...trip.marks.map(m => [m.lat, m.lng]), ...trip.tracks.flatMap(k => k.pts.map(ll2))];
   if (pts.length) map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [30, 70], paddingBottomRight: [30, 150], maxZoom: 15 });
 }
 
 function drawRoute(){
   routeLayer.clearLayers();
   const r = trip.route;
-  if (r.length > 1) L.polyline(r, { color: '#C8167E', weight: 4, opacity: .9, interactive: false }).addTo(routeLayer);
+  if (r.length > 1) L.polyline(r.map(ll2), { color: '#C8167E', weight: 4, opacity: .9, interactive: false }).addTo(routeLayer);
   r.forEach((p, i) => {
     if (i){
       const a = r[i-1], mid = [(a[0]+p[0])/2, (a[1]+p[1])/2];
       // wide invisible line = easy tap target; tap toggles this leg's label
-      const hit = L.polyline([a, p], { color: '#000', weight: 22, opacity: 0 }).addTo(routeLayer);
+      const hit = L.polyline([ll2(a), ll2(p)], { color: '#000', weight: 22, opacity: 0 }).addTo(routeLayer);
       hit.on('click', e => { L.DomEvent.stop(e); state.legs.has(i) ? state.legs.delete(i) : state.legs.add(i); drawRoute(); });
       if (state.legs.has(i)){
         const d = distNm(a, p);
@@ -567,12 +581,33 @@ function drawRoute(){
           .setContent(`${fmtD(d, 2)} · ${magB(brgT(a,p))} · ${fmtDur(hoursFor(d))}`).addTo(routeLayer);
       }
     }
-    const m = L.marker(p, { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div class="wp${state.locating && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
-    m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = [ll.lat, ll.lng]; changed(); });
-    m.bindPopup(() => `<b>Waypoint ${i+1}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
-      <button class="btn" data-del="${i}">Delete</button>`);
+    const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div class="wp${state.locating && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
+    if (p[2]) m.bindTooltip(esc(p[2]), { permanent: true, direction: 'right', offset: [12, 0], className: 'wpname' });
+    m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = p[2] ? [ll.lat, ll.lng, p[2]] : [ll.lat, ll.lng]; changed(); });
+    m.bindPopup(() => `<b>Waypoint ${i+1}${p[2] ? ': ' + esc(p[2]) : ''}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
+      <button class="btn" data-name="${i}">${p[2] ? 'Rename' : 'Name'}</button> <button class="btn" data-del="${i}">Delete</button>`);
   });
 }
+// Named markers: points of interest saved with the trip, separate from the route
+const MARK_ICON = L.divIcon({ className: '', html: '<div class="mk"></div>', iconSize: [18, 18], iconAnchor: [9, 18] });
+function drawMarks(){
+  markLayer.clearLayers();
+  for (const k of trip.marks){
+    L.marker([k.lat, k.lng], { icon: MARK_ICON, draggable: state.drawing })
+      .bindTooltip(esc(k.name), { permanent: true, direction: 'right', offset: [8, -9], className: 'mkname' })
+      .bindPopup(() => `<b>${esc(k.name)}</b><br>${k.lat.toFixed(5)}, ${k.lng.toFixed(5)}<br>
+        <button class="btn" data-mkname="${k.id}">Rename</button> <button class="btn" data-mkdel="${k.id}">Delete</button>`)
+      .on('dragend', e => { const ll = e.target.getLatLng(); k.lat = +ll.lat.toFixed(6); k.lng = +ll.lng.toFixed(6); changed(); })
+      .addTo(markLayer);
+  }
+}
+function addMark(latlng){
+  const name = (prompt('Marker name', `Marker ${trip.marks.length + 1}`) || '').trim();
+  if (!name) return;
+  trip.marks.push({ id: uid(), lat: +latlng.lat.toFixed(6), lng: +latlng.lng.toFixed(6), name });
+  changed(); toast(`Marker "${name}" added.`);
+}
+map.on('contextmenu', e => { if (!state.nudge) addMark(e.latlng); }); // long-press on phones, right-click on desktop
 function drawTracks(){
   trackLayer.clearLayers();
   for (const k of trip.tracks){
@@ -582,13 +617,25 @@ function drawTracks(){
   }
 }
 map.on('click', e => {
+  if (state.markMode){ state.markMode = false; $('#markBtn').classList.remove('on'); return addMark(e.latlng); }
   if (!state.drawing) return;
   trip.route.push([+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6)]);
   changed();
 });
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-del],[data-use]'); if (!t) return;
+  const t = e.target.closest('[data-del],[data-use],[data-name],[data-mkname],[data-mkdel]'); if (!t) return;
   if (t.dataset.del){ trip.route.splice(+t.dataset.del, 1); map.closePopup(); changed(); }
+  if (t.dataset.name){
+    const i = +t.dataset.name, p = trip.route[i]; map.closePopup();
+    const n = prompt(`Name for waypoint ${i + 1} (empty to clear)`, p[2] || '');
+    if (n === null) return;
+    trip.route[i] = n.trim() ? [p[0], p[1], n.trim()] : [p[0], p[1]]; changed();
+  }
+  if (t.dataset.mkname || t.dataset.mkdel){
+    const k = trip.marks.find(m => m.id === (t.dataset.mkname || t.dataset.mkdel)); map.closePopup(); if (!k) return;
+    if (t.dataset.mkdel){ trip.marks = trip.marks.filter(m => m !== k); changed(); return; }
+    const n = (prompt('Marker name', k.name) || '').trim(); if (n){ k.name = n; changed(); }
+  }
   if (t.dataset.use){ useStation(t.dataset.use, t.dataset.id); map.closePopup(); }
 });
 
@@ -686,7 +733,9 @@ async function fetchWx(c){
   return { tz: j.timezone, t: h.time.map(s => Date.parse(s + 'Z') - off), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
 }
 // Elevation profile along the route (Open-Meteo, 90 m DEM), up to 100 samples.
-const routeKey = r => r.map(p => p.join(',')).join(';');
+const routeKey = r => r.map(p => p[0] + ',' + p[1]).join(';');
+const ll2 = p => [p[0], p[1]];
+const wpLabel = (r, i) => r[i][2] ? `${i + 1} ${r[i][2]}` : String(i + 1);
 async function fetchElev(route){
   const total = routeNm(route); if (route.length < 2 || !total) return null;
   const n = Math.min(100, Math.max(2, Math.ceil(dU(total) * 20) + 1)), pts = [], ds = [];
@@ -801,7 +850,7 @@ async function downloadTiles(urls, { polite, onProgress } = {}){
 }
 async function cacheTiles(){
   if (!('caches' in window)) return 0;
-  const pts = trip.route.length ? trip.route : [centroid()];
+  const pts = trip.route.length ? trip.route.map(ll2) : [centroid()];
   let b = L.latLngBounds(pts);
   b = L.latLngBounds([b.getSouth() - .03, b.getWest() - .04], [b.getNorth() + .03, b.getEast() + .04]);
   const polite = LAYERS[settings.layer].polite;
@@ -960,7 +1009,7 @@ function render(){
   if (w && w.dp != null && w.dp <= -2) parts.push('<span class="w">Pressure ↓</span>');
   parts.push(fmtD(nm));
   $('#mini').innerHTML = parts.join(' · ');
-  renderTracks();
+  renderTracks(); renderMarks();
   drawChart(sun);
 }
 $('#wpDetails').addEventListener('toggle', () => { if ($('#wpDetails').open) routeTable(); });
@@ -969,12 +1018,23 @@ function routeTable(){
   if (r.length < 2){ $('#routeTable').innerHTML = '<p class="muted">No route yet.</p>'; return; }
   let cum = 0; const start = tAt();
   $('#routeTable').innerHTML = `<p class="muted">Leaving at ${hm(start)} (the forecast time) at ${speed()} ${u().spd}${hasElev() ? ', on the flat' : ', without current'}.</p>
-    <table><tr><th>WP</th><th>Leg ${unitName()}</th><th>Bearing</th><th>Total</th><th>Arrive</th></tr>${r.map((p, i) => {
-      if (!i) return `<tr><td>1</td><td>–</td><td>–</td><td>0.00</td><td>${hm(start)}</td></tr>`;
+    <table><tr><th>Waypoint</th><th>Leg ${unitName()}</th><th>Bearing</th><th>Total</th><th>Arrive</th></tr>${r.map((p, i) => {
+      if (!i) return `<tr><td>${esc(wpLabel(r, 0))}</td><td>–</td><td>–</td><td>0.00</td><td>${hm(start)}</td></tr>`;
       const d = distNm(r[i-1], p); cum += d;
-      return `<tr><td>${i+1}</td><td>${dU(d).toFixed(2)}</td><td>${magB(brgT(r[i-1], p))}</td><td>${dU(cum).toFixed(2)}</td><td>${hm(start + hoursFor(cum) * 36e5)}</td></tr>`;
+      return `<tr><td>${esc(wpLabel(r, i))}</td><td>${dU(d).toFixed(2)}</td><td>${magB(brgT(r[i-1], p))}</td><td>${dU(cum).toFixed(2)}</td><td>${hm(start + hoursFor(cum) * 36e5)}</td></tr>`;
     }).join('')}</table>`;
 }
+function renderMarks(){
+  $('#markList').innerHTML = trip.marks.map(k => `<div class="track"><div class="grow"><b>${esc(k.name)}</b>
+    <small>${k.lat.toFixed(5)}, ${k.lng.toFixed(5)}</small></div><button class="btn" data-mkshow="${k.id}">Map</button><button class="btn" data-mkren="${k.id}">Rename</button><button class="btn" data-mkrm="${k.id}" aria-label="Delete ${esc(k.name)}">✕</button></div>`).join('');
+}
+$('#markList').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const k = trip.marks.find(m => m.id === (b.dataset.mkshow || b.dataset.mkren || b.dataset.mkrm)); if (!k) return;
+  if (b.dataset.mkshow){ showView(2); setTimeout(() => map.setView([k.lat, k.lng], Math.max(map.getZoom(), 15)), 350); }
+  if (b.dataset.mkren){ const n = (prompt('Marker name', k.name) || '').trim(); if (n){ k.name = n; changed(); } }
+  if (b.dataset.mkrm && confirm(`Delete marker "${k.name}"?`)){ trip.marks = trip.marks.filter(m => m !== k); changed(); }
+});
 function renderTracks(){
   const ks = trip.tracks.slice().reverse();
   $('#tracksCard').hidden = !ks.length;
@@ -1108,7 +1168,7 @@ $('#clearRoute').onclick = () => {
   if (!trip.route.length || !confirm(`Clear all ${trip.route.length} waypoints?`)) return;
   trip.route = []; state.legs.clear(); changed(); toast('Waypoints cleared.');
 };
-$('#exportGpx').onclick = () => (trip.route.length || trip.tracks.length) ? shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml') : toast('No route or track to export.');
+$('#exportGpx').onclick = () => (trip.route.length || trip.tracks.length || trip.marks.length) ? shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml') : toast('No route or track to export.');
 $('#exportJson').onclick = () => shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json');
 $('#deleteTrip').onclick = async () => {
   if (!confirm(`Delete "${trip.name}"?`)) return;
@@ -1164,7 +1224,7 @@ let saveT, listT;
 function changed(){
   trip.updated = Date.now();
   if (state.locating && state.pos) state.nextWp = nextWaypoint(state.pos, trip.route); // highlight drawn below
-  drawRoute(); drawTracks(); drawStations(); render(); showToNext();
+  drawRoute(); drawMarks(); drawTracks(); drawStations(); render(); showToNext();
   clearTimeout(saveT); saveT = setTimeout(saveNow, 300);
 }
 function saveNow(){
@@ -1181,7 +1241,7 @@ async function openTrip(t){
     setTimeout(() => toast(`This route had ${n0.toLocaleString()} points; simplified to ${trip.route.length} waypoints to keep the app fast.`, 5000), 300);
   }
   setDrawing(false);
-  state.nextWp = null; drawRoute(); drawTracks(); drawStations(); render(); renderList(); showToNext();
+  state.nextWp = null; drawRoute(); drawMarks(); drawTracks(); drawStations(); render(); renderList(); showToNext();
   fitTrip();
 }
 
@@ -1190,10 +1250,12 @@ function setDrawing(on){
   if (on) endMapBar();
   state.drawing = on; $('#drawBar').hidden = !on; $('#drawBtn').classList.toggle('on', on);
   map.getContainer().style.cursor = on ? 'crosshair' : '';
-  if (trip) drawRoute();
+  state.markMode = false; $('#markBtn')?.classList.remove('on');
+  if (trip){ drawRoute(); drawMarks(); }
 }
 $('#drawBtn').onclick = () => setDrawing(!state.drawing);
 $('#doneBtn').onclick = () => setDrawing(false);
+$('#markBtn').onclick = () => { state.markMode = !state.markMode; $('#markBtn').classList.toggle('on', state.markMode); if (state.markMode) toast('Tap the map where the marker goes.'); };
 $('#undoBtn').onclick = () => { trip.route.pop(); changed(); };
 
 /* ---------- location ---------- */
@@ -1251,7 +1313,7 @@ function showToNext(){
   if (i !== state.nextWp){ state.nextWp = i; drawRoute(); }
   if (i == null){ el.hidden = true; return; }
   const d = distNm(state.pos, r[i]), last = i === r.length - 1;
-  el.textContent = last && d * 1852 < NEAR_M ? 'At the finish' : `→ ${last ? 'Finish' : i + 1} · ${fmtShort(d)} · ${magB(brgT(state.pos, r[i]))}`;
+  el.textContent = last && d * 1852 < NEAR_M ? 'At the finish' : `→ ${last ? 'Finish' + (r[i][2] ? ' ' + r[i][2] : '') : wpLabel(r, i)} · ${fmtShort(d)} · ${magB(brgT(state.pos, r[i]))}`;
   el.hidden = false;
 }
 function showMe(p, acc){
@@ -1396,10 +1458,11 @@ sheet.addEventListener('click', async e => {
 /* ---------- export / import ---------- */
 const fileName = ext => `${String(trip.name || '').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'trip'}_${trip.date}.${ext}`;
 function toGpx(){
-  const pts = trip.route.map((p, i) => `  <rtept lat="${p[0]}" lon="${p[1]}"><name>WP${i+1}</name></rtept>`).join('\n');
+  const pts = trip.route.map((p, i) => `  <rtept lat="${p[0]}" lon="${p[1]}"><name>${esc(p[2] || 'WP' + (i + 1))}</name></rtept>`).join('\n');
+  const wpts = trip.marks.map(k => ` <wpt lat="${k.lat}" lon="${k.lng}"><name>${esc(k.name)}</name></wpt>\n`).join('');
   const trks = trip.tracks.filter(k => k.pts.length > 1).map(k => ` <trk><name>${esc(trip.name)} ${new Date(k.start).toISOString().slice(0, 16).replace('T', ' ')}</name><trkseg>\n${k.pts.map(p =>
     `  <trkpt lat="${p[0]}" lon="${p[1]}">${p[3] != null ? `<ele>${(p[3] / 3.28084).toFixed(1)}</ele>` : ''}<time>${new Date(p[2]).toISOString()}</time></trkpt>`).join('\n')}\n </trkseg></trk>`).join('\n');
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Outback" xmlns="http://www.topografix.com/GPX/1/1">\n${trip.route.length ? ` <rte><name>${esc(trip.name)}</name>\n${pts}\n </rte>\n` : ''}${trks}\n</gpx>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Outback" xmlns="http://www.topografix.com/GPX/1/1">\n${wpts}${trip.route.length ? ` <rte><name>${esc(trip.name)}</name>\n${pts}\n </rte>\n` : ''}${trks}\n</gpx>\n`;
 }
 async function shareFile(name, text, type){
   const file = new File([text], name, { type });
@@ -1425,8 +1488,11 @@ $('#file').onchange = async e => {
         t.tracks.push({ id: uid(), start: pts[0][2], end: pts[pts.length - 1][2], pts });
         t.date = new Date(pts[0][2]).toISOString().slice(0, 10);
       }
-      let pts = rte.length ? rte.map(ll) : trk.length ? trk.map(ll) : wpt.map(ll);
-      if (!pts.length) throw new Error('No points found in GPX');
+      const nm = p => p.getElementsByTagName('name')[0]?.textContent?.trim();
+      const named = p => { const n = nm(p); return n && !/^WP\d+$/.test(n) ? [...ll(p), n] : ll(p); }; // skip generic WP1, WP2…
+      t.marks = wpt.map((p, i) => ({ id: uid(), ...Object.fromEntries([['lat', ll(p)[0]], ['lng', ll(p)[1]]]), name: nm(p) || `Marker ${i + 1}` }));
+      let pts = rte.length ? rte.map(named) : trk.length ? trk.map(ll) : [];
+      if (!pts.length && !t.marks.length) throw new Error('No points found in GPX');
       const n0 = pts.length;
       if (pts.length > (rte.length ? MAX_WPS : 60)) pts = simplifyTo(pts, rte.length ? MAX_WPS : 60);
       if (rte.length && pts.length < n0) t.simplifiedFrom = n0;

@@ -34,6 +34,9 @@ Three views; swipe between them or use the tabs at the bottom.
   2000 ft of climb for hiking (Naismith) and per 3000 ft for biking.
 - **Location ◎** shows where you are and follows you until you pan. With a route, it also shows the next
   waypoint (the end of the leg you're closest to), the distance to it and the magnetic bearing, and highlights it.
+- **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
+  **Markers** are named points saved with the trip (long-press the map, or *Marker* while drawing);
+  the Trip view lists them. GPX export and import keep both (`<wpt>` for markers).
 - **GPX import**: route points become the trip's route (simplified to at most 100 waypoints, keeping the shape
   within a few metres); a timed track is kept as a recorded track.
 - **PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or

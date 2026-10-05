@@ -92,6 +92,50 @@ module.exports = async (browser, url, check) => {
     c('Done leaves draw mode', await page.evaluate(() => !state.drawing));
     await ctx.close(); }
 
+  { // named waypoints and named markers
+    const { ctx, page, errors } = await open(browser, url, { geolocation: { latitude: 37.8001, longitude: -122.4497 } });
+    await page.goto(url); await ready(page); await view(page, 2); await seedRoute(page, GG);
+    const key0 = await page.evaluate(() => routeKey(trip.route));
+    page.promptAnswer = 'Bonita';
+    await page.locator('.wp', { hasText: /^2$/ }).click(); await page.click('.leaflet-popup [data-name]'); await page.waitForTimeout(200);
+    c('name a waypoint from its popup', await page.evaluate(() => trip.route[1][2]) === 'Bonita');
+    c('waypoint name shown on the map', (await page.locator('.wpname').allInnerTexts()).join() === 'Bonita');
+    c('naming keeps the elevation profile valid', await page.evaluate(() => routeKey(trip.route)) === key0);
+    await page.click('#locBtn'); await page.waitForTimeout(700);
+    c('next-waypoint line uses the name', (await page.text('#toNext')).startsWith('→ 2 Bonita'), await page.text('#toNext'));
+    await page.click('#locBtn');
+    page.promptAnswer = 'Kirby Cove';
+    const mb = await page.locator('#map').boundingBox();
+    await page.mouse.click(mb.x + 120, mb.y + 420, { button: 'right' }); await page.waitForTimeout(300);
+    c('long-press / right-click adds a named marker', await page.evaluate(() => trip.marks.length === 1 && trip.marks[0].name === 'Kirby Cove'));
+    c('marker name shown on the map', (await page.locator('.mkname').allInnerTexts()).join() === 'Kirby Cove');
+    page.promptAnswer = 'Put-in';
+    await page.click('#drawBtn'); await page.click('#markBtn');
+    await page.mouse.click(mb.x + 200, mb.y + 500); await page.waitForTimeout(300);
+    c('Marker button in draw mode adds a marker, not a waypoint', await page.evaluate(() => trip.marks.length === 2 && trip.route.length === 3));
+    await page.mouse.click(mb.x + 220, mb.y + 520); await page.waitForTimeout(200);
+    c('next tap adds a waypoint again', await page.evaluate(() => trip.route.length) === 4);
+    await page.click('#undoBtn'); await page.click('#doneBtn');
+    await view(page, 1);
+    c('Trip view lists markers', (await page.locator('#markList b').allInnerTexts()).join() === 'Kirby Cove,Put-in');
+    page.promptAnswer = 'Kirby Cove beach';
+    await page.locator('#markList [data-mkren]').first().click(); await page.waitForTimeout(200);
+    c('rename a marker', await page.evaluate(() => trip.marks[0].name) === 'Kirby Cove beach');
+    await page.click('#wpDetails summary'); await page.waitForFunction(() => document.querySelectorAll('#routeTable tr').length > 0);
+    c('waypoint table shows the name', /2 Bonita/.test(await page.text('#routeTable')));
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#exportGpx')]);
+    const gpx = fs.readFileSync(await dl.path(), 'utf8');
+    c('GPX export has markers and waypoint names', /<wpt [^>]+><name>Kirby Cove beach<\/name><\/wpt>/.test(gpx) && /<name>Bonita<\/name><\/rtept>/.test(gpx) && /<name>WP1<\/name>/.test(gpx));
+    fs.writeFileSync(path.join(OUT, 'named.gpx'), gpx);
+    await page.setInputFiles('#file', path.join(OUT, 'named.gpx')); await page.waitForTimeout(600);
+    c('GPX import restores markers and names', await page.evaluate(() => trip.marks.map(m => m.name).join() === 'Kirby Cove beach,Put-in' && trip.route[1][2] === 'Bonita' && trip.route[0].length === 2));
+    await page.locator('#markList [data-mkrm]').last().click(); await page.waitForTimeout(200);
+    c('delete a marker', await page.evaluate(() => trip.marks.length) === 1);
+    page.promptAnswer = '';
+    await view(page, 2); await page.locator('.wp', { hasText: /^2$/ }).click(); await page.click('.leaflet-popup [data-name]'); await page.waitForTimeout(200);
+    c('empty name clears it', await page.evaluate(() => trip.route[1].length) === 2);
+    c('no page errors (names)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
   { // trips saved by the old Paddle app still open
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page);
