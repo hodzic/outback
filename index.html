@@ -170,7 +170,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
   <!-- 1. Trips -->
   <section class="view" id="vTrips" aria-label="Trips">
     <div class="page">
-      <h1>Outback</h1>
+      <div class="row" style="margin-bottom:12px"><h1 class="grow" style="margin:0">Outback</h1><button class="btn" id="shareApp">Share Outback</button></div>
       <div class="new"><button class="btn primary" id="newPaddle">+ Paddle</button><button class="btn primary" id="newHike">+ Hike</button><button class="btn primary" id="newBike">+ Bike</button></div>
       <div id="tripList"></div>
       <div class="row" style="margin-top:6px"><button class="btn" id="importBtn">Import trip or GPX…</button></div>
@@ -182,13 +182,13 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <p>Installing puts Outback on your home screen. It opens full screen and keeps its offline data.</p>
         <h3>Android (Chrome)</h3>
         <ol>
-          <li>Open <b>hodzic.github.io/paddle</b> in Chrome.</li>
+          <li>Open <b class="appUrl">this page</b> in Chrome.</li>
           <li>Tap the <b>⋮</b> menu, then <b>Install app</b> (or <b>Add to Home screen</b>).</li>
           <li>Tap <b>Install</b>.</li>
         </ol>
         <h3>iPhone and iPad (Safari)</h3>
         <ol>
-          <li>Open <b>hodzic.github.io/paddle</b> in Safari.</li>
+          <li>Open <b class="appUrl">this page</b> in Safari.</li>
           <li>Tap the <b>Share</b> button (square with an arrow), then <b>Add to Home Screen</b>.</li>
           <li>Tap <b>Add</b>.</li>
         </ol>
@@ -1252,6 +1252,16 @@ $('#actSettings').addEventListener('change', e => {
   saveSettings(); renderActSettings(); renderList(); if (trip) changed();
 });
 renderActSettings();
+// The app's own address, so links and help stay right if the site moves (e.g. /paddle/ -> /outback/)
+const appUrl = () => location.origin + location.pathname.replace(/index\.html$/, '');
+document.querySelectorAll('.appUrl').forEach(el => el.textContent = appUrl().replace(/^https?:\/\//, '').replace(/\/$/, ''));
+$('#shareApp').onclick = async () => {
+  const url = appUrl();
+  try{ if (navigator.share){ await navigator.share({ title: 'Outback', text: 'Outback: plan paddles, hikes and rides with tides, wind and offline maps.', url }); return; } }
+  catch(e){ if (e.name === 'AbortError') return; }
+  try{ await navigator.clipboard.writeText(url); toast('Link copied: ' + url, 4000); }
+  catch{ prompt('Copy this link to share Outback', url); }
+};
 $('#sVar').value = settings.variation;
 $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.target.value)){ settings.variation = +e.target.value; saveSettings(); render(); } };
 

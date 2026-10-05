@@ -197,6 +197,22 @@ module.exports = async (browser, url, check) => {
     c('units persist', await page.evaluate(() => settings.units.paddle) === 'km' && / km$/.test(await page.text('#dist')));
     await ctx.close(); }
 
+  { // Share Outback: share sheet when available, else copy the link
+    const { ctx, page } = await open(browser, url, { permissions: ['geolocation', 'clipboard-read', 'clipboard-write'] });
+    await page.addInitScript(() => { navigator.share = d => { window.__shared = d; return Promise.resolve(); }; });
+    await page.goto(url); await ready(page); await view(page, 0);
+    await page.click('#shareApp');
+    const d = await page.evaluate(() => window.__shared);
+    c('Share Outback opens the share sheet with the app link', d && d.title === 'Outback' && d.url === url, JSON.stringify(d));
+    c('install help shows this address', (await page.locator('.appUrl').first().textContent()) === url.replace(/^https?:\/\//, '').replace(/\/$/, ''), await page.locator('.appUrl').first().textContent());
+    await ctx.close(); }
+  { const { ctx, page } = await open(browser, url, { permissions: ['geolocation', 'clipboard-read', 'clipboard-write'] });
+    await page.addInitScript(() => { delete Navigator.prototype.share; });
+    await page.goto(url); await ready(page); await view(page, 0);
+    await page.click('#shareApp'); await page.waitForTimeout(200);
+    c('without a share sheet the link is copied', (await page.evaluate(() => navigator.clipboard.readText())) === url && /Link copied/.test(await page.text('#toast')), await page.text('#toast'));
+    await ctx.close(); }
+
   { // install help on the Trips view
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);
