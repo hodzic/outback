@@ -88,6 +88,7 @@ module.exports = async (browser, url, check) => {
     return top.contains(d) && d.nextElementSibling.id === 'mapsBtn' && document.querySelector('#mapsBtn').nextElementSibling.id === 'locBtn'; }));
   c('top bar fits on a phone', await page.evaluate(() => { const r = document.querySelector('#locBtn').getBoundingClientRect(); return r.right <= innerWidth && document.querySelector('.mtop').scrollWidth <= innerWidth; }));
   await page.click('#drawBtn');
+  c('the button is labelled Route', (await page.text('#drawBtn')) === 'Route');
   c('Draw toggles draw mode and shows as on', await page.evaluate(() => state.drawing && document.querySelector('#drawBtn').classList.contains('on')));
   await page.click('#doneBtn');
 

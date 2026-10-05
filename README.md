@@ -17,7 +17,7 @@ Three views; swipe between them or use the tabs at the bottom.
    - forecast for the day: low and high temperature (large, at the top), tide/wind graph (tap or drag it to pick a time; *Now* jumps to now), wind, pressure, lightning, sun, elevation for hikes.
      *Get forecast* also saves the map around the route for offline use.
    - tracks from imported GPX files (show on map, use as route, delete), export GPX or trip file, delete trip
-3. **Map**: the route, and a top bar with the map layer (Chart / Street / Topo), *Draw*, **PDF** map overlays
+3. **Map**: the route, and a top bar with the map layer (Chart / Street / Topo), *Route* (edit the route), **PDF** map overlays
    and live location ◎ (with distance and magnetic bearing to the next waypoint).
    On the map a horizontal swipe pans the map; use the tabs or the trip name to leave it.
 
@@ -35,7 +35,7 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Location ◎** shows where you are and follows you until you pan. With a route, it also shows the next
   waypoint (the end of the leg you're closest to), the distance to it and the magnetic bearing, and highlights it.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
-  **Markers** are named points saved with the trip (long-press the map, or *Marker* while drawing);
+  **Markers** are named points saved with the trip (long-press the map, or *Marker* while editing the route);
   the Trip view lists them. GPX export and import keep both (`<wpt>` for markers).
 - **GPX import**: route points become the trip's route (simplified to at most 100 waypoints, keeping the shape
   within a few metres); a timed track is kept as a recorded track.
