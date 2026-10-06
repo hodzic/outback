@@ -86,9 +86,13 @@ module.exports = async (browser, url, check) => {
   c('no Go button or navigation strip', await page.locator('#goBtn, #nav, #stopBtn').count() === 0);
   c('Draw sits in the top bar next to PDF and location', await page.evaluate(() => { const top = document.querySelector('.mtop'), d = document.querySelector('#drawBtn');
     return top.contains(d) && d.nextElementSibling.id === 'mapsBtn' && document.querySelector('#mapsBtn').nextElementSibling.id === 'locBtn'; }));
+  c('back button sits in the top row after the trip name', await page.evaluate(() => document.querySelector('#tripChip').nextElementSibling.id === 'homeBtn'));
+  c('conditions line sits right under the top row', await page.evaluate(() => { const t = document.querySelector('.mtop').getBoundingClientRect(), m = document.querySelector('#mini').getBoundingClientRect();
+    return m.top >= t.bottom && m.top - t.bottom < 12 && m.bottom < innerHeight / 4; }));
   c('top bar fits on a phone', await page.evaluate(() => { const r = document.querySelector('#locBtn').getBoundingClientRect(); return r.right <= innerWidth && document.querySelector('.mtop').scrollWidth <= innerWidth; }));
   await page.click('#drawBtn');
   c('the button is labelled Route', (await page.text('#drawBtn')) === 'Route');
+  c('route editing bar is one compact row', await page.evaluate(() => document.querySelector('#drawBar').getBoundingClientRect().height <= 48), await page.evaluate(() => document.querySelector('#drawBar').getBoundingClientRect().height));
   c('Draw toggles draw mode and shows as on', await page.evaluate(() => state.drawing && document.querySelector('#drawBtn').classList.contains('on')));
   await page.click('#doneBtn');
 

@@ -107,22 +107,26 @@ table.acts td,table.acts th{padding:5px 3px}
 #vMap{overflow:hidden}
 #map{position:absolute;inset:0;background:#cfe3ee}
 .leaflet-control-attribution{font-size:10px}
-.mtop{position:absolute;left:0;right:0;top:0;z-index:1000;display:flex;gap:6px;align-items:center;padding:calc(var(--top) + 8px) 8px 0;pointer-events:none}
-.mtop>*{pointer-events:auto}
+.mhead{position:absolute;left:0;right:0;top:0;z-index:1000;display:flex;flex-direction:column;gap:6px;padding:calc(var(--top) + 8px) 8px 0;pointer-events:none}
+.mhead>*,.mtop>*{pointer-events:auto}
+.mtop{display:flex;gap:5px;align-items:center;pointer-events:none}
+.mtop .pill{flex-shrink:0}
+.mtop .pill:not(.icon){padding:0 10px}
 .pill{background:var(--paper);border:1px solid var(--line);border-radius:22px;height:40px;padding:0 12px;box-shadow:0 1px 3px rgba(18,50,74,.18);font-size:15px}
 .pill.icon{width:40px;padding:0;font-size:20px}
 .pill.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-#tripChip{font-weight:700;max-width:30vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tripChip{font-weight:700;max-width:30vw;flex-shrink:1!important;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #locBtn.on{background:var(--me);color:#fff;border-color:var(--me)}
-.mbar{position:absolute;left:8px;right:8px;top:calc(var(--top) + 56px);z-index:1000;background:var(--paper);border:2px solid var(--magenta);
+.mbar{background:var(--paper);border:2px solid var(--magenta);
   border-radius:14px;padding:8px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .mbar .txt{flex:1;font-size:15px;min-width:0}
-#homeBtn{position:absolute;left:8px;top:calc(var(--top) + 56px);z-index:999}
-#coords{position:absolute;right:8px;top:calc(var(--top) + 54px);z-index:999;background:rgba(255,255,255,.9);border:1px solid var(--line);
+#drawBar{padding:4px 4px 4px 10px;gap:4px;border-width:1.5px;border-radius:12px;flex-wrap:nowrap}
+#drawBar .txt{font-size:12px;line-height:1.2;color:var(--muted)}
+#drawBar .btn{min-height:32px;padding:0 10px;font-size:14px}
+#coords{align-self:flex-end;background:rgba(255,255,255,.9);border:1px solid var(--line);
   border-radius:8px;padding:2px 8px;font-size:12px;font-variant-numeric:tabular-nums}
-.mbottom{position:absolute;left:8px;right:8px;bottom:22px;z-index:1000;display:flex;flex-direction:column;gap:8px}
-#mini{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:8px 12px;text-align:left;font-size:15px;
-  font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(18,50,74,.18)}
+#mini{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;padding:6px 12px;text-align:left;font-size:14px;color:var(--ink);
+  font-variant-numeric:tabular-nums;line-height:1.35;box-shadow:0 1px 3px rgba(18,50,74,.18)}
 #mini .w{color:var(--warn);font-weight:700}
 #opBar{position:absolute;right:6px;top:38%;z-index:999;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;
   padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
@@ -133,6 +137,11 @@ table.acts td,table.acts th{padding:5px 3px}
 .wpname{color:var(--magenta);border-color:var(--magenta)}
 #markBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .wp.next{background:var(--magenta);color:#fff}
+#coords.big{align-self:stretch;font-size:15px;padding:8px 12px;border-radius:12px;cursor:pointer;background:rgba(255,255,255,.96)}
+#coords.big .cacc{font-size:18px;font-weight:700}
+#coords.big .cbig{font-size:clamp(20px,6.6vw,30px);font-weight:800;white-space:nowrap}
+#locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}
+#locBtn{position:relative}#locBtn::after{position:absolute;right:-3px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--me);border:1px solid var(--me);border-radius:8px;padding:0 3px;line-height:14px}
 #toNext{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}
 .wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);font:700 12px/20px var(--font);text-align:center;color:var(--magenta);transition:transform .15s}
 /* zoomed out: smaller waypoints (not while drawing, so they stay easy to drag) */
@@ -287,25 +296,24 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
   <!-- 3. Map -->
   <section class="view" id="vMap" aria-label="Map">
     <div id="map"></div>
+    <div class="mhead">
     <div class="mtop">
       <button id="tripChip" class="pill" aria-label="Trip details">New trip</button>
-      <span style="flex:1"></span>
+      <button id="homeBtn" class="pill icon" aria-label="Back to the trip view" title="Back to the trip view">↩</button>
+      <span style="flex:1 1 0"></span>
       <button id="layerBtn" class="pill">Chart</button>
       <button id="drawBtn" class="pill" aria-label="Edit the route">Route</button>
       <button id="mapsBtn" class="pill" aria-label="PDF map overlays">PDF</button>
       <button id="locBtn" class="pill icon" aria-label="Show my location">◎</button>
     </div>
-    <button id="homeBtn" class="pill icon" aria-label="Back to the trip view" title="Back to the trip view">↩</button>
-    <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
-    <div id="drawBar" class="mbar" hidden><span class="txt">Tap the map to add waypoints, or Marker for a named point. Drag to move. Tap a waypoint to name it.</span>
+    <button id="mini" aria-label="Conditions; open trip details"></button>
+    <div id="drawBar" class="mbar" hidden><span class="txt">Tap to add, drag to move</span>
       <button id="markBtn" class="btn">Marker</button>
       <button id="undoBtn" class="btn">Undo</button><button id="doneBtn" class="btn">Done</button></div>
     <div id="mapBar" class="mbar" hidden></div>
+    <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     </div>
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="PDF map opacity"><span id="opVal">80%</span></div>
-    <div class="mbottom">
-      <button id="mini" aria-label="Conditions; open trip details"></button>
-    </div>
   </section>
 </main>
 
@@ -329,7 +337,7 @@ const LS = {
   get(k, d){ try{ const v = localStorage.getItem('paddle.'+k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
-const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', shownMaps: [], view: 1 }, LS.get('settings', {}));
+const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
 if (settings.speeds){ if (settings.speeds.paddle) settings.speedsKt.paddle = settings.speeds.paddle; if (settings.speeds.hike) settings.speedsKt.hike = settings.speeds.hike / 1.15078; delete settings.speeds; }
@@ -521,7 +529,7 @@ function sunTimes(dateIso, lat, lng){
 
 /* ---------- state ---------- */
 const state = { legs: new Set(), tMin: 600, drawing: false, pos: null, watch: null,
-  locating: false, showStations: false, nextWp: null, view: -1 };
+  locating: false, locMode: 0, showStations: false, nextWp: null, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
   return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), route: [], tracks: [], marks: [],
@@ -605,7 +613,7 @@ let curArrow = null;
 function fitTrip(refit){
   if (trip.anchor && !refit){ map.setView(trip.anchor.c, trip.anchor.z); return; }
   const pts = [...trip.route.map(ll2), ...trip.marks.map(m => [m.lat, m.lng]), ...trip.tracks.flatMap(k => k.pts.map(ll2))];
-  if (pts.length) map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [30, 70], paddingBottomRight: [30, 150], maxZoom: 15 });
+  if (pts.length) map.fitBounds(L.latLngBounds(pts), { paddingTopLeft: [30, 110], paddingBottomRight: [30, 40], maxZoom: 15 });
 }
 
 function drawRoute(){
@@ -624,7 +632,7 @@ function drawRoute(){
           .setContent(`${fmtD(d, 2)} · ${magB(brgT(a,p))} · ${fmtDur(hoursFor(d))}`).addTo(routeLayer);
       }
     }
-    const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div data-n="${i+1}" class="wp${state.locating && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
+    const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div data-n="${i+1}" class="wp${state.locMode === 1 && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
     if (p[2]) m.bindTooltip(esc(p[2]), { permanent: true, direction: 'right', offset: [12, 0], className: 'wpname' });
     m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = p[2] ? [ll.lat, ll.lng, p[2]] : [ll.lat, ll.lng]; changed(); });
     m.bindPopup(() => `<b>Waypoint ${i+1}${p[2] ? ': ' + esc(p[2]) : ''}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
@@ -1090,7 +1098,7 @@ function renderTracks(){
 $('#trackList').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const k = trip.tracks.find(x => x.id === (b.dataset.showtrack || b.dataset.trackroute || b.dataset.rmtrack)); if (!k) return;
-  if (b.dataset.showtrack){ showView(2); setTimeout(() => map.fitBounds(L.latLngBounds(k.pts.map(p => [p[0], p[1]])), { paddingBottomRight: [30, 150] }), 350); }
+  if (b.dataset.showtrack){ showView(2); setTimeout(() => map.fitBounds(L.latLngBounds(k.pts.map(p => [p[0], p[1]])), { paddingTopLeft: [30, 110], paddingBottomRight: [30, 40] }), 350); }
   if (b.dataset.trackroute){ trip.route = simplifyTo(k.pts.map(p => [p[0], p[1]]), 60); changed(); toast(`Route made from the track: ${trip.route.length} waypoints.`); }
   if (b.dataset.rmtrack && confirm('Delete this track?')){ trip.tracks = trip.tracks.filter(x => x !== k); changed(); }
 });
@@ -1279,7 +1287,7 @@ $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.tar
 let saveT, listT;
 function changed(){
   trip.updated = Date.now();
-  if (state.locating && state.pos) state.nextWp = nextWaypoint(state.pos, trip.route); // highlight drawn below
+  if (state.locMode === 1 && state.pos) state.nextWp = nextWaypoint(state.pos, trip.route); // highlight drawn below
   drawRoute(); drawMarks(); drawTracks(); drawStations(); render(); showToNext();
   clearTimeout(saveT); saveT = setTimeout(saveNow, 300);
 }
@@ -1325,23 +1333,52 @@ function maybeStopWatch(){
   if (state.locating || state.watch == null) return;
   navigator.geolocation.clearWatch(state.watch); state.watch = null;
 }
+// ◎ tap cycles: dot + next waypoint → dot + large coordinates (for emergencies) → dot only.
+// Long-press turns it off; the next tap comes back in the mode it had. It never moves the map.
+const LOC_MODES = [
+  { label: 'Show my location', toast: 'Location off' },
+  { label: 'Location: next waypoint. Tap for large coordinates, hold to turn off', toast: 'Location: next waypoint' },
+  { label: 'Location: large coordinates. Tap for dot only, hold to turn off', toast: 'Location: large coordinates (tap them to copy)' },
+  { label: 'Location: dot only. Tap for next waypoint, hold to turn off', toast: 'Location: dot only' }];
 function locBtnState(){
-  $('#locBtn').classList.toggle('on', state.locating);
-  $('#locBtn').setAttribute('aria-label', state.locating ? 'Hide my location' : 'Show my location');
-  $('#coords').hidden = !state.locating || !state.pos;
+  const m = state.locMode, b = $('#locBtn');
+  b.classList.toggle('on', m > 0); b.dataset.mode = m; b.setAttribute('aria-label', LOC_MODES[m].label); b.title = LOC_MODES[m].label;
+  $('#coords').hidden = !(m === 1 || m === 2) || !state.pos;
+  $('#coords').classList.toggle('big', m === 2);
 }
-// On/off only: shows the blue dot and the next waypoint; never moves the map (zoom out if you're off screen).
-$('#locBtn').onclick = () => {
-  if (state.locating){ state.locating = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); showToNext(); return; }
-  state.locating = true; if (!ensureWatch()){ state.locating = false; return; }
-  locBtnState();
+function setLocMode(m){
+  if (m && !state.locMode && !ensureWatch()) return;
+  state.locMode = m; state.locating = m > 0;
+  if (m) settings.locMode = m, saveSettings();
+  else { maybeStopWatch(); meLayer.clearLayers(); state.pos = state.fix = null; }
+  showCoords(); showToNext(); locBtnState(); toast(LOC_MODES[m].toast, 1800);
+}
+let locHold, locHeld = false;
+const locBtn = $('#locBtn');
+locBtn.addEventListener('pointerdown', () => { locHeld = false; clearTimeout(locHold); if (state.locMode) locHold = setTimeout(() => { locHeld = true; setLocMode(0); navigator.vibrate?.(30); }, 600); });
+['pointerup', 'pointerleave', 'pointercancel'].forEach(t => locBtn.addEventListener(t, () => clearTimeout(locHold)));
+locBtn.addEventListener('contextmenu', e => e.preventDefault());
+locBtn.onclick = () => {
+  if (locHeld){ locHeld = false; return; }
+  setLocMode(state.locMode ? state.locMode % 3 + 1 : settings.locMode || 1);
+};
+// Decimal degrees and accuracy
+function showCoords(){
+  const f = state.fix; if (!f) return;
+  const ll = `${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}`, acc = `±${Math.round(f.acc)} m`;
+  $('#coordTxt').innerHTML = state.locMode === 2 ? `<div class="cbig">${ll}</div><div class="cacc">${acc}</div>` : `${ll} ${acc}`;
+}
+$('#coords').onclick = async () => {
+  if (state.locMode !== 2 || !state.fix) return;
+  const f = state.fix, txt = `${f.lat.toFixed(5)}, ${f.lng.toFixed(5)} ±${Math.round(f.acc)} m`;
+  try{ await navigator.clipboard.writeText(txt); toast('Coordinates copied'); }catch{ prompt('Coordinates:', txt); }
 };
 function onPos(p){
   const c = p.coords;
   state.pos = [c.latitude, c.longitude];
   showMe(state.pos, c.accuracy);
-  $('#coordTxt').textContent = `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)} ±${Math.round(c.accuracy)} m`;
-  showToNext();
+  state.fix = { lat: c.latitude, lng: c.longitude, acc: c.accuracy };
+  showCoords(); showToNext();
   locBtnState();
 }
 // Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.
@@ -1363,7 +1400,7 @@ function nextWaypoint(pos, r){
 const fmtShort = nm => nm >= 0.1 ? fmtD(nm, 2) : unitName() === 'mi' ? Math.round(nm * 6076) + ' ft' : Math.round(nm * 1852) + ' m';
 function showToNext(){
   const el = $('#toNext'), r = trip?.route || [];
-  const i = state.pos && state.locating ? nextWaypoint(state.pos, r) : null;
+  const i = state.pos && state.locMode === 1 ? nextWaypoint(state.pos, r) : null;
   if (i !== state.nextWp){ state.nextWp = i; drawRoute(); }
   toLine.clearLayers();
   if (i == null){ el.hidden = true; return; }
