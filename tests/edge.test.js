@@ -46,6 +46,8 @@ module.exports = async (browser, url, check) => {
     c('location shows distance and bearing to the next waypoint', (await page.text('#toNext')) === want, await page.text('#toNext') + ' vs ' + want);
     c('bearing is magnetic', /°M$/.test(await page.text('#toNext')));
     c('next waypoint highlighted on the map', (await page.locator('.wp.next').innerText()) === '2');
+    c('dashed line from you to the next waypoint', await page.evaluate(() => { const l = toLine.getLayers(); if (l.length !== 1) return false; const ll = l[0].getLatLngs();
+      return l[0].options.dashArray && ll[0].equals(state.pos) && ll[1].equals(ll2(trip.route[1])); }));
     await ctx.setGeolocation({ latitude: 37.81005, longitude: -122.42005 }); await page.waitForTimeout(700);
     c('reaching a waypoint moves on to the next', (await page.text('#toNext')).startsWith('→ Finish'), await page.text('#toNext'));
     await ctx.setGeolocation({ latitude: 37.8150, longitude: -122.4100 }); await page.waitForTimeout(700);
@@ -53,11 +55,11 @@ module.exports = async (browser, url, check) => {
     await ctx.setGeolocation({ latitude: 37.82001, longitude: -122.40001 }); await page.waitForTimeout(700);
     c('at the finish', (await page.text('#toNext')) === 'At the finish', await page.text('#toNext'));
     await page.evaluate(() => { trip.route = []; changed(); }); await page.waitForTimeout(200);
-    c('no line without a route', await page.isHidden('#toNext'));
+    c('no line without a route', await page.isHidden('#toNext') && await page.evaluate(() => toLine.getLayers().length === 0));
     await page.evaluate(() => { trip.route = [[37.80, -122.45], [37.81, -122.42], [37.82, -122.40]]; changed(); }); await page.waitForTimeout(200);
     c('line returns when a route is drawn', await page.isVisible('#toNext'));
     await page.click('#locBtn'); if (await page.evaluate(() => state.locating)) await page.click('#locBtn'); await page.waitForTimeout(300);
-    c('turning location off hides the line and highlight', await page.evaluate(() => !state.locating) && await page.locator('.wp.next').count() === 0);
+    c('turning location off hides the line and highlight', await page.evaluate(() => !state.locating && toLine.getLayers().length === 0) && await page.locator('.wp.next').count() === 0);
     c('no errors with location on', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { const { ctx, page } = await open(browser, url);

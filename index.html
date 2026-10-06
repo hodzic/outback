@@ -117,6 +117,7 @@ table.acts td,table.acts th{padding:5px 3px}
 .mbar{position:absolute;left:8px;right:8px;top:calc(var(--top) + 56px);z-index:1000;background:var(--paper);border:2px solid var(--magenta);
   border-radius:14px;padding:8px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .mbar .txt{flex:1;font-size:15px;min-width:0}
+#homeBtn{position:absolute;left:8px;top:calc(var(--top) + 56px);z-index:999}
 #coords{position:absolute;right:8px;top:calc(var(--top) + 54px);z-index:999;background:rgba(255,255,255,.9);border:1px solid var(--line);
   border-radius:8px;padding:2px 8px;font-size:12px;font-variant-numeric:tabular-nums}
 .mbottom{position:absolute;left:8px;right:8px;bottom:22px;z-index:1000;display:flex;flex-direction:column;gap:8px}
@@ -294,6 +295,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <button id="mapsBtn" class="pill" aria-label="PDF map overlays">PDF</button>
       <button id="locBtn" class="pill icon" aria-label="Show my location">◎</button>
     </div>
+    <button id="homeBtn" class="pill icon" aria-label="Back to the trip view" title="Back to the trip view">↩</button>
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     <div id="drawBar" class="mbar" hidden><span class="txt">Tap the map to add waypoints, or Marker for a named point. Drag to move. Tap a waypoint to name it.</span>
       <button id="markBtn" class="btn">Marker</button>
@@ -590,11 +592,13 @@ setLayer(settings.layer in LAYERS ? settings.layer : 'chart');
 $('#layerBtn').onclick = () => setLayer(LAYER_ORDER[(LAYER_ORDER.indexOf(settings.layer) + 1) % LAYER_ORDER.length]);
 $('#tripChip').onclick = () => showView(1);
 $('#mini').onclick = () => showView(1);
+$('#homeBtn').onclick = () => { if (trip) fitTrip(); };
 
 const trackLayer = L.layerGroup().addTo(map);
 const routeLayer = L.layerGroup().addTo(map);
 const stationLayer = L.layerGroup().addTo(map);
 const meLayer = L.layerGroup().addTo(map);
+const toLine = L.layerGroup().addTo(map);
 const markLayer = L.layerGroup().addTo(map);
 let curArrow = null;
 // The trip's map view: saved by Get forecast, restored when the trip opens. Nothing else changes it.
@@ -1361,7 +1365,9 @@ function showToNext(){
   const el = $('#toNext'), r = trip?.route || [];
   const i = state.pos && state.locating ? nextWaypoint(state.pos, r) : null;
   if (i !== state.nextWp){ state.nextWp = i; drawRoute(); }
+  toLine.clearLayers();
   if (i == null){ el.hidden = true; return; }
+  L.polyline([state.pos, ll2(r[i])], { color: '#1a73e8', weight: 3, dashArray: '6 8', opacity: .9, interactive: false }).addTo(toLine);
   const d = distNm(state.pos, r[i]), last = i === r.length - 1;
   el.textContent = last && d * 1852 < NEAR_M ? 'At the finish' : `→ ${last ? 'Finish' + (r[i][2] ? ' ' + r[i][2] : '') : wpLabel(r, i)} · ${fmtShort(d)} · ${magB(brgT(state.pos, r[i]))}`;
   el.hidden = false;

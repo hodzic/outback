@@ -332,6 +332,10 @@ module.exports = async (browser, url, check) => {
     await page.evaluate(() => map.setView([37.79, -122.40], 15));
     await page.evaluate(async () => { await saveNow(); await openTrip(await idb.get('trips', trip.id)); }); await page.waitForTimeout(300);
     c('opening the trip returns to its saved view', await page.evaluate(() => { const c = map.getCenter(); return map.getZoom() === trip.anchor.z && Math.abs(c.lat - trip.anchor.c[0]) < 1e-6 && Math.abs(c.lng - trip.anchor.c[1]) < 1e-6; }));
+    await page.evaluate(() => map.setView([37.0, -121.0], 9)); await view(page, 2); await page.click('#homeBtn'); await page.waitForTimeout(300);
+    c('↩ goes back to the trip view', await page.evaluate(() => { const c = map.getCenter(); return map.getZoom() === trip.anchor.z && Math.abs(c.lat - trip.anchor.c[0]) < 1e-6; }));
+    await page.evaluate(() => map.setView([37.79, -122.40], 15));
+    await view(page, 1);
     await page.evaluate(() => map.setView([38.5, -121.0], 12)); await page.click('#fcBtn'); await waitForecast(page);
     c('forecast with the trip off screen fits the trip instead', await page.evaluate(() => L.latLng(trip.anchor.c).distanceTo([37.705, -122.59]) < 5000));
     await ctx.close(); }
