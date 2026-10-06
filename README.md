@@ -33,9 +33,9 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Hiking and biking**: elevation profile and total climb (Open-Meteo); time estimates add 1 hour per
   2000 ft of climb for hiking (Naismith) and per 3000 ft for biking.
 - **Map view**: each trip opens at its saved view. *Get forecast* saves the current map view (or fits the
-  trip if the map isn't showing it); nothing else changes it.
+  trip if the map isn't showing it); nothing else changes it. ↩ on the map goes back to it.
 - **Location ◎** turns the blue dot on and off; it never moves the map (zoom out if you're off screen). With a route, it also shows the next
-  waypoint (the end of the leg you're closest to), the distance to it and the magnetic bearing, and highlights it.
+  waypoint (the end of the leg you're closest to), the distance to it and the magnetic bearing, highlights it and draws a dashed line to it.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
   **Markers** are named points saved with the trip (long-press the map, or *Marker* while editing the route);
   the Trip view lists them. GPX export and import keep both (`<wpt>` for markers).
