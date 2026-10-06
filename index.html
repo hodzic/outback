@@ -136,7 +136,6 @@ table.acts td,table.acts th{padding:5px 3px}
 .wp.next{background:var(--magenta);color:#fff}
 #coords.big{align-self:stretch;font-size:15px;padding:8px 12px;border-radius:12px;cursor:pointer;background:rgba(255,255,255,.96)}
 #coords.big .cbig{font-size:clamp(20px,6.6vw,30px);font-weight:800;white-space:nowrap}
-#coords.big .cdm{font-size:clamp(15px,4.6vw,21px);font-weight:700;white-space:nowrap}
 #locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}
 #locBtn{position:relative}#locBtn::after{position:absolute;right:-3px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--me);border:1px solid var(--me);border-radius:8px;padding:0 3px;line-height:14px}
 #toNext{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}
@@ -185,6 +184,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card" style="margin-top:16px"><summary>Settings</summary>
         <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
+        <label class="f" for="sCoord">Coordinates</label><select class="f" id="sCoord"><option value="dd">Decimal degrees: 37.80500, -122.44000</option><option value="dm">Degrees, minutes: 37° 48.300′ N 122° 26.400′ W</option></select>
       </details>
       <details class="card help" id="helpInstall"><summary>Help: install on your phone</summary>
         <p>Installing puts Outback on your home screen. It opens full screen and keeps its offline data.</p>
@@ -334,7 +334,7 @@ const LS = {
   get(k, d){ try{ const v = localStorage.getItem('paddle.'+k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
-const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', shownMaps: [], view: 1 }, LS.get('settings', {}));
+const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', coordFmt: 'dd', shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
 if (settings.speeds){ if (settings.speeds.paddle) settings.speedsKt.paddle = settings.speeds.paddle; if (settings.speeds.hike) settings.speedsKt.hike = settings.speeds.hike / 1.15078; delete settings.speeds; }
@@ -1278,6 +1278,8 @@ $('#shareApp').onclick = async () => {
   catch{ prompt('Copy this link to share Outback', url); }
 };
 $('#sVar').value = settings.variation;
+$('#sCoord').value = settings.coordFmt;
+$('#sCoord').onchange = e => { settings.coordFmt = e.target.value; saveSettings(); showCoords(); };
 $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.target.value)){ settings.variation = +e.target.value; saveSettings(); render(); } };
 
 /* ---------- save / load ---------- */
@@ -1351,15 +1353,18 @@ $('#locBtn').onclick = () => {
   showCoords(); showToNext(); locBtnState(); toast(LOC_MODES[m].toast, 1800);
 };
 const dm = (v, pos, neg) => { const a = Math.abs(v), d = Math.floor(a); return `${d}° ${((a - d) * 60).toFixed(3)}′ ${v >= 0 ? pos : neg}`; };
+// One format, chosen in Settings: decimal degrees or degrees and decimal minutes.
+const fmtCoord = f => settings.coordFmt === 'dm' ? [dm(f.lat, 'N', 'S'), dm(f.lng, 'E', 'W')] : [f.lat.toFixed(5), f.lng.toFixed(5)];
 function showCoords(){
   const f = state.fix; if (!f) return;
+  const [a, b] = fmtCoord(f), acc = `±${Math.round(f.acc)} m`;
   $('#coordTxt').innerHTML = state.locMode === 2
-    ? `<div class="cbig">${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}</div><div class="cdm">${dm(f.lat, 'N', 'S')}  ${dm(f.lng, 'E', 'W')}</div><div>±${Math.round(f.acc)} m · tap to copy</div>`
-    : `${f.lat.toFixed(5)}, ${f.lng.toFixed(5)} ±${Math.round(f.acc)} m`;
+    ? `<div class="cbig">${settings.coordFmt === 'dm' ? `${a}<br>${b}` : `${a}, ${b}`}</div><div>${acc} · tap to copy</div>`
+    : `${a}, ${b} ${acc}`;
 }
 $('#coords').onclick = async () => {
   if (state.locMode !== 2 || !state.fix) return;
-  const f = state.fix, txt = `${f.lat.toFixed(5)}, ${f.lng.toFixed(5)} (${dm(f.lat, 'N', 'S')} ${dm(f.lng, 'E', 'W')}) ±${Math.round(f.acc)} m`;
+  const txt = fmtCoord(state.fix).join(', ') + ` ±${Math.round(state.fix.acc)} m`;
   try{ await navigator.clipboard.writeText(txt); toast('Coordinates copied'); }catch{ prompt('Coordinates:', txt); }
 };
 function onPos(p){

@@ -37,7 +37,8 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Location ◎** cycles through four modes and never moves the map (zoom out if you're off screen):
   1. blue dot, plus the next waypoint (the end of the leg you're closest to) with distance and magnetic bearing,
      highlighted and joined to you by a dashed line;
-  2. blue dot and large coordinates (decimal and degrees-minutes) for an emergency call; tap them to copy;
+  2. blue dot and large coordinates for an emergency call; tap them to copy. Settings picks the format:
+     decimal degrees or degrees and minutes;
   3. blue dot only;
   4. off.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
