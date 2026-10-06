@@ -103,7 +103,7 @@ module.exports = async (browser, url, check) => {
     c('naming keeps the elevation profile valid', await page.evaluate(() => routeKey(trip.route)) === key0);
     await page.click('#locBtn'); await page.waitForTimeout(700);
     c('next-waypoint line uses the name', (await page.text('#toNext')).startsWith('→ 2 Bonita'), await page.text('#toNext'));
-    await page.click('#locBtn');
+    for (let k = 0; k < 3; k++) await page.click('#locBtn');
     page.promptAnswer = 'Kirby Cove';
     const mb = await page.locator('#map').boundingBox();
     await page.mouse.click(mb.x + 120, mb.y + 420, { button: 'right' }); await page.waitForTimeout(300);
@@ -324,8 +324,8 @@ module.exports = async (browser, url, check) => {
     c('panning keeps location on', await page.evaluate(() => state.locating && state.watch != null));
     await page.waitForTimeout(500); const panned = await at();
     c('map drag does not switch views', await page.evaluate(() => state.view) === 2);
-    await page.click('#locBtn'); await page.waitForTimeout(300);
-    c('tap again turns location off, map stays', await page.evaluate(() => state.watch == null) && await page.locator('.me').count() === 0 && near(await at(), panned));
+    for (let k = 0; k < 3; k++) await page.click('#locBtn'); await page.waitForTimeout(300);
+    c('cycling to off turns location off, map stays', await page.evaluate(() => state.watch == null) && await page.locator('.me').count() === 0 && near(await at(), panned));
     await page.evaluate(() => map.setView([37.705, -122.59], 13)); await page.waitForTimeout(300);
     await view(page, 1); await page.click('#fcBtn'); await waitForecast(page);
     c('Get forecast saves the current map view as the trip view', await page.evaluate(() => trip.anchor && trip.anchor.z === 13 && Math.abs(trip.anchor.c[0] - 37.705) < 1e-3), await page.evaluate(() => JSON.stringify([trip.anchor, state.view])));

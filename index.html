@@ -134,6 +134,11 @@ table.acts td,table.acts th{padding:5px 3px}
 .wpname{color:var(--magenta);border-color:var(--magenta)}
 #markBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .wp.next{background:var(--magenta);color:#fff}
+#coords.big{align-self:stretch;font-size:15px;padding:8px 12px;border-radius:12px;cursor:pointer;background:rgba(255,255,255,.96)}
+#coords.big .cbig{font-size:clamp(20px,6.6vw,30px);font-weight:800;white-space:nowrap}
+#coords.big .cdm{font-size:clamp(15px,4.6vw,21px);font-weight:700;white-space:nowrap}
+#locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}
+#locBtn{position:relative}#locBtn::after{position:absolute;right:-3px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--me);border:1px solid var(--me);border-radius:8px;padding:0 3px;line-height:14px}
 #toNext{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}
 .wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);font:700 12px/20px var(--font);text-align:center;color:var(--magenta);transition:transform .15s}
 /* zoomed out: smaller waypoints (not while drawing, so they stay easy to drag) */
@@ -521,7 +526,7 @@ function sunTimes(dateIso, lat, lng){
 
 /* ---------- state ---------- */
 const state = { legs: new Set(), tMin: 600, drawing: false, pos: null, watch: null,
-  locating: false, showStations: false, nextWp: null, view: -1 };
+  locating: false, locMode: 0, showStations: false, nextWp: null, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
   return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), route: [], tracks: [], marks: [],
@@ -624,7 +629,7 @@ function drawRoute(){
           .setContent(`${fmtD(d, 2)} · ${magB(brgT(a,p))} · ${fmtDur(hoursFor(d))}`).addTo(routeLayer);
       }
     }
-    const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div data-n="${i+1}" class="wp${state.locating && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
+    const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div data-n="${i+1}" class="wp${state.locMode === 1 && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
     if (p[2]) m.bindTooltip(esc(p[2]), { permanent: true, direction: 'right', offset: [12, 0], className: 'wpname' });
     m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = p[2] ? [ll.lat, ll.lng, p[2]] : [ll.lat, ll.lng]; changed(); });
     m.bindPopup(() => `<b>Waypoint ${i+1}${p[2] ? ': ' + esc(p[2]) : ''}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
@@ -1279,7 +1284,7 @@ $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.tar
 let saveT, listT;
 function changed(){
   trip.updated = Date.now();
-  if (state.locating && state.pos) state.nextWp = nextWaypoint(state.pos, trip.route); // highlight drawn below
+  if (state.locMode === 1 && state.pos) state.nextWp = nextWaypoint(state.pos, trip.route); // highlight drawn below
   drawRoute(); drawMarks(); drawTracks(); drawStations(); render(); showToNext();
   clearTimeout(saveT); saveT = setTimeout(saveNow, 300);
 }
@@ -1325,23 +1330,44 @@ function maybeStopWatch(){
   if (state.locating || state.watch == null) return;
   navigator.geolocation.clearWatch(state.watch); state.watch = null;
 }
+// ◎ cycles: dot + line to the next waypoint → dot + large coordinates (for emergencies) → dot only → off.
+// It never moves the map (zoom out if you're off screen).
+const LOC_MODES = [
+  { label: 'Show my location', toast: 'Location off' },
+  { label: 'Location: dot and next waypoint. Tap for large coordinates', toast: 'Location: next waypoint' },
+  { label: 'Location: large coordinates. Tap for dot only', toast: 'Location: large coordinates (tap them to copy)' },
+  { label: 'Location: dot only. Tap to turn off', toast: 'Location: dot only' }];
 function locBtnState(){
-  $('#locBtn').classList.toggle('on', state.locating);
-  $('#locBtn').setAttribute('aria-label', state.locating ? 'Hide my location' : 'Show my location');
-  $('#coords').hidden = !state.locating || !state.pos;
+  const m = state.locMode, b = $('#locBtn');
+  b.classList.toggle('on', m > 0); b.dataset.mode = m; b.setAttribute('aria-label', LOC_MODES[m].label); b.title = LOC_MODES[m].label;
+  $('#coords').hidden = !(m === 1 || m === 2) || !state.pos;
+  $('#coords').classList.toggle('big', m === 2);
 }
-// On/off only: shows the blue dot and the next waypoint; never moves the map (zoom out if you're off screen).
 $('#locBtn').onclick = () => {
-  if (state.locating){ state.locating = false; maybeStopWatch(); meLayer.clearLayers(); locBtnState(); showToNext(); return; }
-  state.locating = true; if (!ensureWatch()){ state.locating = false; return; }
-  locBtnState();
+  const m = (state.locMode + 1) % LOC_MODES.length;
+  if (m === 1 && !ensureWatch()) return;
+  state.locMode = m; state.locating = m > 0;
+  if (!m){ maybeStopWatch(); meLayer.clearLayers(); state.pos = state.fix = null; }
+  showCoords(); showToNext(); locBtnState(); toast(LOC_MODES[m].toast, 1800);
+};
+const dm = (v, pos, neg) => { const a = Math.abs(v), d = Math.floor(a); return `${d}° ${((a - d) * 60).toFixed(3)}′ ${v >= 0 ? pos : neg}`; };
+function showCoords(){
+  const f = state.fix; if (!f) return;
+  $('#coordTxt').innerHTML = state.locMode === 2
+    ? `<div class="cbig">${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}</div><div class="cdm">${dm(f.lat, 'N', 'S')}  ${dm(f.lng, 'E', 'W')}</div><div>±${Math.round(f.acc)} m · tap to copy</div>`
+    : `${f.lat.toFixed(5)}, ${f.lng.toFixed(5)} ±${Math.round(f.acc)} m`;
+}
+$('#coords').onclick = async () => {
+  if (state.locMode !== 2 || !state.fix) return;
+  const f = state.fix, txt = `${f.lat.toFixed(5)}, ${f.lng.toFixed(5)} (${dm(f.lat, 'N', 'S')} ${dm(f.lng, 'E', 'W')}) ±${Math.round(f.acc)} m`;
+  try{ await navigator.clipboard.writeText(txt); toast('Coordinates copied'); }catch{ prompt('Coordinates:', txt); }
 };
 function onPos(p){
   const c = p.coords;
   state.pos = [c.latitude, c.longitude];
   showMe(state.pos, c.accuracy);
-  $('#coordTxt').textContent = `${c.latitude.toFixed(5)}, ${c.longitude.toFixed(5)} ±${Math.round(c.accuracy)} m`;
-  showToNext();
+  state.fix = { lat: c.latitude, lng: c.longitude, acc: c.accuracy };
+  showCoords(); showToNext();
   locBtnState();
 }
 // Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.
@@ -1363,7 +1389,7 @@ function nextWaypoint(pos, r){
 const fmtShort = nm => nm >= 0.1 ? fmtD(nm, 2) : unitName() === 'mi' ? Math.round(nm * 6076) + ' ft' : Math.round(nm * 1852) + ' m';
 function showToNext(){
   const el = $('#toNext'), r = trip?.route || [];
-  const i = state.pos && state.locating ? nextWaypoint(state.pos, r) : null;
+  const i = state.pos && state.locMode === 1 ? nextWaypoint(state.pos, r) : null;
   if (i !== state.nextWp){ state.nextWp = i; drawRoute(); }
   toLine.clearLayers();
   if (i == null){ el.hidden = true; return; }

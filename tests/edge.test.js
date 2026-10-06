@@ -58,7 +58,20 @@ module.exports = async (browser, url, check) => {
     c('no line without a route', await page.isHidden('#toNext') && await page.evaluate(() => toLine.getLayers().length === 0));
     await page.evaluate(() => { trip.route = [[37.80, -122.45], [37.81, -122.42], [37.82, -122.40]]; changed(); }); await page.waitForTimeout(200);
     c('line returns when a route is drawn', await page.isVisible('#toNext'));
-    await page.click('#locBtn'); if (await page.evaluate(() => state.locating)) await page.click('#locBtn'); await page.waitForTimeout(300);
+    // ◎ cycles: next waypoint → large coordinates → dot only → off
+    await page.click('#locBtn'); await page.waitForTimeout(300);
+    c('second tap: large coordinates', await page.evaluate(() => state.locMode === 2) && await page.isVisible('#coords.big .cbig')
+      && /^37\.\d{5}, -122\.\d{5}$/.test(await page.text('#coords .cbig')) && /37° \d+\.\d{3}′ N\s+122° \d+\.\d{3}′ W/.test(await page.text('#coords .cdm')), await page.text('#coords'));
+    c('large coordinates mode hides the line and highlight', await page.evaluate(() => toLine.getLayers().length === 0) && await page.locator('.wp.next').count() === 0 && await page.isHidden('#toNext'));
+    await ctx.setGeolocation({ latitude: 37.8050, longitude: -122.4300 }); await page.waitForTimeout(600);
+    c('large coordinates update with position', (await page.text('#coords .cbig')) === '37.80500, -122.43000', await page.text('#coords .cbig'));
+    await page.evaluate(() => { Object.defineProperty(navigator, 'clipboard', { value: { writeText: async t => { window.__copied = t; } }, configurable: true }); });
+    await page.click('#coords'); await page.waitForTimeout(200);
+    c('tap the coordinates to copy them', /^37\.80500, -122\.43000 \(37° 48\.300′ N 122° 25\.800′ W\) ±\d+ m$/.test(await page.evaluate(() => window.__copied)), await page.evaluate(() => window.__copied));
+    await page.click('#locBtn'); await page.waitForTimeout(300);
+    c('third tap: dot only', await page.evaluate(() => state.locMode === 3) && await page.isHidden('#coords') && await page.locator('.me').count() === 1 && await page.evaluate(() => toLine.getLayers().length === 0));
+    await page.click('#locBtn'); await page.waitForTimeout(300);
+    c('fourth tap: off', await page.evaluate(() => state.locMode === 0 && state.watch == null) && await page.locator('.me').count() === 0);
     c('turning location off hides the line and highlight', await page.evaluate(() => !state.locating && toLine.getLayers().length === 0) && await page.locator('.wp.next').count() === 0);
     c('no errors with location on', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
