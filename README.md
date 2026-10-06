@@ -34,13 +34,13 @@ Three views; swipe between them or use the tabs at the bottom.
   2000 ft of climb for hiking (Naismith) and per 3000 ft for biking.
 - **Map view**: each trip opens at its saved view. *Get forecast* saves the current map view (or fits the
   trip if the map isn't showing it); nothing else changes it. ↩ on the map goes back to it.
-- **Location ◎** cycles through four modes and never moves the map (zoom out if you're off screen):
+- **Location ◎** never moves the map (zoom out if you're off screen). A tap cycles through:
   1. blue dot, plus the next waypoint (the end of the leg you're closest to) with distance and magnetic bearing,
      highlighted and joined to you by a dashed line;
-  2. blue dot and large coordinates for an emergency call; tap them to copy. Settings picks the format:
-     decimal degrees or degrees and minutes;
-  3. blue dot only;
-  4. off.
+  2. blue dot and large coordinates (decimal degrees and accuracy) for an emergency call; tap them to copy;
+  3. blue dot only.
+
+  Hold the button to turn location off; the next tap brings back the mode you had.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
   **Markers** are named points saved with the trip (long-press the map, or *Marker* while editing the route);
   the Trip view lists them. GPX export and import keep both (`<wpt>` for markers).

@@ -1,7 +1,7 @@
 // Outback features: activity and terrain, elevation, imported tracks, navigation,
 // legacy migration, PDF map overlays, GPS Map import, live location, cache sharing.
 const fs = require('fs'), path = require('path');
-const { open, waitForecast, seedRoute, ready, view, OUT } = require('./harness');
+const { hold, open, waitForecast, seedRoute, ready, view, OUT } = require('./harness');
 require('./make-pdf')(OUT);
 // New trip from the Trips view; it lands on the map in draw mode, so finish drawing.
 const newTrip = async (page, kind) => { await view(page, 0); await page.click({ hike: '#newHike', bike: '#newBike', paddle: '#newPaddle' }[kind]); await page.waitForTimeout(500); await page.click('#doneBtn'); };
@@ -103,7 +103,7 @@ module.exports = async (browser, url, check) => {
     c('naming keeps the elevation profile valid', await page.evaluate(() => routeKey(trip.route)) === key0);
     await page.click('#locBtn'); await page.waitForTimeout(700);
     c('next-waypoint line uses the name', (await page.text('#toNext')).startsWith('→ 2 Bonita'), await page.text('#toNext'));
-    for (let k = 0; k < 3; k++) await page.click('#locBtn');
+    await hold(page, '#locBtn');
     page.promptAnswer = 'Kirby Cove';
     const mb = await page.locator('#map').boundingBox();
     await page.mouse.click(mb.x + 120, mb.y + 420, { button: 'right' }); await page.waitForTimeout(300);
@@ -324,7 +324,7 @@ module.exports = async (browser, url, check) => {
     c('panning keeps location on', await page.evaluate(() => state.locating && state.watch != null));
     await page.waitForTimeout(500); const panned = await at();
     c('map drag does not switch views', await page.evaluate(() => state.view) === 2);
-    for (let k = 0; k < 3; k++) await page.click('#locBtn'); await page.waitForTimeout(300);
+    await hold(page, '#locBtn');
     c('cycling to off turns location off, map stays', await page.evaluate(() => state.watch == null) && await page.locator('.me').count() === 0 && near(await at(), panned));
     await page.evaluate(() => map.setView([37.705, -122.59], 13)); await page.waitForTimeout(300);
     await view(page, 1); await page.click('#fcBtn'); await waitForecast(page);

@@ -120,6 +120,9 @@ table.acts td,table.acts th{padding:5px 3px}
 .mbar{background:var(--paper);border:2px solid var(--magenta);
   border-radius:14px;padding:8px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .mbar .txt{flex:1;font-size:15px;min-width:0}
+#drawBar{padding:4px 4px 4px 10px;gap:4px;border-width:1.5px;border-radius:12px;flex-wrap:nowrap}
+#drawBar .txt{font-size:12px;line-height:1.2;color:var(--muted)}
+#drawBar .btn{min-height:32px;padding:0 10px;font-size:14px}
 #coords{align-self:flex-end;background:rgba(255,255,255,.9);border:1px solid var(--line);
   border-radius:8px;padding:2px 8px;font-size:12px;font-variant-numeric:tabular-nums}
 #mini{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;padding:6px 12px;text-align:left;font-size:14px;color:var(--ink);
@@ -135,6 +138,7 @@ table.acts td,table.acts th{padding:5px 3px}
 #markBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .wp.next{background:var(--magenta);color:#fff}
 #coords.big{align-self:stretch;font-size:15px;padding:8px 12px;border-radius:12px;cursor:pointer;background:rgba(255,255,255,.96)}
+#coords.big .cacc{font-size:18px;font-weight:700}
 #coords.big .cbig{font-size:clamp(20px,6.6vw,30px);font-weight:800;white-space:nowrap}
 #locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}
 #locBtn{position:relative}#locBtn::after{position:absolute;right:-3px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--me);border:1px solid var(--me);border-radius:8px;padding:0 3px;line-height:14px}
@@ -184,7 +188,6 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card" style="margin-top:16px"><summary>Settings</summary>
         <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
-        <label class="f" for="sCoord">Coordinates</label><select class="f" id="sCoord"><option value="dd">Decimal degrees: 37.80500, -122.44000</option><option value="dm">Degrees, minutes: 37° 48.300′ N 122° 26.400′ W</option></select>
       </details>
       <details class="card help" id="helpInstall"><summary>Help: install on your phone</summary>
         <p>Installing puts Outback on your home screen. It opens full screen and keeps its offline data.</p>
@@ -304,7 +307,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <button id="locBtn" class="pill icon" aria-label="Show my location">◎</button>
     </div>
     <button id="mini" aria-label="Conditions; open trip details"></button>
-    <div id="drawBar" class="mbar" hidden><span class="txt">Tap the map to add waypoints, or Marker for a named point. Drag to move. Tap a waypoint to name it.</span>
+    <div id="drawBar" class="mbar" hidden><span class="txt">Tap to add, drag to move</span>
       <button id="markBtn" class="btn">Marker</button>
       <button id="undoBtn" class="btn">Undo</button><button id="doneBtn" class="btn">Done</button></div>
     <div id="mapBar" class="mbar" hidden></div>
@@ -334,7 +337,7 @@ const LS = {
   get(k, d){ try{ const v = localStorage.getItem('paddle.'+k); return v == null ? d : JSON.parse(v); }catch{ return d; } },
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
-const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', coordFmt: 'dd', shownMaps: [], view: 1 }, LS.get('settings', {}));
+const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
 if (settings.speeds){ if (settings.speeds.paddle) settings.speedsKt.paddle = settings.speeds.paddle; if (settings.speeds.hike) settings.speedsKt.hike = settings.speeds.hike / 1.15078; delete settings.speeds; }
@@ -1278,8 +1281,6 @@ $('#shareApp').onclick = async () => {
   catch{ prompt('Copy this link to share Outback', url); }
 };
 $('#sVar').value = settings.variation;
-$('#sCoord').value = settings.coordFmt;
-$('#sCoord').onchange = e => { settings.coordFmt = e.target.value; saveSettings(); showCoords(); };
 $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.target.value)){ settings.variation = +e.target.value; saveSettings(); render(); } };
 
 /* ---------- save / load ---------- */
@@ -1332,39 +1333,44 @@ function maybeStopWatch(){
   if (state.locating || state.watch == null) return;
   navigator.geolocation.clearWatch(state.watch); state.watch = null;
 }
-// ◎ cycles: dot + line to the next waypoint → dot + large coordinates (for emergencies) → dot only → off.
-// It never moves the map (zoom out if you're off screen).
+// ◎ tap cycles: dot + next waypoint → dot + large coordinates (for emergencies) → dot only.
+// Long-press turns it off; the next tap comes back in the mode it had. It never moves the map.
 const LOC_MODES = [
   { label: 'Show my location', toast: 'Location off' },
-  { label: 'Location: dot and next waypoint. Tap for large coordinates', toast: 'Location: next waypoint' },
-  { label: 'Location: large coordinates. Tap for dot only', toast: 'Location: large coordinates (tap them to copy)' },
-  { label: 'Location: dot only. Tap to turn off', toast: 'Location: dot only' }];
+  { label: 'Location: next waypoint. Tap for large coordinates, hold to turn off', toast: 'Location: next waypoint' },
+  { label: 'Location: large coordinates. Tap for dot only, hold to turn off', toast: 'Location: large coordinates (tap them to copy)' },
+  { label: 'Location: dot only. Tap for next waypoint, hold to turn off', toast: 'Location: dot only' }];
 function locBtnState(){
   const m = state.locMode, b = $('#locBtn');
   b.classList.toggle('on', m > 0); b.dataset.mode = m; b.setAttribute('aria-label', LOC_MODES[m].label); b.title = LOC_MODES[m].label;
   $('#coords').hidden = !(m === 1 || m === 2) || !state.pos;
   $('#coords').classList.toggle('big', m === 2);
 }
-$('#locBtn').onclick = () => {
-  const m = (state.locMode + 1) % LOC_MODES.length;
-  if (m === 1 && !ensureWatch()) return;
+function setLocMode(m){
+  if (m && !state.locMode && !ensureWatch()) return;
   state.locMode = m; state.locating = m > 0;
-  if (!m){ maybeStopWatch(); meLayer.clearLayers(); state.pos = state.fix = null; }
+  if (m) settings.locMode = m, saveSettings();
+  else { maybeStopWatch(); meLayer.clearLayers(); state.pos = state.fix = null; }
   showCoords(); showToNext(); locBtnState(); toast(LOC_MODES[m].toast, 1800);
+}
+let locHold, locHeld = false;
+const locBtn = $('#locBtn');
+locBtn.addEventListener('pointerdown', () => { locHeld = false; clearTimeout(locHold); if (state.locMode) locHold = setTimeout(() => { locHeld = true; setLocMode(0); navigator.vibrate?.(30); }, 600); });
+['pointerup', 'pointerleave', 'pointercancel'].forEach(t => locBtn.addEventListener(t, () => clearTimeout(locHold)));
+locBtn.addEventListener('contextmenu', e => e.preventDefault());
+locBtn.onclick = () => {
+  if (locHeld){ locHeld = false; return; }
+  setLocMode(state.locMode ? state.locMode % 3 + 1 : settings.locMode || 1);
 };
-const dm = (v, pos, neg) => { const a = Math.abs(v), d = Math.floor(a); return `${d}° ${((a - d) * 60).toFixed(3)}′ ${v >= 0 ? pos : neg}`; };
-// One format, chosen in Settings: decimal degrees or degrees and decimal minutes.
-const fmtCoord = f => settings.coordFmt === 'dm' ? [dm(f.lat, 'N', 'S'), dm(f.lng, 'E', 'W')] : [f.lat.toFixed(5), f.lng.toFixed(5)];
+// Decimal degrees and accuracy
 function showCoords(){
   const f = state.fix; if (!f) return;
-  const [a, b] = fmtCoord(f), acc = `±${Math.round(f.acc)} m`;
-  $('#coordTxt').innerHTML = state.locMode === 2
-    ? `<div class="cbig">${settings.coordFmt === 'dm' ? `${a}<br>${b}` : `${a}, ${b}`}</div><div>${acc} · tap to copy</div>`
-    : `${a}, ${b} ${acc}`;
+  const ll = `${f.lat.toFixed(5)}, ${f.lng.toFixed(5)}`, acc = `±${Math.round(f.acc)} m`;
+  $('#coordTxt').innerHTML = state.locMode === 2 ? `<div class="cbig">${ll}</div><div class="cacc">${acc}</div>` : `${ll} ${acc}`;
 }
 $('#coords').onclick = async () => {
   if (state.locMode !== 2 || !state.fix) return;
-  const txt = fmtCoord(state.fix).join(', ') + ` ±${Math.round(state.fix.acc)} m`;
+  const f = state.fix, txt = `${f.lat.toFixed(5)}, ${f.lng.toFixed(5)} ±${Math.round(f.acc)} m`;
   try{ await navigator.clipboard.writeText(txt); toast('Coordinates copied'); }catch{ prompt('Coordinates:', txt); }
 };
 function onPos(p){

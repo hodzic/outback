@@ -50,4 +50,6 @@ async function seedRoute(page, route){
 const ready = page => page.waitForFunction(() => typeof trip !== 'undefined' && trip);
 // Switch view by tab: 0 = Trips, 1 = Trip, 2 = Map
 async function view(page, i){ await page.click(`#tabs [data-view="${i}"]`); await page.waitForFunction(i => state.view === i, i); await page.waitForTimeout(450); }
-module.exports = { serve, launch, open, check, results, waitForecast, seedRoute, ready, view, OUT };
+// long-press an element (mouse down, wait, up)
+async function hold(page, sel, ms = 800){ const b = await page.locator(sel).boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(ms); await page.mouse.up(); await page.waitForTimeout(150); }
+module.exports = { hold, serve, launch, open, check, results, waitForecast, seedRoute, ready, view, OUT };

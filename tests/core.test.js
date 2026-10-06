@@ -92,6 +92,7 @@ module.exports = async (browser, url, check) => {
   c('top bar fits on a phone', await page.evaluate(() => { const r = document.querySelector('#locBtn').getBoundingClientRect(); return r.right <= innerWidth && document.querySelector('.mtop').scrollWidth <= innerWidth; }));
   await page.click('#drawBtn');
   c('the button is labelled Route', (await page.text('#drawBtn')) === 'Route');
+  c('route editing bar is one compact row', await page.evaluate(() => document.querySelector('#drawBar').getBoundingClientRect().height <= 48), await page.evaluate(() => document.querySelector('#drawBar').getBoundingClientRect().height));
   c('Draw toggles draw mode and shows as on', await page.evaluate(() => state.drawing && document.querySelector('#drawBtn').classList.contains('on')));
   await page.click('#doneBtn');
 
