@@ -13,9 +13,9 @@ module.exports = async (browser, url, check) => {
 
   // Trips view: new paddle trip goes straight to the map in draw mode
   await view(page, 0);
-  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8').match(/outback-shell-v(\d+)/)[1];
-  c('version shown next to About', new RegExp(`^· version ${sw}, \\w+ \\d+, \\d{4}$`).test(await page.textContent('#appVer')), await page.textContent('#appVer'));
-  c('app version matches the service worker cache', await page.evaluate(() => APP_VERSION) === +sw);
+  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8').match(/outback-shell-([\w-]+)/)[1];
+  c('version shown next to About: date and letter', /^· version \d{4}-\d\d-\d\d[a-z]$/.test(await page.textContent('#appVer')), await page.textContent('#appVer'));
+  c('app version matches the service worker cache', await page.evaluate(() => APP_VERSION) === sw, sw);
   c('trips list shows the trip', await page.locator('#tripList .trip').count() === 1);
   await page.click('#newPaddle'); await page.waitForTimeout(500);
   c('new trip opens the map in draw mode', await page.evaluate(() => state.view === 2 && state.drawing) && await page.isVisible('#drawBar'));

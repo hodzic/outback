@@ -101,6 +101,7 @@ The app works offline once each trip has been prepared while you still have a co
 | `index.html` | The whole app (Leaflet from cdnjs) |
 | `pdfmap.js` | PDF trail map parsing, loaded only when importing a PDF |
 | `vendor/` | MuPDF WebAssembly (AGPL, loaded on demand) and `Leaflet.ImageOverlay.Rotated` |
+| `tools/bump.js` | Sets the next version (`npm run bump`) |
 | `sw.js` | Service worker: app shell and map tiles for offline use |
 | `manifest.webmanifest`, `icon-*.png` | Installable app |
 
@@ -108,6 +109,13 @@ The app works offline once each trip has been prepared while you still have a co
 
 GitHub Pages from the repo root: https://hodzic.github.io/outback/ (the repo was renamed from `paddle`).
 Trips made at the old /paddle/ address still load, because storage is per origin.
+
+## Versions
+
+The version (shown next to *About*) is the release date in US Pacific time plus a letter for each release
+that day: `2026-10-05a`, `2026-10-05b`, then `2026-10-06a`. Before each release run `npm run bump`; it
+updates `APP_VERSION` in `index.html` and the service worker cache name in `sw.js`, which makes installed
+copies pick up the update.
 
 ## Tests
 
