@@ -348,6 +348,6 @@ module.exports = async (browser, url, check) => {
     await page.evaluate(() => navigator.serviceWorker.ready); await page.waitForTimeout(800);
     const keys = await page.evaluate(() => caches.keys());
     c('other apps\' caches survive', keys.includes('map-tiles') && keys.includes('my-location-shell-v8'), keys.join(', '));
-    c('old shell caches removed', !keys.includes('paddle-shell-v4') && !keys.includes('outback-shell-v1') && keys.some(k => /^outback-shell-v\d+$/.test(k)), keys.join(', '));
+    c('old shell caches removed', !keys.includes('paddle-shell-v4') && !keys.includes('outback-shell-v1') && keys.some(k => /^outback-shell-\d{4}-\d\d-\d\d[a-z]$/.test(k)), keys.join(', '));
     await ctx.close(); }
 };

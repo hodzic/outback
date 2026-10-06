@@ -2,7 +2,8 @@
   "name": "outback",
   "private": true,
   "scripts": {
-    "test": "node tests/run-all.js"
+    "test": "node tests/run-all.js",
+    "bump": "node tools/bump.js"
   },
   "devDependencies": {
     "leaflet": "1.9.4",
