@@ -235,6 +235,32 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li>Getting or refreshing a forecast, or changing tide stations.</li>
           <li>Map areas you haven't saved or viewed, and map layers you didn't save (Get forecast saves only the layer selected at the time).</li>
           <li>Importing your first PDF map (the PDF reader downloads on first use). PDF maps you've imported show fine offline.</li>
+          <li>AIS ships: they are live only and need a data connection.</li>
+        </ul>
+      </details>
+      <details class="card help" id="helpAis"><summary>Help: AIS ships</summary>
+        <p>The <b>AIS</b> button at the bottom right of the map shows large vessels nearby, from their AIS radio broadcasts collected by <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a>.</p>
+        <h3>Get a free key (once)</h3>
+        <ol>
+          <li>Go to <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a> and tap <b>Sign In</b> (with a GitHub account).</li>
+          <li>Open <b>API Keys</b> and create a new key. Copy it.</li>
+          <li>In Outback, tap <b>AIS</b> on the map and paste it, or paste it in <b>Settings</b> above.</li>
+        </ol>
+        <p>The key is stored only on this phone. Type <b>demo</b> instead to see made-up ships.</p>
+        <h3>On the map</h3>
+        <ul>
+          <li>Colour shows the type: <b style="color:#2e7d32">cargo</b>, <b style="color:#c62828">tanker</b>, <b style="color:#1565c0">passenger/ferry</b>, <b style="color:#00838f">tug, pilot or patrol</b>, <b style="color:#ef6c00">high-speed</b>, grey for other or not yet known. Bigger icons are longer ships; faded ones are stopped.</li>
+          <li>The dashed line is where the ship will be in the next 15 minutes at its current speed and course, with a dot every 5 minutes.</li>
+          <li>Tap a ship for its name, type, size, speed, course, destination, distance from you and photo links.</li>
+          <li>With location (◎) on, a ship that will pass within 0.5 nm of you in the next 20 minutes turns the button red, vibrates and shows a warning.</li>
+          <li>The number on the button is how many ships are shown.</li>
+        </ul>
+        <h3>Good to know</h3>
+        <ul>
+          <li>Ships send their name, type and size only every few minutes. Until then a ship is grey; once seen, the phone remembers it.</li>
+          <li>Positions can lag from seconds to a few minutes, and coverage depends on volunteer receivers.</li>
+          <li>Many small boats don't send AIS. Keep a lookout; this doesn't replace one.</li>
+          <li>It uses data only while AIS is on and the app is open. Tap AIS again to turn it off.</li>
         </ul>
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
@@ -348,7 +374,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-07c';
+const APP_VERSION = '2026-10-07d';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }

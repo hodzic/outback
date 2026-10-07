@@ -238,6 +238,10 @@ module.exports = async (browser, url, check) => {
     await page.click('#helpOffline summary');
     const t = await page.text('#helpOffline');
     c('offline help explains preparing, offline and online parts', /Before you leave/.test(t) && /Works offline/.test(t) && /Needs a connection/.test(t) && /Get forecast/.test(t), t.slice(0, 80));
+    c('AIS help follows offline help, collapsed', await page.evaluate(() => document.querySelector('#helpOffline').nextElementSibling.id === 'helpAis') && !(await page.isVisible('#helpAis ol')));
+    await page.click('#helpAis summary');
+    const a = await page.text('#helpAis');
+    c('AIS help explains the key, the map and the limits', /aisstream\.io/.test(a) && /API Keys/.test(a) && /demo/.test(a) && /0\.5 nm/.test(a) && /lookout/.test(a), a.slice(0, 80));
     await ctx.close(); }
 
   { // settings live in the Trips view
