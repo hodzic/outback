@@ -8,7 +8,7 @@ const stat = (mmsi, name, type, A, B, C, D, dest) => JSON.stringify({ MessageTyp
 module.exports = async (browser, url, check) => {
   const c = (n, ok, i) => check('ais', n, ok, i);
   { const { ctx, page, errors } = await open(browser, url, { geolocation: ME });
-    const subs = []; let sock;
+    const subs = []; let sock, onlyPos = false;
     await ctx.routeWebSocket('wss://stream.aisstream.io/**', ws => {
       sock = ws;
       ws.onMessage(m => {
@@ -16,7 +16,7 @@ module.exports = async (browser, url, check) => {
         if (s.APIKey === 'bad'){ ws.send(JSON.stringify({ error: 'Api Key Is Not Valid' })); return ws.close(); }
         // 1.6 nm north, heading south at 12 kt: straight at us
         ws.send(pos(367000001, 'BIG CARGO', 37.8267, -122.45, 12, 180));
-        ws.send(stat(367000001, 'BIG CARGO', 70, 200, 28, 16, 16, 'OAKLAND'));
+        if (!onlyPos) ws.send(stat(367000001, 'BIG CARGO', 70, 200, 28, 16, 16, 'OAKLAND'));
         ws.send(pos(367000002, 'SMALL SLOOP', 37.79, -122.44, 4, 90, true));
         ws.send(pos(367000003, 'ANCHORED TANKER', 37.81, -122.40, 0, 360));
       });
@@ -63,6 +63,14 @@ module.exports = async (browser, url, check) => {
     await page.evaluate(() => { settings.aisKey = 'bad'; });
     await page.click('#aisBtn'); await page.waitForTimeout(800);
     c('invalid key reported and AIS turned off', /AIS: Api Key Is Not Valid/.test(await page.text('#toast')) && await page.evaluate(() => !ais.on), await page.text('#toast'));
+    await page.waitForTimeout(3200);
+    c('ship details remembered on the device', await page.evaluate(() => { const o = JSON.parse(localStorage.getItem('paddle.aisInfo'))[367000001]; return o.type === 70 && o.dim.join() === '200,28,16,16' && !o.dest; }));
+    // next session: only position reports so far, details come from the device
+    onlyPos = true;
+    await page.reload(); await ready(page); await view(page, 2);
+    await page.evaluate(() => map.setView([37.80, -122.45], 13)); await page.waitForTimeout(300);
+    await page.click('#aisBtn'); await page.waitForTimeout(1200);
+    c('remembered type and size used before static data arrives', await page.evaluate(() => { const s = ais.ships.get(367000001); return s && s.type === 70 && s.dim.join() === '200,28,16,16' && !s.dest && s.lat > 37.8; }));
     c('no page errors', errors.length === 0, errors.join(' | '));
     await ctx.close(); }
 };
