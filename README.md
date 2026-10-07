@@ -48,6 +48,7 @@ Three views; swipe between them or use the tabs at the bottom.
   size, speed, course, destination, distance from you and photo links (VesselFinder, MarineTraffic).
   With location on, a ship that will pass within 0.5 nm in the next 20 minutes turns the button red,
   vibrates and shows a warning. Needs a connection; not every boat sends AIS. Key `demo` shows made-up ships.
+  Name, type and size (sent only every ~6 minutes) are remembered on the device, so known ships show them at once.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
   **Markers** are named points saved with the trip (long-press the map, or *Marker* while editing the route);
   the Trip view lists them. GPX export and import keep both (`<wpt>` for markers).
