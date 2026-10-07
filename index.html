@@ -78,7 +78,7 @@ td:first-child,th:first-child{text-align:left}
 
 /* trip details */
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 6px}
-.stat .k{font-size:12px;color:var(--muted)} .stat .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.stat .k{font-size:12px;color:var(--muted)} .stat .v{font-size:clamp(17px,5.6vw,22px);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 table.acts td,table.acts th{text-align:left;vertical-align:middle}
 table.acts select,table.acts input{height:38px;border:1px solid var(--line);border-radius:8px;padding:0 6px;background:var(--paper)}
 table.acts input{width:64px}
@@ -90,9 +90,10 @@ table.acts td,table.acts th{padding:5px 3px}
 .cell.wide{grid-column:1/-1}
 .tempc .v{font-size:28px}
 .tempc .lo{color:var(--flood)} .tempc .hi{color:var(--warn)}
-.cell .k{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cell .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cell .s{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* readouts wrap instead of truncating */
+.cell .k{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.cell .v{font-size:clamp(17px,5.2vw,20px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere}
+.cell .s{font-size:13px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
 .v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
 #status{margin:6px 0;font-size:13px;color:var(--muted)}
 #status.warn{color:var(--warn)}
@@ -338,7 +339,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-05a';
+const APP_VERSION = '2026-10-07a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }

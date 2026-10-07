@@ -38,6 +38,7 @@ module.exports = async (browser, url, check) => {
   c('forecast saved toast', /Forecast saved/.test(await page.text('#toast')), await page.text('#toast'));
   c('tidal water detected as bay (auto)', await page.evaluate(() => trip.env === 'bay' && !trip.envSet) && /Auto: Bay/.test(await page.text('#envSel')));
   c('tide value', /ft$/.test(await page.text('#tideV')), await page.text('#tideV'));
+  c('forecast readouts are not truncated', await page.evaluate(() => [...document.querySelectorAll('.read .k, .read .v, .read .s')].every(e => e.scrollWidth <= e.clientWidth + 1 && getComputedStyle(e).textOverflow !== 'ellipsis')));
   c('nearest tide station', (await page.text('#tideK')).includes('San Francisco'), await page.text('#tideK'));
   c('current station deduped to shallowest bin', await page.evaluate(() => state.nearby.current.find(s => s.id === 'SFB1201')?.bin === 2));
   c('current value', /kt|Slack/.test(await page.text('#curV')), await page.text('#curV'));
