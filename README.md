@@ -41,6 +41,13 @@ Three views; swipe between them or use the tabs at the bottom.
   3. blue dot only.
 
   Hold the button to turn location off; the next tap brings back the mode you had.
+- **AIS ships** (button at the bottom right of the map): live vessels around the map view from
+  [aisstream.io](https://aisstream.io) (free API key, stored only on the device; Settings, or the first tap).
+  Ships are coloured by type (cargo green, tanker red, passenger blue, tug/pilot teal, high-speed orange)
+  and sized by length, with a dashed 15-minute projected track (dots every 5 minutes). Tap one for name, type,
+  size, speed, course, destination, distance from you and photo links (VesselFinder, MarineTraffic).
+  With location on, a ship that will pass within 0.5 nm in the next 20 minutes turns the button red,
+  vibrates and shows a warning. Needs a connection; not every boat sends AIS. Key `demo` shows made-up ships.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
   **Markers** are named points saved with the trip (long-press the map, or *Marker* while editing the route);
   the Trip view lists them. GPX export and import keep both (`<wpt>` for markers).

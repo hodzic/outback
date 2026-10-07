@@ -143,6 +143,13 @@ table.acts td,table.acts th{padding:5px 3px}
 #coords.big .cbig{font-size:clamp(20px,6.6vw,30px);font-weight:800;white-space:nowrap}
 #locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}
 #locBtn{position:relative}#locBtn::after{position:absolute;right:-3px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--me);border:1px solid var(--me);border-radius:8px;padding:0 3px;line-height:14px}
+#aisBtn{position:absolute;right:10px;bottom:24px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:13px;font-weight:800;padding:0}
+#aisBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+#aisBtn[data-n]::after{content:attr(data-n);position:absolute;right:-4px;top:-4px;min-width:18px;font-size:11px;line-height:18px;border-radius:9px;background:var(--paper);color:var(--ink);border:1px solid var(--ink);padding:0 3px}
+#aisBtn.warn{background:var(--warn);border-color:var(--warn)}
+.ship svg{display:block;filter:drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1px #fff)}
+.ship.warn svg{filter:drop-shadow(0 0 3px #d00) drop-shadow(0 0 3px #d00)}
+.shipPop b{font-size:15px} .shipPop div{margin:2px 0} .shipPop .w{color:var(--warn);font-weight:700} .shipPop a{margin-right:10px}
 #toNext{font-size:15px;font-weight:700;color:var(--ink);margin-top:2px}
 .wp{width:26px;height:26px;border-radius:50%;background:#fff;border:3px solid var(--magenta);font:700 12px/20px var(--font);text-align:center;color:var(--magenta);transition:transform .15s}
 /* zoomed out: smaller waypoints (not while drawing, so they stay easy to drag) */
@@ -189,6 +196,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card" style="margin-top:16px"><summary>Settings</summary>
         <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
+        <label class="f" for="sAis">AIS ships: AISStream API key (free at aisstream.io; "demo" for sample ships)</label><input class="f" id="sAis" type="text" autocomplete="off" spellcheck="false">
       </details>
       <details class="card help" id="helpInstall"><summary>Help: install on your phone</summary>
         <p>Installing puts Outback on your home screen. It opens full screen and keeps its offline data.</p>
@@ -230,7 +238,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         </ul>
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
-        <p class="muted">Plan an out-and-back paddle or hike online, then take it offline. Tides and currents: NOAA CO-OPS. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA charts, OpenStreetMap, USGS topo, and your own PDF maps. Hiking times add 1 hour per 2000 ft of climb. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Plan an out-and-back paddle or hike online, then take it offline. Tides and currents: NOAA CO-OPS. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA charts, OpenStreetMap, USGS topo, and your own PDF maps. Ships: AIS from aisstream.io. Hiking times add 1 hour per 2000 ft of climb. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation.</b> Check official forecasts and conditions before you set out.</p>
       </details>
     </div>
@@ -314,6 +322,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div id="mapBar" class="mbar" hidden></div>
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     </div>
+    <button id="aisBtn" class="pill" aria-label="Ships nearby (AIS)" title="Ships nearby (AIS)">AIS</button>
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="PDF map opacity"><span id="opVal">80%</span></div>
   </section>
 </main>
@@ -339,7 +348,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-07a';
+const APP_VERSION = '2026-10-07b';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1285,6 +1294,8 @@ $('#shareApp').onclick = async () => {
 };
 $('#appVer').textContent = `· version ${APP_VERSION}`;
 $('#sVar').value = settings.variation;
+$('#sAis').value = settings.aisKey || '';
+$('#sAis').onchange = e => { settings.aisKey = e.target.value.trim(); saveSettings(); if (ais.on) aisConnect(); };
 $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.target.value)){ settings.variation = +e.target.value; saveSettings(); render(); } };
 
 /* ---------- save / load ---------- */
@@ -1384,6 +1395,7 @@ function onPos(p){
   state.fix = { lat: c.latitude, lng: c.longitude, acc: c.accuracy };
   showCoords(); showToNext();
   locBtnState();
+  if (ais.on) drawShipsSoon();
 }
 // Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.
 const NEAR_M = 25;
@@ -1538,6 +1550,187 @@ let mapBarEnd = null;
 function showMapBar(html, onEnd){ endMapBar(); $('#mapBar').innerHTML = html; $('#mapBar').hidden = false; mapBarEnd = onEnd; }
 function endMapBar(){ const f = mapBarEnd; mapBarEnd = null; $('#mapBar').hidden = true; $('#mapBar').innerHTML = ''; f?.(); }
 
+
+/* ---------- AIS ships (aisstream.io, straight from the browser) ---------- */
+// Tap AIS: live vessels around the map view, each with a 15-minute projected track.
+// Ships that will pass within CPA_NM of you in the next CPA_MIN minutes are flagged (needs location on).
+const AIS_URL = 'wss://stream.aisstream.io/v0/stream', CPA_NM = 0.5, CPA_MIN = 20, TRACK_MIN = 15, STALE_MS = 15 * 6e4;
+const ais = { on: false, ws: null, box: null, ships: new Map(), retry: 0, retryT: null, drawT: null, demoT: null, warned: new Set() };
+const shipLayer = L.layerGroup().addTo(map);
+const SHIP_TYPES = [[[30], 'Fishing'], [[31, 32], 'Towing'], [[33], 'Dredging'], [[35], 'Military'], [[36], 'Sailing'], [[37], 'Pleasure craft'],
+  [[40, 49], 'High-speed craft'], [[50], 'Pilot'], [[51], 'Search and rescue'], [[52], 'Tug'], [[53], 'Port tender'], [[55], 'Law enforcement'],
+  [[60, 69], 'Passenger'], [[70, 79], 'Cargo'], [[80, 89], 'Tanker']];
+const shipType = t => (SHIP_TYPES.find(([r]) => t >= r[0] && t <= (r[1] ?? r[0])) || [, t ? 'Other' : ''])[1];
+function shipColor(s){
+  const t = s.type || 0;
+  if (t >= 80 && t <= 89) return '#c62828';
+  if (t >= 70 && t <= 79) return '#2e7d32';
+  if (t >= 60 && t <= 69) return '#1565c0';
+  if (t >= 40 && t <= 49) return '#ef6c00';
+  if ([31, 32, 33, 50, 51, 52, 53, 55].includes(t)) return '#00838f';
+  return '#78909c';
+}
+const shipLen = s => s.dim ? s.dim[0] + s.dim[1] : 0;
+const shipHdg = s => s.hdg != null ? s.hdg : s.cog != null ? s.cog : null;
+const moving = s => s.sog != null && s.sog >= 1;
+// Flat-earth offsets are fine at these distances.
+const fwd = (p, brg, nm) => [p[0] + nm / 60 * Math.cos(toR(brg)), p[1] + nm / 60 * Math.sin(toR(brg)) / Math.cos(toR(p[0]))];
+// Closest point of approach to a fixed point (a kayak is near enough to stationary next to a ship): { nm, min } or null.
+function shipCpa(s, me){
+  if (!me || !moving(s) || s.cog == null) return null;
+  const k = Math.cos(toR(me[0])), px = (s.lng - me[1]) * 60 * k, py = (s.lat - me[0]) * 60;
+  const vx = s.sog * Math.sin(toR(s.cog)), vy = s.sog * Math.cos(toR(s.cog));
+  const t = Math.max(0, -(px * vx + py * vy) / (vx * vx + vy * vy));
+  return { nm: Math.hypot(px + vx * t, py + vy * t), min: t * 60 };
+}
+const shipWarn = s => { const c = shipCpa(s, state.pos); return c && c.nm < CPA_NM && c.min < CPA_MIN ? c : null; };
+function shipIcon(s){
+  const L0 = shipLen(s), z = L0 >= 150 ? 34 : L0 >= 50 ? 28 : s.cls === 'B' || (L0 && L0 < 20) ? 18 : 24, c = shipColor(s), h = shipHdg(s);
+  const body = h == null ? `<circle cx="12" cy="12" r="6" fill="${c}" stroke="#fff" stroke-width="1.5"/>`
+    : `<path d="M12 1 L18 9 L18 22 L6 22 L6 9 Z" fill="${c}" stroke="#fff" stroke-width="1.5" opacity="${moving(s) ? 1 : .65}"/>`;
+  return L.divIcon({ className: 'ship' + (shipWarn(s) ? ' warn' : ''), iconSize: [z, z], iconAnchor: [z / 2, z / 2],
+    html: `<svg width="${z}" height="${z}" viewBox="0 0 24 24" style="transform:rotate(${h || 0}deg)">${body}</svg>` });
+}
+const ago = ms => { const s = Math.round((Date.now() - ms) / 1000); return s < 90 ? `${s} s ago` : `${Math.round(s / 60)} min ago`; };
+function shipHtml(s){
+  const L0 = shipLen(s), beam = s.dim ? s.dim[2] + s.dim[3] : 0, cpa = shipCpa(s, state.pos), w = shipWarn(s);
+  const rows = [
+    [shipType(s.type), L0 ? `${L0}${beam ? ' × ' + beam : ''} m` : ''].filter(Boolean).join(' · '),
+    s.sog != null ? (moving(s) ? `${s.sog.toFixed(1)} kt · course ${s.cog != null ? d3(s.cog) + '°T (' + magB(s.cog) + ')' : '–'}` : `Stopped${s.status === 1 ? ' (at anchor)' : s.status === 5 ? ' (moored)' : ''}`) : '',
+    s.dest ? `→ ${esc(s.dest)}${s.eta ? ' · ETA ' + s.eta : ''}` : '',
+    state.pos ? `${fmtShort(distNm(state.pos, [s.lat, s.lng]))} away · ${magB(brgT(state.pos, [s.lat, s.lng]))} from you` : '',
+    cpa && cpa.min > 0.5 ? `<span class="${w ? 'w' : ''}">Passes ${fmtShort(cpa.nm)} from you in ${Math.round(cpa.min)} min</span>` : '',
+    `MMSI ${s.mmsi}${s.imo ? ' · IMO ' + s.imo : ''}${s.call ? ' · ' + esc(s.call) : ''} · ${ago(s.t)}`];
+  return `<div class="shipPop"><b>${esc(s.name || 'Unknown vessel')}</b>${rows.filter(Boolean).map(r => `<div>${r}</div>`).join('')}
+    <div><a href="https://www.vesselfinder.com/vessels/details/${s.mmsi}" target="_blank" rel="noopener">Photos ↗</a><a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${s.mmsi}" target="_blank" rel="noopener">MarineTraffic ↗</a></div></div>`;
+}
+function drawShip(s){
+  const ll = [s.lat, s.lng];
+  if (!s.mk){
+    s.mk = L.marker(ll, { icon: shipIcon(s), zIndexOffset: 500 }).bindPopup(() => shipHtml(s), { maxWidth: 280, autoPanPaddingTopLeft: [10, 190], autoPanPaddingBottomRight: [10, 90] }).addTo(shipLayer);
+    s.tr = L.layerGroup().addTo(shipLayer);
+  } else { s.mk.setLatLng(ll); s.mk.setIcon(shipIcon(s)); if (s.mk.isPopupOpen()) s.mk.getPopup().setContent(shipHtml(s)); }
+  s.tr.clearLayers();
+  if (moving(s) && s.cog != null){
+    const c = shipColor(s), end = fwd(ll, s.cog, s.sog * TRACK_MIN / 60);
+    L.polyline([ll, end], { color: c, weight: 2, dashArray: '4 6', opacity: .9, interactive: false }).addTo(s.tr);
+    for (let m = 5; m <= TRACK_MIN; m += 5) L.circleMarker(fwd(ll, s.cog, s.sog * m / 60), { radius: 2.5, color: c, weight: 1, fillOpacity: 1, interactive: false }).addTo(s.tr);
+  }
+}
+function drawShips(){
+  ais.drawT = null;
+  const now = Date.now(); let n = 0, warn = null;
+  for (const [id, s] of ais.ships){
+    if (now - s.t > STALE_MS || s.lat == null){ if (s.mk){ shipLayer.removeLayer(s.mk); shipLayer.removeLayer(s.tr); } if (now - s.t > STALE_MS) ais.ships.delete(id); continue; }
+    drawShip(s); n++;
+    const w = shipWarn(s);
+    if (w){ if (!warn || w.min < warn.c.min) warn = { s, c: w }; }
+    else ais.warned.delete(id);
+  }
+  const b = $('#aisBtn');
+  if (ais.on) b.dataset.n = n; else delete b.dataset.n;
+  b.classList.toggle('warn', !!warn);
+  if (warn && !ais.warned.has(warn.s.mmsi)){
+    ais.warned.add(warn.s.mmsi); navigator.vibrate?.([200, 100, 200]);
+    toast(`⚠ ${warn.s.name || 'A vessel'} passes ${fmtShort(warn.c.nm)} from you in ${Math.max(1, Math.round(warn.c.min))} min`, 6000);
+  }
+}
+const drawShipsSoon = () => { if (!ais.drawT) ais.drawT = setTimeout(drawShips, 500); };
+const ok = (v, bad) => v != null && v !== bad ? v : null;
+// One aisstream.io message → ship record
+function aisMessage(m){
+  if (m.error){ toast('AIS: ' + m.error, 6000); if (/key/i.test(m.error)) aisSet(false); return; }
+  const md = m.MetaData || {}, id = md.MMSI; if (!id) return;
+  const s = ais.ships.get(id) || { mmsi: id }; ais.ships.set(id, s);
+  s.t = Date.now();
+  if (md.ShipName && md.ShipName.trim()) s.name = s.name || md.ShipName.trim();
+  const pr = m.Message?.PositionReport || m.Message?.StandardClassBPositionReport;
+  if (pr){
+    s.lat = pr.Latitude ?? md.latitude; s.lng = pr.Longitude ?? md.longitude;
+    s.sog = ok(pr.Sog, 102.3); s.cog = ok(pr.Cog, 360); s.hdg = ok(pr.TrueHeading, 511); s.status = pr.NavigationalStatus;
+    if (m.Message.StandardClassBPositionReport) s.cls = 'B';
+  }
+  const sd = m.Message?.ShipStaticData;
+  if (sd){
+    if (sd.Name?.trim()) s.name = sd.Name.trim();
+    s.type = sd.Type; s.imo = sd.ImoNumber || null; s.call = sd.CallSign?.trim(); s.dest = sd.Destination?.trim();
+    const d = sd.Dimension; if (d && d.A + d.B) s.dim = [d.A, d.B, d.C, d.D];
+    const e = sd.Eta; if (e && e.Month && e.Day && e.Hour < 24) s.eta = `${new Date(2000, e.Month - 1, e.Day).toLocaleDateString([], { month: 'short', day: 'numeric' })} ${String(e.Hour).padStart(2, '0')}:${String(e.Minute % 60).padStart(2, '0')} UTC`;
+  }
+  const sr = m.Message?.StaticDataReport;
+  if (sr){
+    s.cls = 'B';
+    if (sr.ReportA?.Valid && sr.ReportA.Name?.trim()) s.name = sr.ReportA.Name.trim();
+    if (sr.ReportB?.Valid){ s.type = sr.ReportB.ShipType; s.call = sr.ReportB.CallSign?.trim(); const d = sr.ReportB.Dimension; if (d && d.A + d.B) s.dim = [d.A, d.B, d.C, d.D]; }
+  }
+  drawShipsSoon();
+}
+// Area to subscribe to: the view, grown so ships a few miles out are already known.
+function aisBox(){
+  const b = map.getBounds().pad(0.5), c = b.getCenter(), dLat = Math.max(b.getNorth() - c.lat, 0.08), dLng = Math.max(b.getEast() - c.lng, 0.08 / Math.cos(toR(c.lat)));
+  return L.latLngBounds([c.lat - dLat, c.lng - dLng], [c.lat + dLat, c.lng + dLng]);
+}
+function aisClose(){
+  clearTimeout(ais.retryT); clearInterval(ais.demoT); ais.demoT = null;
+  if (ais.ws){ ais.ws.onclose = ais.ws.onmessage = ais.ws.onerror = null; try{ ais.ws.close(); }catch{} ais.ws = null; }
+}
+function aisConnect(){
+  aisClose();
+  if (!ais.on || document.visibilityState === 'hidden') return;
+  ais.box = aisBox();
+  if (settings.aisKey === 'demo') return aisDemo();
+  let ws; try{ ws = new WebSocket(AIS_URL); }catch{ toast('AIS: could not connect'); return; }
+  ais.ws = ws;
+  ws.onopen = () => {
+    ais.retry = 0;
+    const b = ais.box;
+    ws.send(JSON.stringify({ APIKey: settings.aisKey, BoundingBoxes: [[[b.getSouth(), b.getWest()], [b.getNorth(), b.getEast()]]],
+      FilterMessageTypes: ['PositionReport', 'StandardClassBPositionReport', 'ShipStaticData', 'StaticDataReport'] }));
+  };
+  ws.onmessage = async e => { try{ aisMessage(JSON.parse(typeof e.data === 'string' ? e.data : await e.data.text())); }catch{} };
+  ws.onclose = () => {
+    ais.ws = null; if (!ais.on) return;
+    if (!navigator.onLine){ toast('AIS needs a connection'); }
+    ais.retryT = setTimeout(aisConnect, Math.min(60, 5 * 2 ** ais.retry++) * 1000);
+  };
+}
+function aisSet(on){
+  ais.on = on; $('#aisBtn').classList.toggle('on', on);
+  if (!on){ aisClose(); shipLayer.clearLayers(); ais.ships.clear(); ais.warned.clear(); drawShips(); return; }
+  aisConnect(); toast(settings.aisKey === 'demo' ? 'AIS: demo ships (not real)' : 'AIS: live ships around the map', 2500);
+}
+function aisKeySheet(){
+  openSheet(`<h3 style="margin:0 0 6px">Ships nearby (AIS)</h3>
+    <p class="muted" style="font-size:14px">Live vessel positions come from <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a>. Sign in there (free, with GitHub), create an API key and paste it here. It's stored only on this device.</p>
+    <input class="f" id="aisKey" type="text" placeholder="API key" autocomplete="off" spellcheck="false" style="width:100%">
+    <div class="row" style="margin-top:10px;gap:8px"><button class="btn primary" id="aisSave">Save and show ships</button><button class="btn" id="aisDemo">Try demo ships</button><button class="btn" data-close>Cancel</button></div>
+    <p class="muted" style="font-size:13px">Not every boat sends AIS, and positions can lag. Keep a lookout.</p>`);
+}
+$('#aisBtn').onclick = () => !settings.aisKey ? aisKeySheet() : aisSet(!ais.on);
+// Panning far: subscribe to the new area.
+map.on('moveend', () => { if (ais.on && ais.box && !ais.box.contains(map.getBounds())) aisConnect(); });
+document.addEventListener('visibilitychange', () => { if (!ais.on) return; if (document.visibilityState === 'hidden') aisClose(); else aisConnect(); });
+// Demo: made-up ships around the map centre, fed through the same message handler.
+function aisDemo(){
+  const c = map.getCenter(), at = (dLat, dLng) => [c.lat + dLat, c.lng + dLng / Math.cos(toR(c.lat))];
+  const me = state.pos || [c.lat, c.lng];
+  const fleet = [
+    { MMSI: 366000001, Name: 'DEMO PACIFIC TRADER', Type: 71, Dim: [250, 40, 20, 20], Dest: 'OAKLAND', p: at(0.035, -0.03), sog: 13, cog: null },
+    { MMSI: 366000002, Name: 'DEMO GOLDEN FERRY', Type: 60, Dim: [30, 10, 6, 6], Dest: 'SAUSALITO', p: at(-0.03, -0.04), sog: 22, cog: 60 },
+    { MMSI: 366000003, Name: 'DEMO BAY TUG', Type: 52, Dim: [20, 10, 6, 6], Dest: 'PIER 9', p: at(0.02, 0.04), sog: 6, cog: 250 },
+    { MMSI: 366000004, Name: 'DEMO CRUDE STAR', Type: 81, Dim: [180, 50, 22, 22], Dest: 'RICHMOND', p: at(-0.04, 0.03), sog: 0, cog: 0, hdg: 300, status: 1 },
+    { MMSI: 366000005, Name: 'DEMO SLOOP', Type: 36, Dim: [6, 4, 2, 2], Dest: '', p: at(0.01, -0.015), sog: 5, cog: 140, B: true }];
+  fleet[0].cog = brgT(fleet[0].p, me);  // heads straight at you
+  const send = (f, stat) => {
+    const md = { MMSI: f.MMSI, ShipName: f.Name, latitude: f.p[0], longitude: f.p[1] };
+    aisMessage({ MessageType: 'x', MetaData: md, Message: { [f.B ? 'StandardClassBPositionReport' : 'PositionReport']: { Latitude: f.p[0], Longitude: f.p[1], Sog: f.sog, Cog: f.cog, TrueHeading: f.hdg ?? Math.round(f.cog), NavigationalStatus: f.status || 0 } } });
+    if (stat) aisMessage({ MessageType: 'ShipStaticData', MetaData: md, Message: { ShipStaticData: { Name: f.Name, Type: f.Type, ImoNumber: f.B ? 0 : 9000000 + f.MMSI % 1000, CallSign: 'DEMO', Destination: f.Dest,
+      Dimension: { A: f.Dim[0], B: f.Dim[1], C: f.Dim[2], D: f.Dim[3] }, Eta: { Month: new Date().getUTCMonth() + 1, Day: new Date().getUTCDate(), Hour: 23, Minute: 0 } } } });
+  };
+  fleet.forEach(f => send(f, true));
+  ais.demoT = setInterval(() => fleet.forEach(f => { if (f.sog) f.p = fwd(f.p, f.cog, f.sog * 2 / 3600); send(f); }), 2000);
+}
+
 /* ---------- sheet (PDF maps) ---------- */
 const sheet = $('#sheet');
 function openSheet(html){ sheet.innerHTML = `<div class="sh">${html}</div>`; if (!sheet.open) sheet.showModal(); }
@@ -1547,6 +1740,7 @@ sheet.addEventListener('click', async e => {
   const ds = b.dataset;
   if (b.id === 'addPdf'){ sheet.close(); return $('#pdfFile').click(); }
   if (b.id === 'copyGps') return copyGpsMaps();
+  if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
   if (ds.pdfmap){ const m = await idb.get('trailMaps', ds.pdfmap), on = !shownMaps.has(ds.pdfmap); showPdfMap(m, on, on); if (on) sheet.close(); else mapsSheet(); return; }
   if (ds.adjust) return startNudge(await idb.get('trailMaps', ds.adjust), false);
   if (ds.rmpdf){ if (!confirm('Delete this PDF map?')) return; showPdfMap({ id: ds.rmpdf }, false); await idb.del('trailMaps', ds.rmpdf); return mapsSheet(); }
