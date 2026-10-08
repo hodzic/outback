@@ -27,6 +27,7 @@ module.exports = async (browser, url, check) => {
   await page.click('#doneBtn');
   c('done leaves draw mode', !(await page.isVisible('#drawBar')));
   c('map summary shows distance', / nm$/.test(await page.text('#mini')), await page.text('#mini'));
+  c('map summary starts with the day and date', /^(Mon|Tue|Wed|Thu|Fri|Sat|Sun) [A-Z][a-z]{2} \d{1,2} \d/.test(await page.text('#mini')), await page.text('#mini'));
 
   // Trip view: details, forecast, tides
   await page.click('#tripChip'); await page.waitForFunction(() => state.view === 1);

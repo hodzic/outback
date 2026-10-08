@@ -20,7 +20,8 @@ module.exports = async (browser, url, check) => {
   await at(maxEbb); await page.waitForTimeout(200);
   const ebb = await page.evaluate(() => [...document.querySelectorAll('.cm')].map(e => [e.className, e.textContent.trim(), e.querySelector('svg')?.style.transform]));
   c('slider moves arrows to max ebb', ebb.every(x => x[0].includes('ebb') && x[1] === '3.1' && x[2].includes('250')), JSON.stringify(ebb));
-  c('slider moves the trip time too', await page.evaluate(() => $('#tMapV').textContent === hm(tAt()) && +$('#tMap').value === state.tMin));
+  c('slider moves the trip time too', await page.evaluate(() => $('#mini').textContent.includes(hm(tAt())) && +$('#tMap').value === state.tMin));
+  c('slider sits in the summary bar', await page.evaluate(() => $('#miniBox').contains($('#timeBar'))));
   await at(new Date(base + 2 * 3.1 * 36e5 + 2 * 12.4 * 36e5).toISOString()); await page.waitForTimeout(200);
   c('slack shows no arrow', await page.evaluate(() => [...document.querySelectorAll('.cm')].every(e => e.classList.contains('slack') && !e.querySelector('svg'))));
   await at(new Date(base + 3.1 * 36e5 + 3 * 12.4 * 36e5).toISOString()); await page.waitForTimeout(200);

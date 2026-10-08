@@ -126,8 +126,9 @@ table.acts td,table.acts th{padding:5px 3px}
 #drawBar .btn{min-height:32px;padding:0 10px;font-size:14px}
 #coords{align-self:flex-end;background:rgba(255,255,255,.9);border:1px solid var(--line);
   border-radius:8px;padding:2px 8px;font-size:12px;font-variant-numeric:tabular-nums}
-#mini{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;padding:6px 12px;text-align:left;font-size:14px;color:var(--ink);
-  font-variant-numeric:tabular-nums;line-height:1.35;box-shadow:0 1px 3px rgba(18,50,74,.18)}
+#miniBox{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 3px rgba(18,50,74,.18)}
+#mini{display:block;width:100%;background:none;border:0;padding:6px 12px;text-align:left;font-size:14px;color:var(--ink);
+  font-variant-numeric:tabular-nums;line-height:1.35}
 #mini .w{color:var(--warn);font-weight:700}
 #opBar{position:absolute;right:6px;top:38%;z-index:999;background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;
   padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px}
@@ -149,11 +150,9 @@ table.acts td,table.acts th{padding:5px 3px}
 #aisBtn.warn{background:var(--warn);border-color:var(--warn)}
 #curBtn{position:absolute;right:10px;bottom:82px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:22px;font-weight:800;padding:0;color:var(--flood)}
 #curBtn.on{background:var(--flood);color:#fff;border-color:var(--flood)}
-#timeBar{position:absolute;left:10px;right:68px;bottom:24px;z-index:1000;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.94);
-  border:1px solid var(--line);border-radius:24px;padding:0 6px 0 12px;height:48px;box-shadow:0 1px 3px rgba(18,50,74,.18)}
-#timeBar b{font-size:15px;min-width:64px;font-variant-numeric:tabular-nums;white-space:nowrap}
-#tMap{flex:1;min-width:0;accent-color:var(--magenta)}
-#timeBar .btn{min-height:34px;padding:0 10px;font-size:14px}
+#timeBar{display:flex;align-items:center;gap:8px;padding:0 6px 6px 12px}
+#tMap{flex:1;min-width:0;height:32px;accent-color:var(--magenta)}
+#timeBar .btn{min-height:32px;padding:0 10px;font-size:14px}
 .cm-i{pointer-events:none!important} .cm-i span{pointer-events:auto;cursor:pointer}
 .cm{position:relative}
 .cm svg{position:absolute;left:0;top:0;filter:drop-shadow(0 0 2px #fff)}
@@ -354,7 +353,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <button id="mapsBtn" class="pill" aria-label="PDF map overlays">PDF</button>
       <button id="locBtn" class="pill icon" aria-label="Show my location">◎</button>
     </div>
-    <button id="mini" aria-label="Conditions; open trip details"></button>
+    <div id="miniBox"><button id="mini" aria-label="Conditions; open trip details"></button>
+      <div id="timeBar" hidden><input id="tMap" type="range" min="0" max="1435" step="5" aria-label="Time of day"><button id="tMapNow" class="btn">Now</button></div></div>
     <div id="drawBar" class="mbar" hidden><span class="txt">Tap to add, drag to move</span>
       <button id="markBtn" class="btn">Marker</button>
       <button id="undoBtn" class="btn">Undo</button><button id="doneBtn" class="btn">Done</button></div>
@@ -363,7 +363,6 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     </div>
     <button id="aisBtn" class="pill" aria-label="Ships nearby (AIS)" title="Ships nearby (AIS)">AIS</button>
     <button id="curBtn" class="pill" aria-label="Currents on the map" title="Currents on the map">≈</button>
-    <div id="timeBar" hidden><b id="tMapV"></b><input id="tMap" type="range" min="0" max="1435" step="5" aria-label="Time of day"><button id="tMapNow" class="btn">Now</button></div>
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="PDF map opacity"><span id="opVal">80%</span></div>
   </section>
 </main>
@@ -389,7 +388,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-08b';
+const APP_VERSION = '2026-10-08c';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1109,7 +1108,7 @@ function render(){
     else if (future && age > 18*36e5){ st.textContent += ' · refresh before you go'; st.classList.add('warn'); }
   }
   // the map's one-line summary
-  const parts = [`<b>${hm(t)}</b>`];
+  const parts = [`<b>${new Date(trip.date + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }).replace(',', '')} ${hm(t)}</b>`];
   if (td) parts.push(`Tide ${td.v.toFixed(1)}${td.rising ? '↑' : '↓'}`);
   if (cu) parts.push(Math.abs(cu.v) < .1 ? 'Slack' : `${cu.v >= 0 ? 'Flood' : 'Ebb'} ${Math.abs(cu.v).toFixed(1)}`);
   if (dt) parts.push(`${temp(dt.lo)}–${temp(dt.hi)}`);
@@ -1118,10 +1117,10 @@ function render(){
   if (w && w.dp != null && w.dp <= -2) parts.push('<span class="w">Pressure ↓</span>');
   parts.push(fmtD(nm));
   $('#mini').innerHTML = parts.join(' · ');
-  // currents on the map, with their own time slider
+  // currents on the map, with a time slider under the summary
   $('#curBtn').hidden = !curMapAvail(); $('#curBtn').classList.toggle('on', curMapOn());
   $('#timeBar').hidden = !curMapOn();
-  if (curMapOn()){ $('#tMap').value = state.tMin; $('#tMapV').textContent = hm(t); if (curMap.loadedFor !== trip.date) curMapLoad(); }
+  if (curMapOn()){ $('#tMap').value = state.tMin; if (curMap.loadedFor !== trip.date) curMapLoad(); }
   drawCurMap();
   renderTracks(); renderMarks();
   drawChart(sun);

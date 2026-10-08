@@ -31,7 +31,7 @@ Three views; swipe between them or use the tabs at the bottom.
   Tides for ocean, bay, slough and coast; currents for ocean, bay and slough.
 - **Currents on the map** (≈ button, paddle trips on tidal water): an arrow at every NOAA current station in
   view (up to 40, zoom 9 or closer), blue for flood, green for ebb, labelled in knots; tap one for details or to use
-  it for the trip. A time slider on the map moves them through the day. Predictions are kept on the phone per day,
+  it for the trip. A time slider under the map's summary line moves them through the day. Predictions are kept on the phone per day,
   so stations you've looked at work offline.
 - **Times** are in the trip location's time zone.
 - **Hiking and biking**: elevation profile and total climb (Open-Meteo); time estimates add 1 hour per
