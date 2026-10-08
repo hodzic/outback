@@ -147,6 +147,18 @@ table.acts td,table.acts th{padding:5px 3px}
 #aisBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #aisBtn[data-n]::after{content:attr(data-n);position:absolute;right:-4px;top:-4px;min-width:18px;font-size:11px;line-height:18px;border-radius:9px;background:var(--paper);color:var(--ink);border:1px solid var(--ink);padding:0 3px}
 #aisBtn.warn{background:var(--warn);border-color:var(--warn)}
+#curBtn{position:absolute;right:10px;bottom:82px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:22px;font-weight:800;padding:0;color:var(--flood)}
+#curBtn.on{background:var(--flood);color:#fff;border-color:var(--flood)}
+#timeBar{position:absolute;left:10px;right:68px;bottom:24px;z-index:1000;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.94);
+  border:1px solid var(--line);border-radius:24px;padding:0 6px 0 12px;height:48px;box-shadow:0 1px 3px rgba(18,50,74,.18)}
+#timeBar b{font-size:15px;min-width:64px;font-variant-numeric:tabular-nums;white-space:nowrap}
+#tMap{flex:1;min-width:0;accent-color:var(--magenta)}
+#timeBar .btn{min-height:34px;padding:0 10px;font-size:14px}
+.cm-i{pointer-events:none!important} .cm-i span{pointer-events:auto;cursor:pointer}
+.cm{position:relative}
+.cm svg{position:absolute;left:0;top:0;filter:drop-shadow(0 0 2px #fff)}
+.cm span{position:absolute;z-index:1;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.9);border-radius:6px;padding:0 3px;font:700 11px var(--font);white-space:nowrap}
+.cm.flood span{color:var(--flood)} .cm.ebb span{color:var(--ebb)} .cm.slack span{color:var(--muted)}
 .ship svg{display:block;filter:drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1px #fff)}
 .ship.warn svg{filter:drop-shadow(0 0 3px #d00) drop-shadow(0 0 3px #d00)}
 .shipPop b{font-size:15px} .shipPop div{margin:2px 0} .shipPop .w{color:var(--warn);font-weight:700} .shipPop a{margin-right:10px}
@@ -233,6 +245,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <h3>Needs a connection</h3>
         <ul>
           <li>Getting or refreshing a forecast, or changing tide stations.</li>
+          <li>Currents on the map (≈) for stations and days you haven't looked at yet. Ones you've seen are kept.</li>
           <li>Map areas you haven't saved or viewed, and map layers you didn't save (Get forecast saves only the layer selected at the time).</li>
           <li>Importing your first PDF map (the PDF reader downloads on first use). PDF maps you've imported show fine offline.</li>
           <li>AIS ships: they are live only and need a data connection.</li>
@@ -349,6 +362,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     </div>
     <button id="aisBtn" class="pill" aria-label="Ships nearby (AIS)" title="Ships nearby (AIS)">AIS</button>
+    <button id="curBtn" class="pill" aria-label="Currents on the map" title="Currents on the map">≈</button>
+    <div id="timeBar" hidden><b id="tMapV"></b><input id="tMap" type="range" min="0" max="1435" step="5" aria-label="Time of day"><button id="tMapNow" class="btn">Now</button></div>
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="PDF map opacity"><span id="opVal">80%</span></div>
   </section>
 </main>
@@ -374,7 +389,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-08a';
+const APP_VERSION = '2026-10-08b';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -768,7 +783,7 @@ async function loadNearby(){
   return state.nearby;
 }
 async function useStation(kind, id){
-  const pool = state.nearby?.[kind] || [];
+  const pool = [...(state.nearby?.[kind] || []), ...(kind === 'current' ? curMap.shown : [])];
   const s = pool.find(x => x.id === id); if (!s) return;
   trip[kind] = s; trip.data = trip.data || {};
   try{
@@ -963,12 +978,12 @@ function tideAt(t){
   const [a, b, f] = s;
   return { v: (a.v + b.v)/2 + (a.v - b.v)/2 * Math.cos(Math.PI * f), rising: b.v > a.v, next: b };
 }
-function curAt(t){
-  if (!hasCurrents()) return null;
-  const s = seg(trip.data?.current, t); if (!s) return null;
+function curIn(ev, t){
+  const s = seg(ev, t); if (!s) return null;
   const [a, b, f] = s;
   return { v: a.v + (b.v - a.v) * (1 - Math.cos(Math.PI * f)) / 2, next: b };
 }
+const curAt = t => hasCurrents() ? curIn(trip.data?.current, t) : null;
 function wxAt(t){
   const w = trip.data?.wx; if (!w) return null;
   let bi = -1, bd = Infinity;
@@ -1103,6 +1118,11 @@ function render(){
   if (w && w.dp != null && w.dp <= -2) parts.push('<span class="w">Pressure ↓</span>');
   parts.push(fmtD(nm));
   $('#mini').innerHTML = parts.join(' · ');
+  // currents on the map, with their own time slider
+  $('#curBtn').hidden = !curMapAvail(); $('#curBtn').classList.toggle('on', curMapOn());
+  $('#timeBar').hidden = !curMapOn();
+  if (curMapOn()){ $('#tMap').value = state.tMin; $('#tMapV').textContent = hm(t); if (curMap.loadedFor !== trip.date) curMapLoad(); }
+  drawCurMap();
   renderTracks(); renderMarks();
   drawChart(sun);
 }
@@ -1145,13 +1165,84 @@ $('#trackList').addEventListener('click', e => {
 
 function drawCurArrow(dir, sp, flood){
   if (curArrow){ map.removeLayer(curArrow); curArrow = null; }
-  if (dir == null || !trip.current || !hasCurrents()) return;
+  if (dir == null || !trip.current || !hasCurrents() || curMapOn()) return;
   const len = 22 + Math.min(sp, 5) * 9, col = flood ? '#1F6FB2' : '#2E8B57';
   const html = `<svg width="${len*2}" height="${len*2}" viewBox="${-len} ${-len} ${len*2} ${len*2}" style="transform:rotate(${dir}deg)">
     <line x1="0" y1="${len-6}" x2="0" y2="${-len+10}" stroke="${col}" stroke-width="5" stroke-linecap="round"/>
     <path d="M-9 ${-len+14} L0 ${-len+1} L9 ${-len+14} Z" fill="${col}"/></svg>`;
   curArrow = L.marker([trip.current.lat, trip.current.lng], { interactive: false, icon: L.divIcon({ className: 'arrow', html, iconSize: [len*2, len*2], iconAnchor: [len, len] }) }).addTo(map);
 }
+
+/* ---------- currents on the map: every NOAA current station in view, at the trip's time ---------- */
+const curMap = { layer: L.layerGroup(), marks: new Map(), data: new Map(), loading: new Set(), list: null, shown: [], loadedFor: null, mt: null };
+const CURMAP_MAX = 40, CURMAP_ZOOM = 9;
+const curMapAvail = () => trip?.activity === 'paddle' && (!trip.env || hasCurrents()); // not on lakes and rivers
+const curMapOn = () => !!settings.curMap && curMapAvail();
+const cmKey = s => `cm-${s.id}-${s.bin ?? ''}-${trip.date}`;
+async function curMapLoad(){
+  if (!curMapOn()) return;
+  curMap.loadedFor = trip.date;
+  if (map.getZoom() < CURMAP_ZOOM){ curMap.shown = []; drawCurMap(); toast('Zoom in to see currents.'); return; }
+  try{ curMap.list = curMap.list || await stationList('currentpredictions'); }
+  catch{ toast('The current station list needs a connection.'); return; }
+  const b = map.getBounds().pad(0.2), c = map.getCenter();
+  curMap.shown = curMap.list.filter(s => b.contains([s.lat, s.lng]))
+    .sort((x, y) => c.distanceTo([x.lat, x.lng]) - c.distanceTo([y.lat, y.lng])).slice(0, CURMAP_MAX);
+  drawCurMap();
+  const need = curMap.shown.filter(s => !curMap.data.has(cmKey(s)) && !curMap.loading.has(cmKey(s)));
+  let i = 0, offline = 0;
+  const worker = async () => {
+    while (i < need.length){
+      const s = need[i++], k = cmKey(s); curMap.loading.add(k);
+      try{
+        let d = await idb.get('kv', k);
+        if (!d){ d = await fetchCurrent(s); await idb.put('kv', d, k); } // kept for offline use
+        curMap.data.set(k, d); drawCurMap();
+      }catch(err){ if (err instanceof TypeError) offline++; else curMap.data.set(k, null); } // no predictions: don't ask again
+      finally{ curMap.loading.delete(k); }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(6, need.length) }, worker));
+  if (offline) toast('Some currents need a connection.');
+}
+function cmIcon(cu, d){
+  const sp = Math.abs(cu.v), flood = cu.v >= 0, dir = flood ? d.floodDir : d.ebbDir;
+  const kind = sp < .1 || dir == null ? 'slack' : flood ? 'flood' : 'ebb', R = 66;
+  // starts at the station (under the speed label) and points the way the water flows
+  const len = 30 + Math.min(sp, 5) * 7, col = flood ? '#1F6FB2' : '#2E8B57';
+  const svg = kind === 'slack' ? '' : `<svg width="${R*2}" height="${R*2}" viewBox="${-R} ${-R} ${R*2} ${R*2}" style="transform:rotate(${dir}deg)">
+    <line x1="0" y1="-14" x2="0" y2="${-len + 8}" stroke="${col}" stroke-width="4" stroke-linecap="round"/>
+    <path d="M-7 ${-len + 10} L0 ${-len - 1} L7 ${-len + 10} Z" fill="${col}"/></svg>`;
+  return L.divIcon({ className: 'cm-i', html: `<div class="cm ${kind}" style="width:${R*2}px;height:${R*2}px">${svg}<span>${kind === 'slack' ? 'slack' : sp.toFixed(1)}</span></div>`, iconSize: [R*2, R*2], iconAnchor: [R, R] });
+}
+function cmPopup(s, cu, d){
+  const sp = Math.abs(cu.v), flood = cu.v >= 0, dir = flood ? d.floodDir : d.ebbDir, nx = cu.next;
+  return `<b>${esc(s.name)}</b><br>${sp < .1 ? 'Slack' : `${sp.toFixed(1)} kt ${flood ? 'flood' : 'ebb'}${dir != null ? ' toward ' + d3(dir) + '°T' : ''}`} at ${hm(tAt())}
+    <br><small>Next: ${nx.type === 'slack' ? 'slack' : 'max ' + nx.type + ' ' + Math.abs(nx.v).toFixed(1) + ' kt'} at ${hm(nx.t)} · ${esc(s.id)}${s.depth ? ' · depth ' + esc(s.depth) + ' ft' : ''}</small>
+    <br>${trip.current?.id === s.id ? '<small>This trip\'s current station</small>' : `<button class="btn" data-use="current" data-id="${esc(s.id)}">Use for currents</button>`}`;
+}
+function drawCurMap(){
+  if (!curMapOn()){ curMap.layer.clearLayers(); curMap.marks.clear(); map.removeLayer(curMap.layer); return; }
+  curMap.layer.addTo(map);
+  const t = tAt(), keep = new Set();
+  for (const s of curMap.shown){
+    const d = curMap.data.get(cmKey(s)), cu = d && curIn(d.current, t); if (!cu) continue;
+    keep.add(s.id);
+    let m = curMap.marks.get(s.id);
+    if (!m){ m = L.marker([s.lat, s.lng], { icon: cmIcon(cu, d) }).bindPopup('').addTo(curMap.layer); curMap.marks.set(s.id, m); }
+    else m.setIcon(cmIcon(cu, d));
+    m.setPopupContent(cmPopup(s, cu, d));
+  }
+  for (const [id, m] of curMap.marks) if (!keep.has(id)){ curMap.layer.removeLayer(m); curMap.marks.delete(id); }
+}
+$('#curBtn').onclick = () => {
+  settings.curMap = !settings.curMap; saveSettings();
+  if (settings.curMap){ toast('Currents: blue flood, green ebb, in knots. Slide the time below.', 4000); curMapLoad(); }
+  render();
+};
+map.on('moveend', () => { if (curMapOn()){ clearTimeout(curMap.mt); curMap.mt = setTimeout(curMapLoad, 300); } });
+$('#tMap').oninput = e => { state.tMin = +e.target.value; render(); };
+$('#tMapNow').onclick = setNow;
 
 /* ---------- day chart ---------- */
 const cv = $('#chart');
