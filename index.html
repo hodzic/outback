@@ -394,7 +394,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-08e';
+const APP_VERSION = '2026-10-08f';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -639,8 +639,17 @@ function wpSize(){
 }
 map.on('zoomend', wpSize);
 map.on('moveend', () => LS.set('view', { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() }));
+// NOAA retired its raster chart tiles (the old NOAACharts service now answers 404 or blank); the NOAA Chart Display
+// Service draws the current ENCs per request, so each map tile asks for its own Web Mercator box.
+const NCDS = 'https://gis.charttools.noaa.gov/arcgis/rest/services/MCS/NOAAChartDisplay/MapServer/exts/MaritimeChartService/MapServer/export';
+const HD = (devicePixelRatio || 1) > 1.5;
+function ncdsTile(z, x, y){
+  const E = 20037508.342789244, w = 2 * E / 2 ** z, px = HD ? 512 : 256;
+  const bbox = [-E + x * w, E - (y + 1) * w, -E + (x + 1) * w, E - y * w].map(v => v.toFixed(2)).join(',');
+  return `${NCDS}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=${px},${px}&dpi=${HD ? 192 : 96}&format=png&transparent=false&f=image`;
+}
 const LAYERS = {
-  chart: { name: 'Chart', url: 'https://gis.charttools.noaa.gov/arcgis/rest/services/MarineChart_Services/NOAACharts/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'NOAA charts · not for navigation' } },
+  chart: { name: 'Chart', tile: ncdsTile, opt: { maxZoom: 18, maxNativeZoom: 17, minNativeZoom: 5, attribution: 'NOAA ENC charts · not for navigation' } },
   street: { name: 'Street', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt: { maxZoom: 19, attribution: '© OpenStreetMap contributors' }, polite: true },
   topo: { name: 'Topo', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map' } }
 };
@@ -649,7 +658,8 @@ let base, tileErr = 0, tileOk = 0;
 function setLayer(k){
   if (base) map.removeLayer(base);
   settings.layer = k; saveSettings(); tileErr = 0; tileOk = 0;
-  base = L.tileLayer(LAYERS[k].url, LAYERS[k].opt).addTo(map);
+  const L0 = LAYERS[k];
+  base = (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', L0.opt) : L.tileLayer(L0.url, L0.opt)).addTo(map);
   base.on('tileload', () => tileOk++);
   base.on('tileerror', () => { if (++tileErr >= 4 && tileOk === 0 && k === 'chart' && navigator.onLine){ toast('Chart tiles are not loading. Switched to Street.'); setLayer('street'); } });
   $('#layerBtn').textContent = LAYERS[k].name;
@@ -937,7 +947,7 @@ function tileUrls(layerKey, b, z0, z1, max){
   for (let z = z0; z <= z1; z++){
     const n = 2 ** z, x0 = lon2tile(b.getWest(), n), x1 = lon2tile(b.getEast(), n), y0 = lat2tile(b.getNorth(), n), y1 = lat2tile(b.getSouth(), n);
     if (urls.length + (x1 - x0 + 1) * (y1 - y0 + 1) > max) break;
-    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) urls.push(L0.url.replace('{z}', z).replace('{x}', x).replace('{y}', y));
+    for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) urls.push(L0.tile ? L0.tile(z, x, y) : L0.url.replace('{z}', z).replace('{x}', x).replace('{y}', y));
   }
   return urls;
 }

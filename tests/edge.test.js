@@ -16,6 +16,18 @@ module.exports = async (browser, url, check) => {
     await page.waitForFunction(() => document.querySelector('#layerBtn').textContent !== 'Chart', null, { timeout: 8000 }).catch(() => {});
     c('failing chart tiles fall back to Street', (await page.text('#layerBtn')) === 'Street', await page.text('#layerBtn')); await ctx.close(); }
 
+  { // NOAA retired the raster chart tiles: charts come from the NOAA Chart Display Service, one box per tile
+    const { ctx, page } = await open(browser, url), got = [];
+    page.on('request', r => { if (r.url().includes('charttools')) got.push(r.url()); });
+    await page.goto(url); await ready(page); await view(page, 2);
+    await page.evaluate(() => map.setView([37.81, -122.45], 13)); await page.waitForTimeout(800);
+    const W13 = 2 * 20037508.342789244 / 2 ** 13, box = x => new URL(x).searchParams.get('bbox').split(',').map(Number);
+    const u = got.filter(x => x.includes('/MCS/NOAAChartDisplay/')).find(x => Math.abs(box(x)[2] - box(x)[0] - W13) < 0.1), q = u && new URL(u).searchParams, b = u && box(u);
+    c('chart tiles come from the NOAA Chart Display Service', !!u && !got.some(x => x.includes('NOAACharts')) && q.get('f') === 'image' && q.get('bboxSR') === '3857', u);
+    c('each chart request is one square map tile on the tile grid', b && Math.abs((b[2] - b[0]) - (b[3] - b[1])) < 0.1 && Math.abs((b[0] + 20037508.342789244) / W13 % 1) < 1e-6, b);
+    c('chart drawn sharp on phone screens', q && q.get('size') === '512,512' && q.get('dpi') === '192');
+    await ctx.close(); }
+
   { const { ctx, page } = await open(browser, url, {}, { noaaErr: true });
     await page.goto(url); await ready(page); await seedRoute(page, GG);
     await page.click('#fcBtn'); await waitForecast(page);
