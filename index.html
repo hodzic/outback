@@ -396,7 +396,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-08g';
+const APP_VERSION = '2026-10-08h';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -936,7 +936,7 @@ async function getForecast(){
     changed();
     btn.textContent = 'Saving map…';
     trip.mapTiles = await cacheTiles(); changed();
-    toast(envMsg + (errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${trip.mapTiles} map tiles stored for offline.`), envMsg ? 6000 : 4500);
+    toast(envMsg + (errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${trip.mapTiles ? trip.mapTiles + ' map tiles stored for offline.' : 'The map could not be saved for offline.'}`), envMsg ? 6000 : 4500);
   }finally{ btn.disabled = false; btn.textContent = 'Get forecast'; }
 }
 $('#fcBtn').onclick = getForecast;
@@ -956,14 +956,16 @@ function tileUrls(layerKey, b, z0, z1, max){
 // OpenStreetMap asks bulk downloaders to go slowly: one request at a time with a pause.
 async function downloadTiles(urls, { polite, onProgress } = {}){
   const cache = await caches.open('paddle-tiles');
-  let done = 0, i = 0;
+  let done = 0, saved = 0, i = 0;
   const worker = async () => {
     while (i < urls.length){
       const u = urls[i++];
       try{
-        if (!(await caches.match(u))){
+        if (await caches.match(u)) saved++;
+        else {
           let r; try{ r = await fetch(u, { mode: 'cors' }); }catch{ r = await fetch(u, { mode: 'no-cors' }); }
-          if (r.ok || r.type === 'opaque') await cache.put(u, r);
+          // errors and outage pages are not map tiles; without CORS (opaque) there's no way to tell
+          if (r.type === 'opaque' || (r.ok && /^image\//.test(r.headers.get('content-type') || ''))){ await cache.put(u, r); saved++; }
           if (polite) await new Promise(res => setTimeout(res, 60));
         }
       }catch{}
@@ -971,6 +973,7 @@ async function downloadTiles(urls, { polite, onProgress } = {}){
     }
   };
   await Promise.all(Array.from({ length: polite ? 1 : 6 }, worker));
+  return saved;
 }
 async function cacheTiles(){
   if (!('caches' in window)) return 0;
@@ -979,8 +982,7 @@ async function cacheTiles(){
   b = L.latLngBounds([b.getSouth() - .03, b.getWest() - .04], [b.getNorth() + .03, b.getEast() + .04]);
   const polite = LAYERS[settings.layer].polite;
   const urls = tileUrls(settings.layer, b, 10, polite ? 15 : 16, polite ? 600 : 1500);
-  await downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Map ${Math.round(d / urls.length * 100)}%`; } });
-  return urls.length;
+  return downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Map ${Math.round(d / urls.length * 100)}%`; } });
 }
 
 /* ---------- interpolation ---------- */
