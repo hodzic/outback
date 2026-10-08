@@ -150,6 +150,8 @@ table.acts td,table.acts th{padding:5px 3px}
 #aisBtn.warn{background:var(--warn);border-color:var(--warn)}
 #curBtn{position:absolute;right:10px;bottom:82px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:22px;font-weight:800;padding:0;color:var(--flood)}
 #curBtn.on{background:var(--flood);color:#fff;border-color:var(--flood)}
+#curBtn[data-mode="1"]::after{content:'T+C'}#curBtn[data-mode="2"]::after{content:'C'}#curBtn[data-mode="3"]::after{content:'T'}
+#curBtn::after{position:absolute;right:-4px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--flood);border:1px solid var(--flood);border-radius:8px;padding:0 3px;line-height:14px}
 #timeBar{display:flex;align-items:center;gap:8px;padding:0 6px 6px 12px}
 #tMap{flex:1;min-width:0;height:32px;accent-color:var(--magenta)}
 #timeBar .btn{min-height:32px;padding:0 10px;font-size:14px}
@@ -158,6 +160,8 @@ table.acts td,table.acts th{padding:5px 3px}
 .cm svg{position:absolute;left:0;top:0;filter:drop-shadow(0 0 2px #fff)}
 .cm span{position:absolute;z-index:1;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(255,255,255,.9);border-radius:6px;padding:0 3px;font:700 11px var(--font);white-space:nowrap}
 .cm.flood span{color:var(--flood)} .cm.ebb span{color:var(--ebb)} .cm.slack span{color:var(--muted)}
+.tm span{display:block;background:#fff;border:1.5px solid var(--ink);border-radius:9px;padding:0 4px;font:700 12px/16px var(--font);color:var(--ink);white-space:nowrap;cursor:pointer}
+.cm.sel span,.tm.sel span{box-shadow:0 0 0 2.5px var(--magenta)}
 .ship svg{display:block;filter:drop-shadow(0 0 1.5px #fff) drop-shadow(0 0 1px #fff)}
 .ship.warn svg{filter:drop-shadow(0 0 3px #d00) drop-shadow(0 0 3px #d00)}
 .shipPop b{font-size:15px} .shipPop div{margin:2px 0} .shipPop .w{color:var(--warn);font-weight:700} .shipPop a{margin-right:10px}
@@ -244,7 +248,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <h3>Needs a connection</h3>
         <ul>
           <li>Getting or refreshing a forecast, or changing tide stations.</li>
-          <li>Currents on the map (≈) for stations and days you haven't looked at yet. Ones you've seen are kept.</li>
+          <li>Tides and currents on the map (≈) for stations and days you haven't looked at yet. Ones you've seen are kept.</li>
           <li>Map areas you haven't saved or viewed, and map layers you didn't save (Get forecast saves only the layer selected at the time).</li>
           <li>Importing your first PDF map (the PDF reader downloads on first use). PDF maps you've imported show fine offline.</li>
           <li>AIS ships: they are live only and need a data connection.</li>
@@ -362,7 +366,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     </div>
     <button id="aisBtn" class="pill" aria-label="Ships nearby (AIS)" title="Ships nearby (AIS)">AIS</button>
-    <button id="curBtn" class="pill" aria-label="Currents on the map" title="Currents on the map">≈</button>
+    <button id="curBtn" class="pill" aria-label="Tides and currents on the map" title="Tides and currents on the map">≈</button>
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="PDF map opacity"><span id="opVal">80%</span></div>
   </section>
 </main>
@@ -388,7 +392,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-08c';
+const APP_VERSION = '2026-10-08d';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -749,8 +753,8 @@ function drawStations(){
   stationLayer.clearLayers();
   if (curArrow){ map.removeLayer(curArrow); curArrow = null; }
   if (!isTidal()) return;
-  if (trip.tide) L.marker([trip.tide.lat, trip.tide.lng], { icon: stIcon('tide', 'T') }).bindPopup(`<b>Tide station</b><br>${esc(trip.tide.name)}<br><small>${esc(trip.tide.id)}</small>`).addTo(stationLayer);
-  if (hasCurrents() && trip.current) L.marker([trip.current.lat, trip.current.lng], { icon: stIcon('cur', 'C') }).bindPopup(`<b>Current station</b><br>${esc(trip.current.name)}<br><small>${esc(trip.current.id)}${trip.current.depth ? ' · depth '+esc(trip.current.depth)+' ft' : ''}</small>`).addTo(stationLayer);
+  if (trip.tide && !tcShows('tide')) L.marker([trip.tide.lat, trip.tide.lng], { icon: stIcon('tide', 'T') }).bindPopup(`<b>Tide station</b><br>${esc(trip.tide.name)}<br><small>${esc(trip.tide.id)}</small>`).addTo(stationLayer);
+  if (hasCurrents() && trip.current && !tcShows('current')) L.marker([trip.current.lat, trip.current.lng], { icon: stIcon('cur', 'C') }).bindPopup(`<b>Current station</b><br>${esc(trip.current.name)}<br><small>${esc(trip.current.id)}${trip.current.depth ? ' · depth '+esc(trip.current.depth)+' ft' : ''}</small>`).addTo(stationLayer);
   if (state.showStations && state.nearby){
     for (const s of state.nearby.tide) if (!trip.tide || s.id !== trip.tide.id)
       L.marker([s.lat, s.lng], { icon: stIcon('tide', 'T', true) }).bindPopup(`<b>${esc(s.name)}</b><br><small>Tide · ${esc(s.id)}</small><br><button class="btn" data-use="tide" data-id="${esc(s.id)}">Use for tides</button>`).addTo(stationLayer);
@@ -782,7 +786,7 @@ async function loadNearby(){
   return state.nearby;
 }
 async function useStation(kind, id){
-  const pool = [...(state.nearby?.[kind] || []), ...(kind === 'current' ? curMap.shown : [])];
+  const pool = [...(state.nearby?.[kind] || []), ...tcMap.shown[kind]];
   const s = pool.find(x => x.id === id); if (!s) return;
   trip[kind] = s; trip.data = trip.data || {};
   try{
@@ -971,18 +975,19 @@ function seg(arr, t){
   for (let i = 0; i < arr.length - 1; i++) if (t >= arr[i].t && t <= arr[i+1].t) return [arr[i], arr[i+1], (t - arr[i].t) / (arr[i+1].t - arr[i].t)];
   return null;
 }
-function tideAt(t){
-  if (!isTidal()) return null;
-  const s = seg(trip.data?.tide, t); if (!s) return null;
+function tideIn(ev, t){
+  const s = seg(ev, t); if (!s) return null;
   const [a, b, f] = s;
   return { v: (a.v + b.v)/2 + (a.v - b.v)/2 * Math.cos(Math.PI * f), rising: b.v > a.v, next: b };
 }
+// before the water type is known, a station chosen on the map still counts
+const tideAt = t => isTidal() || !trip.env ? tideIn(trip.data?.tide, t) : null;
 function curIn(ev, t){
   const s = seg(ev, t); if (!s) return null;
   const [a, b, f] = s;
   return { v: a.v + (b.v - a.v) * (1 - Math.cos(Math.PI * f)) / 2, next: b };
 }
-const curAt = t => hasCurrents() ? curIn(trip.data?.current, t) : null;
+const curAt = t => hasCurrents() || !trip.env ? curIn(trip.data?.current, t) : null;
 function wxAt(t){
   const w = trip.data?.wx; if (!w) return null;
   let bi = -1, bd = Infinity;
@@ -1118,10 +1123,9 @@ function render(){
   parts.push(fmtD(nm));
   $('#mini').innerHTML = parts.join(' · ');
   // currents on the map, with a time slider under the summary
-  $('#curBtn').hidden = !curMapAvail(); $('#curBtn').classList.toggle('on', curMapOn());
-  $('#timeBar').hidden = !curMapOn();
-  if (curMapOn()){ $('#tMap').value = state.tMin; if (curMap.loadedFor !== trip.date) curMapLoad(); }
-  drawCurMap();
+  tcBtnState(); $('#timeBar').hidden = !tcMode();
+  if (tcMode()){ $('#tMap').value = state.tMin; if (tcMap.loadedFor !== trip.date) tcLoad(); }
+  drawTcMap();
   renderTracks(); renderMarks();
   drawChart(sun);
 }
@@ -1164,7 +1168,7 @@ $('#trackList').addEventListener('click', e => {
 
 function drawCurArrow(dir, sp, flood){
   if (curArrow){ map.removeLayer(curArrow); curArrow = null; }
-  if (dir == null || !trip.current || !hasCurrents() || curMapOn()) return;
+  if (dir == null || !trip.current || !hasCurrents() || tcShows('current')) return;
   const len = 22 + Math.min(sp, 5) * 9, col = flood ? '#1F6FB2' : '#2E8B57';
   const html = `<svg width="${len*2}" height="${len*2}" viewBox="${-len} ${-len} ${len*2} ${len*2}" style="transform:rotate(${dir}deg)">
     <line x1="0" y1="${len-6}" x2="0" y2="${-len+10}" stroke="${col}" stroke-width="5" stroke-linecap="round"/>
@@ -1172,39 +1176,53 @@ function drawCurArrow(dir, sp, flood){
   curArrow = L.marker([trip.current.lat, trip.current.lng], { interactive: false, icon: L.divIcon({ className: 'arrow', html, iconSize: [len*2, len*2], iconAnchor: [len, len] }) }).addTo(map);
 }
 
-/* ---------- currents on the map: every NOAA current station in view, at the trip's time ---------- */
-const curMap = { layer: L.layerGroup(), marks: new Map(), data: new Map(), loading: new Set(), list: null, shown: [], loadedFor: null, mt: null };
-const CURMAP_MAX = 40, CURMAP_ZOOM = 9;
-const curMapAvail = () => trip?.activity === 'paddle' && (!trip.env || hasCurrents()); // not on lakes and rivers
-const curMapOn = () => !!settings.curMap && curMapAvail();
-const cmKey = s => `cm-${s.id}-${s.bin ?? ''}-${trip.date}`;
-async function curMapLoad(){
-  if (!curMapOn()) return;
-  curMap.loadedFor = trip.date;
-  if (map.getZoom() < CURMAP_ZOOM){ curMap.shown = []; drawCurMap(); toast('Zoom in to see currents.'); return; }
-  try{ curMap.list = curMap.list || await stationList('currentpredictions'); }
-  catch{ toast('The current station list needs a connection.'); return; }
-  const b = map.getBounds().pad(0.2), c = map.getCenter();
-  curMap.shown = curMap.list.filter(s => b.contains([s.lat, s.lng]))
-    .sort((x, y) => c.distanceTo([x.lat, x.lng]) - c.distanceTo([y.lat, y.lng])).slice(0, CURMAP_MAX);
-  drawCurMap();
-  const need = curMap.shown.filter(s => !curMap.data.has(cmKey(s)) && !curMap.loading.has(cmKey(s)));
+/* ---------- tides and currents on the map: every NOAA station in view, at the trip's time ---------- */
+// ≈ tap cycles: tides and currents → currents → tides. Long-press turns it off; the next tap comes back in the mode it had.
+const TC_MODES = [
+  { label: 'Tides and currents on the map', toast: 'Tides and currents off' },
+  { label: 'Tides and currents. Tap for currents only, hold to turn off', toast: 'Tides (ft, ↑ rising) and currents (kt, blue flood, green ebb)', tide: true, current: true },
+  { label: 'Currents. Tap for tides only, hold to turn off', toast: 'Currents: knots, blue flood, green ebb', current: true },
+  { label: 'Tides. Tap for tides and currents, hold to turn off', toast: 'Tides: feet, ↑ rising, ↓ falling', tide: true }];
+const tcMap = { layer: L.layerGroup(), marks: new Map(), data: new Map(), loading: new Set(), lists: {}, shown: { tide: [], current: [] }, loadedFor: null, mt: null };
+const TC_MAX = 40, TC_ZOOM = 9;
+const TC_KIND = {
+  tide: { list: 'tidepredictions', fetch: fetchTide },
+  current: { list: 'currentpredictions', fetch: fetchCurrent } };
+const tcAvail = () => trip?.activity === 'paddle' && (!trip.env || hasCurrents()); // not on lakes and rivers
+const tcMode = () => tcAvail() ? settings.tcMode || 0 : 0;
+const tcShows = kind => !!TC_MODES[tcMode()][kind];
+const tcKey = (kind, s) => `${kind === 'tide' ? 'tm' : 'cm'}-${s.id}-${s.bin ?? ''}-${trip.date}`;
+async function tcLoad(){
+  if (!tcMode()) return;
+  tcMap.loadedFor = trip.date;
+  const kinds = Object.keys(TC_KIND).filter(tcShows);
+  if (map.getZoom() < TC_ZOOM){ tcMap.shown = { tide: [], current: [] }; drawTcMap(); toast('Zoom in to see tides and currents.'); return; }
+  try{ for (const k of kinds) tcMap.lists[k] = tcMap.lists[k] || await stationList(TC_KIND[k].list); }
+  catch{ toast('The station list needs a connection.'); return; }
+  const b = map.getBounds().pad(0.2), c = map.getCenter(), need = [];
+  tcMap.shown = { tide: [], current: [] };
+  for (const k of kinds){
+    tcMap.shown[k] = tcMap.lists[k].filter(s => b.contains([s.lat, s.lng]))
+      .sort((x, y) => c.distanceTo([x.lat, x.lng]) - c.distanceTo([y.lat, y.lng])).slice(0, TC_MAX);
+    for (const s of tcMap.shown[k]){ const key = tcKey(k, s); if (!tcMap.data.has(key) && !tcMap.loading.has(key)) need.push([k, s, key]); }
+  }
+  drawTcMap();
   let i = 0, offline = 0;
   const worker = async () => {
     while (i < need.length){
-      const s = need[i++], k = cmKey(s); curMap.loading.add(k);
+      const [k, s, key] = need[i++]; tcMap.loading.add(key);
       try{
-        let d = await idb.get('kv', k);
-        if (!d){ d = await fetchCurrent(s); await idb.put('kv', d, k); } // kept for offline use
-        curMap.data.set(k, d); drawCurMap();
-      }catch(err){ if (err instanceof TypeError) offline++; else curMap.data.set(k, null); } // no predictions: don't ask again
-      finally{ curMap.loading.delete(k); }
+        let d = await idb.get('kv', key);
+        if (!d){ d = await TC_KIND[k].fetch(s); await idb.put('kv', d, key); } // kept for offline use
+        tcMap.data.set(key, d); drawTcMap();
+      }catch(err){ if (err instanceof TypeError) offline++; else tcMap.data.set(key, null); } // no predictions: don't ask again
+      finally{ tcMap.loading.delete(key); }
     }
   };
   await Promise.all(Array.from({ length: Math.min(6, need.length) }, worker));
-  if (offline) toast('Some currents need a connection.');
+  if (offline) toast('Some stations need a connection.');
 }
-function cmIcon(cu, d){
+function cmIcon(cu, d, sel){
   const sp = Math.abs(cu.v), flood = cu.v >= 0, dir = flood ? d.floodDir : d.ebbDir;
   const kind = sp < .1 || dir == null ? 'slack' : flood ? 'flood' : 'ebb', R = 66;
   // starts at the station (under the speed label) and points the way the water flows
@@ -1212,34 +1230,58 @@ function cmIcon(cu, d){
   const svg = kind === 'slack' ? '' : `<svg width="${R*2}" height="${R*2}" viewBox="${-R} ${-R} ${R*2} ${R*2}" style="transform:rotate(${dir}deg)">
     <line x1="0" y1="-14" x2="0" y2="${-len + 8}" stroke="${col}" stroke-width="4" stroke-linecap="round"/>
     <path d="M-7 ${-len + 10} L0 ${-len - 1} L7 ${-len + 10} Z" fill="${col}"/></svg>`;
-  return L.divIcon({ className: 'cm-i', html: `<div class="cm ${kind}" style="width:${R*2}px;height:${R*2}px">${svg}<span>${kind === 'slack' ? 'slack' : sp.toFixed(1)}</span></div>`, iconSize: [R*2, R*2], iconAnchor: [R, R] });
+  return L.divIcon({ className: 'cm-i', html: `<div class="cm ${kind}${sel ? ' sel' : ''}" style="width:${R*2}px;height:${R*2}px">${svg}<span>${kind === 'slack' ? 'slack' : sp.toFixed(1)}</span></div>`, iconSize: [R*2, R*2], iconAnchor: [R, R] });
 }
+const tmIcon = (td, sel) => L.divIcon({ className: '', html: `<div class="tm${sel ? ' sel' : ''}"><span>${td.v.toFixed(1)}${td.rising ? '↑' : '↓'}</span></div>`, iconSize: null, iconAnchor: [18, 9] });
 function cmPopup(s, cu, d){
   const sp = Math.abs(cu.v), flood = cu.v >= 0, dir = flood ? d.floodDir : d.ebbDir, nx = cu.next;
   return `<b>${esc(s.name)}</b><br>${sp < .1 ? 'Slack' : `${sp.toFixed(1)} kt ${flood ? 'flood' : 'ebb'}${dir != null ? ' toward ' + d3(dir) + '°T' : ''}`} at ${hm(tAt())}
     <br><small>Next: ${nx.type === 'slack' ? 'slack' : 'max ' + nx.type + ' ' + Math.abs(nx.v).toFixed(1) + ' kt'} at ${hm(nx.t)} · ${esc(s.id)}${s.depth ? ' · depth ' + esc(s.depth) + ' ft' : ''}</small>
     <br>${trip.current?.id === s.id ? '<small>This trip\'s current station</small>' : `<button class="btn" data-use="current" data-id="${esc(s.id)}">Use for currents</button>`}`;
 }
-function drawCurMap(){
-  if (!curMapOn()){ curMap.layer.clearLayers(); curMap.marks.clear(); map.removeLayer(curMap.layer); return; }
-  curMap.layer.addTo(map);
-  const t = tAt(), keep = new Set();
-  for (const s of curMap.shown){
-    const d = curMap.data.get(cmKey(s)), cu = d && curIn(d.current, t); if (!cu) continue;
-    keep.add(s.id);
-    let m = curMap.marks.get(s.id);
-    if (!m){ m = L.marker([s.lat, s.lng], { icon: cmIcon(cu, d) }).bindPopup('').addTo(curMap.layer); curMap.marks.set(s.id, m); }
-    else m.setIcon(cmIcon(cu, d));
-    m.setPopupContent(cmPopup(s, cu, d));
-  }
-  for (const [id, m] of curMap.marks) if (!keep.has(id)){ curMap.layer.removeLayer(m); curMap.marks.delete(id); }
+function tmPopup(s, td){
+  const nx = td.next;
+  return `<b>${esc(s.name)}</b><br>Tide ${td.v.toFixed(1)} ft, ${td.rising ? 'rising' : 'falling'} at ${hm(tAt())}
+    <br><small>Next: ${nx.type === 'H' ? 'high' : 'low'} ${nx.v.toFixed(1)} ft at ${hm(nx.t)} · ${esc(s.id)}</small>
+    <br>${trip.tide?.id === s.id ? '<small>This trip\'s tide station</small>' : `<button class="btn" data-use="tide" data-id="${esc(s.id)}">Use for tides</button>`}`;
 }
-$('#curBtn').onclick = () => {
-  settings.curMap = !settings.curMap; saveSettings();
-  if (settings.curMap){ toast('Currents: blue flood, green ebb, in knots. Slide the time below.', 4000); curMapLoad(); }
-  render();
+function drawTcMap(){
+  if (!tcMode()){ tcMap.layer.clearLayers(); tcMap.marks.clear(); map.removeLayer(tcMap.layer); return; }
+  tcMap.layer.addTo(map);
+  const t = tAt(), keep = new Set();
+  for (const k of Object.keys(TC_KIND)) if (tcShows(k)) for (const s of tcMap.shown[k]){
+    const d = tcMap.data.get(tcKey(k, s)), v = d && (k === 'tide' ? tideIn(d, t) : curIn(d.current, t)); if (!v) continue;
+    const id = k + s.id, sel = trip[k]?.id === s.id;
+    const icon = k === 'tide' ? tmIcon(v, sel) : cmIcon(v, d, sel), html = k === 'tide' ? tmPopup(s, v) : cmPopup(s, v, d);
+    keep.add(id);
+    let m = tcMap.marks.get(id);
+    if (!m){ m = L.marker([s.lat, s.lng], { icon, zIndexOffset: sel ? 500 : 0 }).bindPopup('').addTo(tcMap.layer); tcMap.marks.set(id, m); }
+    else { m.setIcon(icon); m.setZIndexOffset(sel ? 500 : 0); }
+    m.setPopupContent(html);
+  }
+  for (const [id, m] of tcMap.marks) if (!keep.has(id)){ tcMap.layer.removeLayer(m); tcMap.marks.delete(id); }
+}
+function tcBtnState(){
+  const m = tcMode(), b = $('#curBtn');
+  b.hidden = !tcAvail(); b.classList.toggle('on', m > 0); b.dataset.mode = m;
+  b.setAttribute('aria-label', TC_MODES[m].label); b.title = TC_MODES[m].label;
+}
+function setTcMode(m){
+  settings.tcMode = m; if (m) settings.tcLast = m; saveSettings();
+  toast(TC_MODES[m].toast, 2500);
+  if (m) tcLoad(); else drawTcMap();
+  drawStations(); render();
+}
+let tcHold, tcHeld = false;
+const tcBtn = $('#curBtn');
+tcBtn.addEventListener('pointerdown', () => { tcHeld = false; clearTimeout(tcHold); if (tcMode()) tcHold = setTimeout(() => { tcHeld = true; setTcMode(0); navigator.vibrate?.(30); }, 600); });
+['pointerup', 'pointerleave', 'pointercancel'].forEach(t => tcBtn.addEventListener(t, () => clearTimeout(tcHold)));
+tcBtn.addEventListener('contextmenu', e => e.preventDefault());
+tcBtn.onclick = () => {
+  if (tcHeld){ tcHeld = false; return; }
+  setTcMode(tcMode() ? tcMode() % 3 + 1 : settings.tcLast || 1);
 };
-map.on('moveend', () => { if (curMapOn()){ clearTimeout(curMap.mt); curMap.mt = setTimeout(curMapLoad, 300); } });
+map.on('moveend', () => { if (tcMode()){ clearTimeout(tcMap.mt); tcMap.mt = setTimeout(tcLoad, 300); } });
 $('#tMap').oninput = e => { state.tMin = +e.target.value; render(); };
 $('#tMapNow').onclick = setNow;
 
