@@ -45,6 +45,7 @@ button,summary,#tabs,.leaflet-marker-icon,.leaflet-control{-webkit-user-select:n
 h1{font-size:26px;margin:0 0 12px}
 h2{font-size:17px;margin:0 0 8px}
 .card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px;margin:0 0 12px}
+.nag{display:flex;align-items:center;gap:8px;margin-top:12px;border-color:var(--warn)} .nag .btn{white-space:nowrap} .nag[hidden]{display:none}
 .btn{background:var(--wash);border:1px solid var(--line);border-radius:10px;min-height:40px;padding:0 12px;font-size:15px}
 .btn.primary{background:var(--magenta);border-color:var(--magenta);color:#fff;font-weight:700}
 .btn.danger{color:var(--warn)}
@@ -210,7 +211,13 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <div class="new"><button class="btn primary" id="newPaddle">+ Paddle</button><button class="btn primary" id="newHike">+ Hike</button><button class="btn primary" id="newBike">+ Bike</button></div>
       <div id="tripList"></div>
       <div class="row" style="margin-top:6px"><button class="btn" id="importBtn">Import trip or GPX…</button></div>
-      <details class="card" style="margin-top:16px"><summary>Settings</summary>
+      <div class="card nag" id="backupNag" hidden><span class="grow" id="nagTxt"></span><button class="btn primary" id="nagBack">Back up</button><button class="btn" id="nagLater">Later</button></div>
+      <details class="card" id="backupCard" style="margin-top:16px"><summary>Backup</summary>
+        <p class="muted">Trips, tracks, PDF maps and settings live only in this browser. Clearing its site data or deleting the app erases them. Back up to one file and keep it in Files, iCloud Drive or Google Drive.</p>
+        <div class="row"><button class="btn primary" id="backupBtn">Back up everything</button><button class="btn" id="restoreBtn">Restore backup…</button></div>
+        <p class="muted" id="backupInfo"></p>
+      </details>
+      <details class="card"><summary>Settings</summary>
         <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
         <label class="f" for="sAis">AIS ships: AISStream API key (free at aisstream.io; "demo" for sample ships)</label><input class="f" id="sAis" type="text" autocomplete="off" spellcheck="false">
@@ -396,7 +403,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-08h';
+const APP_VERSION = '2026-10-08i';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1428,6 +1435,7 @@ async function renderList(){
     return `<button class="trip${t.id === trip?.id ? ' cur' : ''}" data-open="${esc(t.id)}"><span class="ic" aria-hidden="true">${A.icon}</span><span class="grow"><b>${esc(t.name)}</b>
       <small>${fmtDay(t.date)} · ${A.name}${t.env ? ' · ' + (ENV[t.env]?.name || '') : ''}</small>
       <small>${(routeNm(t.route) * U.k).toFixed(1)} ${unitKey(t.activity)}${t.tracks.length ? ` · ${t.tracks.length} track${t.tracks.length > 1 ? 's' : ''}` : ''}${t.fetchedAt ? ' · forecast saved' : ''}</small></span></button>`; }).join('') || '<p class="muted">No trips yet.</p>';
+  backupState();
 }
 $('#tripList').addEventListener('click', async e => {
   const b = e.target.closest('[data-open]'); if (!b) return;
@@ -1948,9 +1956,10 @@ function toGpx(){
 }
 async function shareFile(name, text, type){
   const file = new File([text], name, { type });
-  try{ if (navigator.canShare?.({ files: [file] })){ await navigator.share({ files: [file], title: name }); return; } }catch(e){ if (e.name === 'AbortError') return; }
+  try{ if (navigator.canShare?.({ files: [file] })){ await navigator.share({ files: [file], title: name }); return true; } }catch(e){ if (e.name === 'AbortError') return false; }
   const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  return true;
 }
 $('#file').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -1980,7 +1989,9 @@ $('#file').onchange = async e => {
       if (rte.length && pts.length < n0) t.simplifiedFrom = n0;
       t.route = pts;
     } else {
-      const j = JSON.parse(text); t = j.trip || j;
+      const j = JSON.parse(text);
+      if (j.kind === 'backup') return await restoreBackup(j);
+      t = j.trip || j;
       if (!Array.isArray(t.route) || !t.date) throw new Error('Not an Outback trip file');
       t.name = String(t.name || f.name.replace(/\.json$/i, ''));
       t.id = t.id || newTrip().id;
@@ -1992,6 +2003,70 @@ $('#file').onchange = async e => {
     delete t.simplifiedFrom;
   }catch(err){ toast('Import failed: ' + err.message, 4000); }
 };
+
+/* ---------- backup ---------- */
+// One file with every trip, PDF map and setting. Restore merges: newer copies of a trip win, maps are added.
+const DAY = 864e5, NAG_DAYS = 14;
+const SKIP_SETTINGS = ['view', 'shownMaps', 'lastBackup', 'backupNag', 'firstRun'];
+const toDataUrl = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
+function fromDataUrl(u){
+  const [h, d] = String(u).split(','), bin = atob(d), a = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+  return new Blob([a], { type: (h.match(/^data:([^;,]+)/) || [])[1] || '' });
+}
+const hasContent = t => t.route?.length || t.tracks?.length || t.marks?.length;
+async function backupAll(){
+  clearTimeout(saveT); saveT = null; if (trip) await idb.put('trips', trip);
+  const [trips, maps] = await Promise.all([idb.all('trips'), idb.all('trailMaps')]);
+  const set = Object.fromEntries(Object.entries(settings).filter(([k]) => !SKIP_SETTINGS.includes(k)));
+  const data = { app: 'Outback', kind: 'backup', version: 1, at: new Date().toISOString(), appVersion: APP_VERSION, settings: set, trips,
+    maps: await Promise.all(maps.map(async m => ({ ...m, imageBlob: await toDataUrl(m.imageBlob) }))) };
+  const ok = await shareFile(`Outback-backup_${todayIso()}.json`, JSON.stringify(data), 'application/json');
+  if (!ok) return;
+  settings.lastBackup = Date.now(); saveSettings(); backupState();
+  toast(`Backed up ${trips.length} trip${trips.length === 1 ? '' : 's'}${maps.length ? ` and ${maps.length} PDF map${maps.length === 1 ? '' : 's'}` : ''}.`);
+}
+async function restoreBackup(j){
+  if (!Array.isArray(j.trips)) throw new Error('Not an Outback backup');
+  let added = 0, newer = 0, maps = 0;
+  const fresh = !(await idb.all('trips')).some(hasContent); // e.g. after the browser's data was cleared
+  for (const t of j.trips){
+    if (!t?.id || !Array.isArray(t.route) || !t.date) continue;
+    const have = await idb.get('trips', t.id);
+    if (have && (have.updated || 0) >= (t.updated || 0)) continue;
+    await idb.put('trips', t); have ? newer++ : added++;
+  }
+  const mine = new Set((await idb.all('trailMaps')).map(m => m.id));
+  for (const m of j.maps || []){
+    if (!m?.id || mine.has(m.id) || !m.imageBlob) continue;
+    await idb.put('trailMaps', { ...m, imageBlob: fromDataUrl(m.imageBlob) }); maps++;
+  }
+  // On a fresh phone the backup's settings come back; otherwise only ones missing here (like the AIS key) are filled in.
+  for (const [k, v] of Object.entries(j.settings || {})) if (!SKIP_SETTINGS.includes(k) && (fresh || settings[k] == null || settings[k] === '')) settings[k] = v;
+  saveSettings(); renderActSettings(); $('#sVar').value = settings.variation; $('#sAis').value = settings.aisKey || '';
+  const cur = trip && await idb.get('trips', trip.id);
+  if (cur && cur.updated !== trip.updated){ trip = null; await openTrip(cur); } else renderList();
+  backupState();
+  const parts = [added && `${added} trip${added === 1 ? '' : 's'} added`, newer && `${newer} updated`, maps && `${maps} PDF map${maps === 1 ? '' : 's'} added`].filter(Boolean);
+  toast(parts.length ? 'Restored: ' + parts.join(', ') + '.' : 'Nothing new in that backup. Your trips are up to date.', 4000);
+}
+async function backupState(){
+  const last = settings.lastBackup, ago = last ? Math.floor((Date.now() - last) / DAY) : null;
+  let kept = null; try{ kept = await navigator.storage?.persisted?.(); }catch{}
+  $('#backupInfo').textContent = (last ? `Last backup: ${new Date(last).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.` : 'Not backed up yet.')
+    + (kept ? ' This browser keeps Outback’s data when space runs low.' : kept === false ? ' The browser may clear Outback’s data when space runs low; installing the app helps.' : '');
+  let trips = []; try{ trips = await idb.all('trips'); }catch{}
+  const changed = trips.some(t => hasContent(t) && (t.updated || 0) > (last || 0));
+  const quiet = Date.now() - Math.max(last || 0, settings.backupNag || 0, settings.firstRun || 0) < NAG_DAYS * DAY;
+  $('#backupNag').hidden = !changed || quiet;
+  $('#nagTxt').textContent = last ? `Last backup was ${ago} days ago and trips have changed since.` : 'Your trips are only on this phone. Back them up to a file?';
+}
+$('#backupBtn').onclick = $('#nagBack').onclick = () => backupAll().catch(err => toast('Backup failed: ' + err.message, 4000));
+$('#restoreBtn').onclick = () => $('#file').click();
+$('#nagLater').onclick = () => { settings.backupNag = Date.now(); saveSettings(); $('#backupNag').hidden = true; };
+if (!settings.firstRun){ settings.firstRun = Date.now(); saveSettings(); }
+// Ask the browser not to clear our storage when space runs low (granted for installed apps; a manual clear still erases it).
+(async () => { try{ if (navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist(); }catch{} backupState(); })();
 
 /* ---------- start ---------- */
 (async () => {
