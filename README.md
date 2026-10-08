@@ -10,6 +10,7 @@ Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over 
 Three views; swipe between them or use the tabs at the bottom.
 
 1. **Trips**: *Share Outback* (sends the app's link), your trips (newest date first), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
+   backup and restore of everything in one file,
    settings (distance unit, speed and gust warning per activity; magnetic variation), install and offline help, and about.
 2. **Trip**: everything about the selected trip:
    - name, date (with the weekday), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
@@ -79,6 +80,18 @@ a compass and the safety gear your trip needs, tell someone your plan, and turn 
 (square with an arrow), then *Add to Home Screen*, then *Add*.
 
 Then open Outback from its home screen icon: it runs full screen and keeps its offline data.
+
+## Backup
+
+Trips, tracks, PDF maps and settings are stored only in the browser on your phone. Clearing the browser's site data
+(on Android, Chrome's *Clear browsing data → Cookies and site data*) or deleting the app erases them.
+Outback asks the browser for persistent storage, so it isn't cleared automatically when space runs low,
+but that doesn't stop a manual clear.
+
+*Trips → Backup → Back up everything* saves one file with all of it; keep it in Files, iCloud Drive or Google Drive.
+*Restore backup…* (or *Import trip or GPX…*) merges a backup back in: missing trips and PDF maps are added,
+and a trip that is newer in the backup replaces the older copy on the phone. On a phone with no trips, the backup's
+settings come back too. If trips have changed and there has been no backup for 2 weeks, the Trips view reminds you.
 
 ## Using it offline
 
