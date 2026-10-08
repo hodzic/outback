@@ -239,7 +239,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         </ul>
       </details>
       <details class="card help" id="helpAis"><summary>Help: AIS ships</summary>
-        <p>The <b>AIS</b> button at the bottom right of the map shows large vessels nearby, from their AIS radio broadcasts collected by <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a>.</p>
+        <p>On paddle trips, the <b>AIS</b> button at the bottom right of the map shows large vessels nearby, from their AIS radio broadcasts collected by <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a>.</p>
         <h3>Get a free key (once)</h3>
         <ol>
           <li>Go to <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a> and tap <b>Sign In</b> (with a GitHub account).</li>
@@ -374,7 +374,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-07d';
+const APP_VERSION = '2026-10-08a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1009,6 +1009,8 @@ function render(){
   $('#dow').textContent = new Date(trip.date + 'T12:00').toLocaleDateString('en-US', { weekday: 'long' }) + ',';
   document.querySelectorAll('#actSel button').forEach(b => b.classList.toggle('on', b.dataset.act === trip.activity));
   $('#envLabel').textContent = act().envLabel;
+  // ships matter on the water only
+  const ships = trip.activity === 'paddle'; $('#aisBtn').hidden = !ships; if (!ships && ais.on) aisSet(false);
   $('#envSel').innerHTML = (act().detect ? `<button data-env="" class="${trip.envSet ? '' : 'on'}">Auto${!trip.envSet && trip.env ? ': ' + env().name : ''}</button>` : '') +
     act().envs.map(k => `<button data-env="${k}" class="${trip.envSet && trip.env === k ? 'on' : ''}">${ENV[k].name}</button>`).join('');
   // route

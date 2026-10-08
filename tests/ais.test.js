@@ -32,6 +32,11 @@ module.exports = async (browser, url, check) => {
     c('moving ships get projected tracks', await page.evaluate(() => [...ais.ships.values()].filter(s => s.tr.getLayers().length).length) === 4);
     await page.click('#aisBtn'); await page.waitForTimeout(600);
     c('tap again turns ships off', await page.locator('.ship').count() === 0 && !(await page.getAttribute('#aisBtn', 'data-n')));
+    await page.click('#aisBtn'); await page.waitForTimeout(300);
+    await page.evaluate(() => { trip.activity = 'hike'; render(); });
+    c('hidden and off on a hike trip', !(await page.isVisible('#aisBtn')) && await page.evaluate(() => !ais.on) && await page.locator('.ship').count() === 0);
+    await page.evaluate(() => { trip.activity = 'paddle'; render(); });
+    c('back on a paddle trip', await page.isVisible('#aisBtn'));
 
     // live feed with a real-looking key
     await view(page, 0); await page.click('#vTrips details summary >> text=Settings');
