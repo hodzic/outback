@@ -76,6 +76,7 @@ module.exports = async (browser, url, check) => {
     await page.click('#locBtn'); await page.waitForTimeout(300);
     await hold(page, '#locBtn');
     c('long-press turns location off', await page.evaluate(() => state.locMode === 0 && state.watch == null) && await page.locator('.me').count() === 0);
+    c('long-press selects no button text', await page.evaluate(() => getSelection().toString() === '' && getComputedStyle($('#locBtn')).userSelect === 'none' && getComputedStyle($('#curBtn')).userSelect === 'none'));
     c('turning location off hides the line and highlight', await page.evaluate(() => !state.locating && toLine.getLayers().length === 0) && await page.locator('.wp.next').count() === 0);
     await page.click('#locBtn'); await page.waitForTimeout(500);
     c('next tap comes back in the mode it had', await page.evaluate(() => state.locMode === 2) && await page.isVisible('#coords.big'));
