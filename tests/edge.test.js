@@ -175,6 +175,33 @@ module.exports = async (browser, url, check) => {
     c('no errors with big routes', errors.length === 0, errors.join(' | '));
     await ctx.close(); }
 
+  { // saving the map offline keeps only real tiles
+    const { ctx, page } = await open(browser, url, {}, { tilesFail: true });
+    await page.goto(url); await ready(page); await seedRoute(page, GG);
+    await page.evaluate(() => { settings.layer = 'chart'; }); // the map may already have fallen back to Street
+    await page.click('#fcBtn'); await waitForecast(page);
+    const saved = await page.evaluate(async () => (await (await caches.open('paddle-tiles')).keys()).filter(r => r.url.includes('charttools')).length);
+    c('failed chart tiles are not saved for offline', saved === 0 && await page.evaluate(() => !trip.mapTiles), saved);
+    c('says the map could not be saved', /map could not be saved/.test(await page.text('#toast')), await page.text('#toast'));
+    await ctx.close(); }
+
+  { // service worker: error tiles are not kept, so the area loads again once the server is back
+    const { ctx, page } = await open(browser, url, { serviceWorkers: 'allow' });
+    let down = true;
+    await ctx.route('https://gis.charttools.noaa.gov/**', r => down ? r.fulfill({ status: 503, body: 'down', contentType: 'text/html', headers: { 'access-control-allow-origin': '*' } })
+      : r.fulfill({ body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'), contentType: 'image/png', headers: { 'access-control-allow-origin': '*' } }));
+    await ctx.route('https://tile.openstreetmap.org/**', r => r.fulfill({ body: 'png', contentType: 'image/png' })); // no CORS header
+    await page.goto(url); await ready(page);
+    await page.evaluate(() => navigator.serviceWorker.ready); await page.reload(); await ready(page);
+    await page.evaluate(() => setLayer('chart')); await view(page, 2); await page.waitForTimeout(1200);
+    const tiles = () => page.evaluate(async () => (await (await caches.open('paddle-tiles')).keys()).map(r => r.url));
+    c('chart outage tiles not saved', !(await tiles()).some(u => u.includes('charttools')), (await tiles()).length);
+    down = false; await page.evaluate(() => { setLayer('street'); setLayer('chart'); }); await page.waitForTimeout(1500);
+    c('tiles saved once the server is back', (await tiles()).some(u => u.includes('charttools')));
+    await page.evaluate(() => setLayer('street')); await page.waitForTimeout(1200);
+    c('servers without CORS still saved', (await tiles()).some(u => u.includes('openstreetmap')));
+    await ctx.close(); }
+
   { // service worker: shell + Leaflet cached, app opens offline
     const { ctx, page, errors } = await open(browser, url, { serviceWorkers: 'allow' });
     await page.goto(url); await ready(page);

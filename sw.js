@@ -1,7 +1,7 @@
 // Outback service worker: app shell + offline map tiles.
 // hodzic.github.io hosts several apps on one origin and they share Cache Storage,
 // so only ever delete caches this app owns (old Paddle/Outback shell versions).
-const SHELL = 'outback-shell-2026-10-08g';
+const SHELL = 'outback-shell-2026-10-08h';
 const TILES = 'paddle-tiles'; // name kept so tiles saved before the rename stay usable
 const OWN = k => /^(paddle|outback)-shell-/.test(k);
 const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './pdfmap.js', './vendor/Leaflet.ImageOverlay.Rotated.js'];
@@ -30,6 +30,18 @@ self.addEventListener('activate', e => {
   })());
 });
 
+// Map images are requested without CORS, which hides errors: an outage page would be saved as if it were a map tile.
+// Ask with CORS first so the status and type can be checked; hosts that don't allow it fall back to the old way.
+const noCors = new Set();
+async function tileFetch(req){
+  const host = new URL(req.url).hostname;
+  if (!noCors.has(host)) try{ return await fetch(req.url, { mode: 'cors', credentials: 'omit' }); }catch{} // no CORS, or offline
+  const r = await fetch(req);
+  if (r.type === 'opaque') noCors.add(host);
+  return r;
+}
+const goodTile = r => r.type === 'opaque' || (r.ok && /^image\//.test(r.headers.get('content-type') || ''));
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -41,8 +53,8 @@ self.addEventListener('fetch', e => {
       const hit = await caches.match(req.url);
       if (hit) return hit;
       try{
-        const r = await fetch(req);
-        if (r.ok || r.type === 'opaque') (await caches.open(TILES)).put(req.url, r.clone());
+        const r = await tileFetch(req);
+        if (goodTile(r)) (await caches.open(TILES)).put(req.url, r.clone());
         return r;
       }catch{ return new Response('', { status: 504 }); }
     })());
