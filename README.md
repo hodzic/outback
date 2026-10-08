@@ -1,6 +1,6 @@
 # Outback
 
-Plan an out-and-back paddle or hike while you have a connection, then take it offline:
+Plan a paddle, hike or bike ride while you have a connection, then take it offline:
 route, forecast, maps and imported tracks all live on the phone.
 
 Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over (same storage names).
@@ -64,7 +64,11 @@ Three views; swipe between them or use the tabs at the bottom.
   printed "GPS Coordinates" labels when present, then you drag 4 points (or the centre) to line it up.
   Opacity slider on the right. PDF maps saved in GPS Map (same origin) can be copied in.
 
-Not for navigation. Check official forecasts and conditions before you set out.
+**Not for navigation or safety decisions.** Forecasts, tides, currents, maps, elevation, ship positions and time
+estimates come from free public services and simple calculations; they can be wrong, late, incomplete or missing,
+and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.
+Before any paddle, hike or ride, check official forecasts, warnings and local conditions, carry proper charts or maps,
+a compass and the safety gear your trip needs, tell someone your plan, and turn back when in doubt.
 
 ## Installing on your phone
 

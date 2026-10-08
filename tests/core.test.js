@@ -15,6 +15,8 @@ module.exports = async (browser, url, check) => {
   await view(page, 0);
   const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8').match(/outback-shell-([\w-]+)/)[1];
   c('version shown next to About: date and letter', /^· version \d{4}-\d\d-\d\d[a-z]$/.test(await page.textContent('#appVer')), await page.textContent('#appVer'));
+  { const about = await page.evaluate(() => [...document.querySelectorAll('#vTrips details')].find(d => d.querySelector('summary').textContent.startsWith('About')).textContent);
+    c('About covers all activities, no out-and-back', /paddle, hike or bike/.test(about) && !/out-and-back/i.test(about) && /Not for navigation or safety decisions/.test(about) && /responsible for your own safety/.test(about)); }
   c('app version matches the service worker cache', await page.evaluate(() => APP_VERSION) === sw, sw);
   c('trips list shows the trip', await page.locator('#tripList .trip').count() === 1);
   await page.click('#newPaddle'); await page.waitForTimeout(500);
