@@ -23,7 +23,7 @@ Three views; swipe between them or use the tabs at the bottom.
 
 ## What it does
 
-- **Activities**: *Paddle* (NOAA chart), *Hike* (USGS topo) and *Bike* (street map). Each has its own
+- **Activities**: *Paddle* (NOAA chart, drawn from the current ENCs by the NOAA Chart Display Service), *Hike* (USGS topo) and *Bike* (street map). Each has its own
   distance unit (nautical miles, miles or kilometres), speed and gust warning in Settings; wind uses the same unit.
   Defaults: paddle 3 kt, hike 2.5 mph, bike 10 mph.
 - **Water / terrain / surface**: ocean, bay, slough, river, lake for paddling; trail or coast for hiking;

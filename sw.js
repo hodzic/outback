@@ -1,7 +1,7 @@
 // Outback service worker: app shell + offline map tiles.
 // hodzic.github.io hosts several apps on one origin and they share Cache Storage,
 // so only ever delete caches this app owns (old Paddle/Outback shell versions).
-const SHELL = 'outback-shell-2026-10-08e';
+const SHELL = 'outback-shell-2026-10-08f';
 const TILES = 'paddle-tiles'; // name kept so tiles saved before the rename stay usable
 const OWN = k => /^(paddle|outback)-shell-/.test(k);
 const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './pdfmap.js', './vendor/Leaflet.ImageOverlay.Rotated.js'];
@@ -24,6 +24,8 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
     for (const k of await caches.keys()) if (OWN(k) && k !== SHELL) await caches.delete(k);
+    // tiles from NOAA's retired raster chart service are blank or errors: free the space
+    try{ const t = await caches.open(TILES); for (const r of await t.keys()) if (r.url.includes('/MarineChart_Services/NOAACharts/')) await t.delete(r); }catch{}
     await self.clients.claim();
   })());
 });
