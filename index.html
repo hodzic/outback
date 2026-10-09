@@ -86,7 +86,7 @@ table.acts td,table.acts th{text-align:left;vertical-align:middle}
 table.acts select,table.acts input{height:38px;border:1px solid var(--line);border-radius:8px;padding:0 6px;background:var(--paper)}
 table.acts input{width:64px}
 table.acts td,table.acts th{padding:5px 3px}
-#chart{display:block;width:100%;height:110px;touch-action:none;margin:6px 0 8px;cursor:ew-resize}
+#chart{display:block;width:100%;height:140px;touch-action:none;margin:6px 0 8px;cursor:ew-resize}
 #timeOut{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
 .read{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .cell{padding:6px 8px;background:var(--paper);min-width:0}
@@ -156,7 +156,7 @@ table.acts td,table.acts th{padding:5px 3px}
 #curBtn[data-mode="1"]::after{content:'T+C'}#curBtn[data-mode="2"]::after{content:'C'}#curBtn[data-mode="3"]::after{content:'T'}
 #curBtn::after{position:absolute;right:-4px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--flood);border:1px solid var(--flood);border-radius:8px;padding:0 3px;line-height:14px}
 #timeBar{display:flex;align-items:center;gap:8px;padding:0 6px 6px 12px}
-#tMap{flex:1;min-width:0;height:32px;accent-color:var(--magenta)}
+#tChart{flex:1;min-width:0;height:64px;touch-action:none;cursor:ew-resize}
 #timeBar .btn{min-height:32px;padding:0 10px;font-size:14px}
 .cm-i{pointer-events:none!important} .cm-i span{pointer-events:auto;cursor:pointer}
 .cm{position:relative}
@@ -369,7 +369,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <button id="locBtn" class="pill icon" aria-label="Show my location">◎</button>
     </div>
     <div id="miniBox"><button id="mini" aria-label="Conditions; open trip details"></button>
-      <div id="timeBar" hidden><input id="tMap" type="range" min="0" max="1435" step="5" aria-label="Time of day"><button id="tMapNow" class="btn">Now</button></div></div>
+      <div id="timeBar" hidden><canvas id="tChart" aria-label="Day graph; drag to pick a time"></canvas><button id="tMapNow" class="btn">Now</button></div></div>
     <div id="drawBar" class="mbar" hidden><span class="txt">Tap to add, drag to move</span>
       <button id="markBtn" class="btn">Marker</button>
       <button id="undoBtn" class="btn">Undo</button><button id="doneBtn" class="btn">Done</button></div>
@@ -403,7 +403,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-08i';
+const APP_VERSION = '2026-10-08l';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1145,9 +1145,9 @@ function render(){
   if (w && w.dp != null && w.dp <= -2) parts.push('<span class="w">Pressure ↓</span>');
   parts.push(fmtD(nm));
   $('#mini').innerHTML = parts.join(' · ');
-  // currents on the map, with a time slider under the summary
+  // currents on the map, with a day graph under the summary to pick the time
   tcBtnState(); $('#timeBar').hidden = !tcMode();
-  if (tcMode()){ $('#tMap').value = state.tMin; if (tcMap.loadedFor !== trip.date) tcLoad(); }
+  if (tcMode() && tcMap.loadedFor !== trip.date) tcLoad();
   drawTcMap();
   renderTracks(); renderMarks();
   drawChart(sun);
@@ -1253,7 +1253,7 @@ function cmIcon(cu, d, sel){
   const svg = kind === 'slack' ? '' : `<svg width="${R*2}" height="${R*2}" viewBox="${-R} ${-R} ${R*2} ${R*2}" style="transform:rotate(${dir}deg)">
     <line x1="0" y1="-14" x2="0" y2="${-len + 8}" stroke="${col}" stroke-width="4" stroke-linecap="round"/>
     <path d="M-7 ${-len + 10} L0 ${-len - 1} L7 ${-len + 10} Z" fill="${col}"/></svg>`;
-  return L.divIcon({ className: 'cm-i', html: `<div class="cm ${kind}${sel ? ' sel' : ''}" style="width:${R*2}px;height:${R*2}px">${svg}<span>${kind === 'slack' ? 'slack' : sp.toFixed(1)}</span></div>`, iconSize: [R*2, R*2], iconAnchor: [R, R] });
+  return L.divIcon({ className: 'cm-i', html: `<div class="cm ${kind}${sel ? ' sel' : ''}" style="width:${R*2}px;height:${R*2}px">${svg}<span>${kind === 'slack' ? 'slack' : (flood ? '' : '-') + sp.toFixed(1)}</span></div>`, iconSize: [R*2, R*2], iconAnchor: [R, R] });
 }
 const tmIcon = (td, sel) => L.divIcon({ className: '', html: `<div class="tm${sel ? ' sel' : ''}"><span>${td.v.toFixed(1)}${td.rising ? '↑' : '↓'}</span></div>`, iconSize: null, iconAnchor: [18, 9] });
 function cmPopup(s, cu, d){
@@ -1305,51 +1305,88 @@ tcBtn.onclick = () => {
   setTcMode(tcMode() ? tcMode() % 3 + 1 : settings.tcLast || 1);
 };
 map.on('moveend', () => { if (tcMode()){ clearTimeout(tcMap.mt); tcMap.mt = setTimeout(tcLoad, 300); } });
-$('#tMap').oninput = e => { state.tMin = +e.target.value; render(); };
 $('#tMapNow').onclick = setNow;
 
 /* ---------- day chart ---------- */
-const cv = $('#chart');
+const cv = $('#chart'), tcv = $('#tChart');
+const hmS = t => hm(t).replace(/\s?([AP])M$/i, (m, x) => x.toLowerCase()); // 3:12p
+// A value label with a white backing, kept inside the graph and clear of labels already placed (taken).
+// dir -1 prefers above the point, 1 below; failing that it slides sideways or further out, and a label with no room is left off.
+function tag(g, W, H, x, y, text, col, dir = -1, taken = []){
+  const w = g.measureText(text).width + 6, h = 13, top = 1, bot = H - 12 - h;
+  const free = (bx, by) => !taken.some(r => bx < r[0] + r[2] && r[0] < bx + w && by < r[1] + r[3] && r[1] < by + h);
+  // spots around the point, nearest first, preferred side first
+  const spots = [];
+  for (const dy of [0, 14, 28, 42]) for (const s of [dir, -dir]) for (const dx of [0, w / 2 + 6, -w / 2 - 6, w, -w])
+    spots.push([x - w / 2 + dx, Math.max(top, Math.min(bot, s < 0 ? y - 16 - dy : y + 4 + dy))]);
+  const box = spots.map(([bx, by]) => [Math.max(1, Math.min(W - w - 1, bx)), by]).find(([bx, by]) => free(bx, by));
+  g.fillStyle = col; g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill();
+  if (!box) return;
+  const [bx, by] = box; taken.push([bx, by, w, h]);
+  g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(bx, by, w, h);
+  g.fillStyle = col; g.fillText(text, bx + 3, by + 10);
+}
+// Local highs and lows of a sampled curve, as [index, isHigh]; the ends of the day don't count.
+function turns(vs){
+  const out = [];
+  for (let i = 1; i < vs.length - 1; i++){
+    const a = vs[i - 1], v = vs[i], b = vs[i + 1]; if (a == null || v == null || b == null) continue;
+    if (v > a && v >= b) out.push([i, true]); else if (v < a && v <= b) out.push([i, false]);
+  }
+  return out;
+}
 function drawChart(sun){
+  drawDay(cv, sun, curGraph(), { tide: true, cur: true });
+  if (!$('#timeBar').hidden) drawDay(tcv, sun, 'tide', { tide: tcShows('tide'), cur: tcShows('current'), compact: true });
+}
+function drawDay(cv, sun, kind, o){
   const dpr = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
   if (!W) return;
   cv.width = W * dpr; cv.height = H * dpr;
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-  const font = getComputedStyle(document.body).fontFamily, kind = curGraph();
-  const note = s => { g.fillStyle = '#5B7183'; g.font = '13px ' + font; g.fillText(s, 8, 22); };
+  const font = getComputedStyle(document.body).fontFamily, lab = '600 10px ' + font, T = o.compact ? v => v : (v, t) => `${v} ${hmS(t)}`;
+  const note = s => { g.fillStyle = '#5B7183'; g.font = (o.compact ? '11px ' : '13px ') + font; g.fillText(s, 8, o.compact ? 14 : 22); };
   if (kind === 'elev') return drawElev(g, W, H, font, note);
-  const t0 = dayStart(), t1 = t0 + 864e5, X = t => (t - t0) / (t1 - t0) * W;
+  const t0 = dayStart(), t1 = t0 + 864e5, X = t => (t - t0) / (t1 - t0) * W, at = x => t0 + x / W * 864e5;
   g.fillStyle = 'rgba(18,50,74,.10)';
   if (sun.rise){ g.fillRect(0, 0, X(sun.rise), H); g.fillRect(X(sun.set), 0, W - X(sun.set), H); }
   g.fillStyle = '#5B7183'; g.font = '10px ' + font;
-  for (let h = 3; h < 24; h += 3){ const x = X(t0 + h*36e5); g.fillRect(x, H - 4, 1, 4); g.fillText(h === 12 ? '12p' : (h > 12 ? h - 12 + 'p' : h + 'a'), x + 2, H - 2); }
+  for (let h = 3; h < 24; h += o.compact ? 6 : 3){ const x = X(t0 + h*36e5); g.fillRect(x, H - 4, 1, 4); g.fillText(h === 12 ? '12p' : (h > 12 ? h - 12 + 'p' : h + 'a'), x + 2, H - 2); }
   const cursor = () => { g.fillStyle = '#C8167E'; g.fillRect(X(tAt()) - 1, 0, 2, H); };
-  if (kind === 'wind'){ drawWind(g, W, H, X, t0, t1, font, note); return cursor(); }
-  const mid = H * .55;
-  if (trip.data?.current && hasCurrents()){
-    let mx = 1; for (let x = 0; x <= W; x += 3){ const c = curAt(t0 + x / W * 864e5); if (c) mx = Math.max(mx, Math.abs(c.v)); }
+  if (kind === 'wind'){ drawWind(g, W, H, X, t0, t1, font, note, T, sun); return cursor(); }
+  const mid = H * .55, tags = [];
+  const cur = o.cur && trip.data?.current && hasCurrents(), tide = o.tide && trip.data?.tide;
+  if (cur){
+    const vs = Array.from({ length: W + 1 }, (_, x) => curAt(at(x))?.v ?? null);
+    const mx = Math.max(1, ...vs.map(v => Math.abs(v ?? 0)));
     const sc = (H * .42) / mx;
     for (let x = 0; x <= W; x += 2){
-      const c = curAt(t0 + x / W * 864e5); if (!c) continue;
+      const c = curAt(at(x)); if (!c) continue;
       g.fillStyle = c.v >= 0 ? 'rgba(31,111,178,.55)' : 'rgba(46,139,87,.55)';
       g.fillRect(x, c.v >= 0 ? mid - c.v * sc : mid, 2, Math.abs(c.v) * sc);
     }
     g.fillStyle = 'rgba(18,50,74,.25)'; g.fillRect(0, mid, W, 1);
+    // every max flood and max ebb of the day
+    for (const [x, up] of turns(vs)) if (up ? vs[x] > .05 : vs[x] < -.05)
+      tags.push([x, mid - vs[x] * sc, T(`${vs[x].toFixed(1)} kt`, at(x)), up ? '#1F6FB2' : '#2E8B57', up ? -1 : 1]);
   }
-  if (trip.data?.tide){
-    let lo = Infinity, hi = -Infinity;
-    for (let x = 0; x <= W; x += 3){ const d = tideAt(t0 + x / W * 864e5); if (d){ lo = Math.min(lo, d.v); hi = Math.max(hi, d.v); } }
-    if (isFinite(lo)){
-      const Y = v => 8 + (1 - (v - lo) / Math.max(.5, hi - lo)) * (H - 22);
+  if (tide){
+    const vs = Array.from({ length: W + 1 }, (_, x) => tideAt(at(x))?.v ?? null), ok = vs.filter(v => v != null);
+    if (ok.length){
+      const lo = Math.min(...ok), hi = Math.max(...ok);
+      const pad = o.compact ? 4 : 18, Y = v => pad + (1 - (v - lo) / Math.max(.5, hi - lo)) * (H - pad - (o.compact ? 14 : 28));
       g.strokeStyle = '#12324A'; g.lineWidth = 2; g.beginPath(); let first = true;
-      for (let x = 0; x <= W; x += 2){ const d = tideAt(t0 + x / W * 864e5); if (!d) { first = true; continue; } first ? g.moveTo(x, Y(d.v)) : g.lineTo(x, Y(d.v)); first = false; }
+      for (let x = 0; x <= W; x += 2){ const d = tideAt(at(x)); if (!d) { first = true; continue; } first ? g.moveTo(x, Y(d.v)) : g.lineTo(x, Y(d.v)); first = false; }
       g.stroke();
+      // every high and low tide of the day, ahead of the current labels
+      tags.unshift(...turns(vs).map(([x, up]) => [x, Y(vs[x]), T(`${vs[x].toFixed(1)} ft`, at(x)), '#12324A', up ? -1 : 1]));
     }
   }
-  if (!trip.data?.tide && !trip.data?.current) note(`Tide${hasCurrents() ? ' and current' : ''} graph appears after Get forecast`);
+  if (!tide && !cur) note(o.compact ? `Get forecast for the ${o.tide && !o.cur ? 'tide' : o.cur && !o.tide ? 'current' : 'tide and current'} graph` : `Tide${hasCurrents() ? ' and current' : ''} graph appears after Get forecast`);
+  g.font = lab; const taken = []; tags.forEach(a => tag(g, W, H, ...a, taken));
   cursor();
 }
-function drawWind(g, W, H, X, t0, t1, font, note){
+function drawWind(g, W, H, X, t0, t1, font, note, T, sun){
   const w = trip.data?.wx;
   if (!w) return note('Wind graph appears after Get forecast');
   const idx = w.t.map((t, i) => i).filter(i => w.t[i] >= t0 - 36e5 && w.t[i] <= t1 + 36e5);
@@ -1361,6 +1398,14 @@ function drawWind(g, W, H, X, t0, t1, font, note){
   idx.forEach((i, k) => k ? g.lineTo(X(w.t[i]), Y(w.wg[i])) : g.moveTo(X(w.t[i]), Y(w.wg[i]))); g.stroke();
   g.setLineDash([4, 4]); g.strokeStyle = 'rgba(179,38,30,.6)'; g.beginPath(); g.moveTo(0, Y(gust())); g.lineTo(W, Y(gust())); g.stroke(); g.setLineDash([]);
   g.fillStyle = '#5B7183'; g.font = '10px ' + font; g.fillText(`${Math.round(wU(top))} ${wUnit()}`, 2, 10); g.fillText(`gust limit ${Math.round(wU(gust()))}`, W - 76, Y(gust()) - 3);
+  // the strongest gust and wind in daylight, plus the day's strongest gust if that comes at night
+  const day = idx.filter(i => w.t[i] >= t0 && w.t[i] < t1), lit = day.filter(i => !sun.rise || (w.t[i] >= sun.rise && w.t[i] <= sun.set));
+  const pk = (k, set) => set.reduce((a, i) => w[k][i] > w[k][a] ? i : a, set[0]);
+  if (day.length){ g.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+    const taken = [[W - 78, Y(gust()) - 13, 78, 13]], put = (i, k, col, dir) => tag(g, W, H, X(w.t[i]), Y(w[k][i]), T(`${k === 'wg' ? 'G' : ''}${Math.round(wU(w[k][i]))} ${wUnit()}`, w.t[i]), col, dir, taken);
+    const set = lit.length ? lit : day, gi = pk('wg', set), all = pk('wg', day);
+    put(gi, 'wg', '#B3261E', -1); put(pk('ws', set), 'ws', '#12324A', 1);
+    if (w.wg[all] > w.wg[gi]) put(all, 'wg', '#B3261E', -1); }
 }
 function drawElev(g, W, H, font, note){
   const el = trip.data?.elev;
@@ -1377,12 +1422,14 @@ function drawElev(g, W, H, font, note){
 }
 $('#graphSel').addEventListener('click', e => { const b = e.target.closest('button[data-g]'); if (!b) return; settings.graph = b.dataset.g; saveSettings(); render(); });
 function chartTouch(e){
-  if (curGraph() === 'elev') return;
-  const r = cv.getBoundingClientRect(), x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+  const c = e.currentTarget; if (c === cv && curGraph() === 'elev') return;
+  const r = c.getBoundingClientRect(), x = e.clientX - r.left;
   state.tMin = Math.max(0, Math.min(1435, Math.round(x / r.width * 1440 / 5) * 5)); render();
 }
-cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); chartTouch(e); });
-cv.addEventListener('pointermove', e => { if (e.buttons) chartTouch(e); });
+for (const c of [cv, tcv]){
+  c.addEventListener('pointerdown', e => { e.stopPropagation(); c.setPointerCapture(e.pointerId); chartTouch(e); });
+  c.addEventListener('pointermove', e => { if (e.buttons) chartTouch(e); });
+}
 function setNow(){
   if (todayIso() !== trip.date){ toast('Trip is on ' + trip.date + '. Showing that day.'); return false; }
   state.tMin = Math.floor(nowMin() / 5) * 5; render(); return true;

@@ -15,7 +15,7 @@ Three views; swipe between them or use the tabs at the bottom.
 2. **Trip**: everything about the selected trip:
    - name, date (with the weekday), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
    - route: length, duration, speed, waypoint table, *Edit route on map*, *Clear waypoints*
-   - forecast for the day: low and high temperature (large, at the top), tide/wind graph (tap or drag it to pick a time; *Now* jumps to now), wind, pressure, lightning, sun, elevation for hikes.
+   - forecast for the day: low and high temperature (large, at the top), tide/wind graph with every high and low tide and every max flood and ebb of the day labelled, and the strongest wind and gust in daylight (plus the night's when stronger) (tap or drag it to pick a time; *Now* jumps to now), wind, pressure, lightning, sun, elevation for hikes.
      *Get forecast* also saves the map around the route for offline use.
    - tracks from imported GPX files (show on map, use as route, delete), export GPX or trip file, delete trip
 3. **Map**: the route, and a top bar with the map layer (Chart / Street / Topo), *Route* (edit the route), **PDF** map overlays
@@ -34,7 +34,7 @@ Three views; swipe between them or use the tabs at the bottom.
   of each, zoom 9 or closer). Currents are arrows, blue flood / green ebb, labelled in knots; tides are labels in feet
   with ↑ rising / ↓ falling. A tap cycles tides and currents → currents → tides; a long press turns it off and the
   next tap comes back in the same mode. The trip's own stations are outlined; tap any station for details or to use
-  it for the trip. A time slider under the map's summary line moves them through the day. Predictions are kept on
+  it for the trip. A small tide and current graph under the map's summary line (following the button's mode) moves them through the day: drag it to pick a time. Predictions are kept on
   the phone per day, so stations you've looked at work offline.
 - **Times** are in the trip location's time zone.
 - **Hiking and biking**: elevation profile and total climb (Open-Meteo); time estimates add 1 hour per

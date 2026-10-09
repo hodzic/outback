@@ -17,14 +17,19 @@ module.exports = async (browser, url, check) => {
   c('each station asked once', asked.length === 2 && new Set(asked).size === 2, asked.join());
   c('time bar shown', await page.isVisible('#timeBar'));
   // mock: slack 01:00Z, flood max 04:06Z (2.4 kt, 070°), slack 07:12Z, ebb max 10:18Z (3.1 kt, 250°) of the day before, repeating every 12.4 h
-  const at = async iso => page.evaluate(iso => { const m = Math.round((Date.parse(iso) - dayStart()) / 6e4 / 5) * 5; const r = $('#tMap'); r.value = m; r.dispatchEvent(new Event('input')); return m; }, iso);
+  const at = async iso => page.evaluate(iso => { const m = Math.round((Date.parse(iso) - dayStart()) / 6e4 / 5) * 5; state.tMin = m; render(); return m; }, iso);
   const date = await page.evaluate(() => trip.date);
   const base = Date.parse(date + 'T00:00Z') - 864e5 + 36e5, maxEbb = new Date(base + 3 * 3.1 * 36e5 + 2 * 12.4 * 36e5).toISOString();
   await at(maxEbb); await page.waitForTimeout(200);
   const ebb = await page.evaluate(() => [...document.querySelectorAll('.cm')].map(e => [e.className, e.textContent.trim(), e.querySelector('svg')?.style.transform]));
-  c('slider moves arrows to max ebb', ebb.every(x => x[0].includes('ebb') && x[1] === '3.1' && x[2].includes('250')), JSON.stringify(ebb));
-  c('slider moves the trip time too', await page.evaluate(() => $('#mini').textContent.includes(hm(tAt())) && +$('#tMap').value === state.tMin));
-  c('slider sits in the summary bar', await page.evaluate(() => $('#miniBox').contains($('#timeBar'))));
+  c('max ebb arrows, ebb shown negative', ebb.every(x => x[0].includes('ebb') && x[1] === '-3.1' && x[2].includes('250')), JSON.stringify(ebb));
+  c('time moves the summary too', await page.evaluate(() => $('#mini').textContent.includes(hm(tAt()))));
+  { const b = await page.locator('#tChart').boundingBox(), center0 = await page.evaluate(() => map.getCenter().toString());
+    await page.mouse.move(b.x + b.width * .25, b.y + b.height / 2); await page.mouse.down(); await page.mouse.move(b.x + b.width * .5, b.y + b.height / 2, { steps: 4 }); await page.mouse.up();
+    const m = await page.evaluate(() => state.tMin);
+    c('drag the map graph to pick a time', Math.abs(m - 720) <= 10, m);
+    c('dragging the graph does not pan the map', await page.evaluate(c => map.getCenter().toString() === c, center0)); }
+  c('graph sits in the summary bar', await page.evaluate(() => $('#miniBox').contains($('#timeBar'))));
   await at(new Date(base + 2 * 3.1 * 36e5 + 2 * 12.4 * 36e5).toISOString()); await page.waitForTimeout(200);
   c('tide label: feet and rising/falling', /^\d+\.\d[↑↓]$/.test((await page.textContent('.tm')).trim()), await page.textContent('.tm'));
   c('slack shows no arrow', await page.evaluate(() => [...document.querySelectorAll('.cm')].every(e => e.classList.contains('slack') && !e.querySelector('svg'))));

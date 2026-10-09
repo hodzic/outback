@@ -59,6 +59,31 @@ module.exports = async (browser, url, check) => {
   c('status says the map is saved offline', /map saved offline/.test(await page.text('#status')), await page.text('#status'));
   await page.screenshot({ path: path.join(OUT, 'core-trip.png') });
 
+  // the day's highs and lows labelled on the graph; the same graph, smaller, on the map while tides/currents are on
+  const texts = fn => page.evaluate(fn => { const P = CanvasRenderingContext2D.prototype, f = P.fillText, got = {};
+    P.fillText = function(t, ...a){ (got[this.canvas.id] ||= []).push(t); return f.call(this, t, ...a); };
+    try{ new Function(fn)(); for (const k in got) delete got[k]; render(); } finally{ P.fillText = f; } return got; }, fn);
+  let tx = await texts("settings.graph = 'tide'");
+  const ftT = (tx.chart || []).filter(t => /^-?\d+\.\d ft \d+:\d\d[ap]$/.test(t)), ktT = (tx.chart || []).filter(t => /^-?\d+\.\d kt \d+:\d\d[ap]$/.test(t));
+  c('tide graph labels every high and low of the day, with times', ftT.length === 4 && new Set(ftT.map(parseFloat)).size === 2, (tx.chart || []).join(' | '));
+  c('tide graph labels every max flood and max ebb, ebb negative', ktT.length === 4 && ktT.filter(t => t.startsWith('-')).length === 2, (tx.chart || []).join(' | '));
+  tx = await texts("settings.graph = 'wind'");
+  const gT = (tx.chart || []).filter(t => /^G\d+ kt/.test(t));
+  c('wind graph labels the daylight peak gust and the night one when stronger', gT.length === 2 && parseInt(gT[1].slice(1)) > parseInt(gT[0].slice(1)), (tx.chart || []).join(' | '));
+  c('wind graph labels the strongest gust and wind', (tx.chart || []).some(t => /^G\d+ kt \d+:\d\d[ap]$/.test(t)) && (tx.chart || []).some(t => /^\d+ kt \d+:\d\d[ap]$/.test(t)), (tx.chart || []).join(' | '));
+  await view(page, 2);
+  tx = await texts("settings.graph = 'tide'; setTcMode(1)");
+  c('map shows the tide and current graph in place of a slider', await page.isVisible('#tChart') && (tx.tChart || []).filter(t => /^-?\d+\.\d (ft|kt)$/.test(t)).length === 8, (tx.tChart || []).join(' | '));
+  tx = await texts("setTcMode(2)");
+  c('currents mode: map graph shows currents only', (tx.tChart || []).filter(t => / ft$/.test(t)).length === 0 && (tx.tChart || []).filter(t => / kt$/.test(t)).length === 4, (tx.tChart || []).join(' | '));
+  tx = await texts("setTcMode(3)");
+  c('tides mode: map graph shows tides only', (tx.tChart || []).filter(t => / kt$/.test(t)).length === 0 && (tx.tChart || []).filter(t => / ft$/.test(t)).length === 4, (tx.tChart || []).join(' | '));
+  await page.evaluate(() => setTcMode(1)); await page.waitForTimeout(300);
+  await page.locator('#miniBox').screenshot({ path: path.join(OUT, 'core-map-graph.png') });
+  await page.evaluate(() => setTcMode(0)); await view(page, 1); await page.waitForTimeout(3000);
+  await page.locator('#chart').screenshot({ path: path.join(OUT, 'core-trip-graph.png') });
+  await page.evaluate(() => { settings.graph = 'wind'; render(); }); await page.locator('#chart').screenshot({ path: path.join(OUT, 'core-wind-graph.png') }); await page.evaluate(() => { settings.graph = 'tide'; render(); });
+
   // start from a fixed time, not 'now' (which could be 3:00 PM itself)
   await page.evaluate(() => { state.tMin = 9 * 60; render(); });
   const before = await page.text('#tideV');
