@@ -86,7 +86,7 @@ table.acts td,table.acts th{text-align:left;vertical-align:middle}
 table.acts select,table.acts input{height:38px;border:1px solid var(--line);border-radius:8px;padding:0 6px;background:var(--paper)}
 table.acts input{width:64px}
 table.acts td,table.acts th{padding:5px 3px}
-#chart{display:block;width:100%;height:110px;touch-action:none;margin:6px 0 8px;cursor:ew-resize}
+#chart{display:block;width:100%;height:140px;touch-action:none;margin:6px 0 8px;cursor:ew-resize}
 #timeOut{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
 .read{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .cell{padding:6px 8px;background:var(--paper);min-width:0}
@@ -403,7 +403,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-08j';
+const APP_VERSION = '2026-10-08k';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1311,17 +1311,29 @@ $('#tMapNow').onclick = setNow;
 const cv = $('#chart'), tcv = $('#tChart');
 const hmS = t => hm(t).replace(/\s?([AP])M$/i, (m, x) => x.toLowerCase()); // 3:12p
 // A value label with a white backing, kept inside the graph and clear of labels already placed (taken).
-// dir -1 prefers above the point, 1 below; failing both, it slides sideways.
+// dir -1 prefers above the point, 1 below; failing that it slides sideways or further out, and a label with no room is left off.
 function tag(g, W, H, x, y, text, col, dir = -1, taken = []){
-  const w = g.measureText(text).width + 6, h = 13, cx = Math.max(1, Math.min(W - w - 1, x - w / 2));
-  const ys = [dir < 0 ? y - 16 : y + 4, dir < 0 ? y + 4 : y - 16].map(v => Math.max(1, Math.min(H - 12 - h, v)));
+  const w = g.measureText(text).width + 6, h = 13, top = 1, bot = H - 12 - h;
   const free = (bx, by) => !taken.some(r => bx < r[0] + r[2] && r[0] < bx + w && by < r[1] + r[3] && r[1] < by + h);
-  let box = null;
-  for (const by of ys) for (const bx of [cx, x + 6, x - w - 6]) if (!box && bx >= 1 && bx + w <= W - 1 && free(bx, by)) box = [bx, by];
-  const [bx, by] = box || [cx, ys[0]]; taken.push([bx, by, w, h]);
+  // spots around the point, nearest first, preferred side first
+  const spots = [];
+  for (const dy of [0, 14, 28, 42]) for (const s of [dir, -dir]) for (const dx of [0, w / 2 + 6, -w / 2 - 6, w, -w])
+    spots.push([x - w / 2 + dx, Math.max(top, Math.min(bot, s < 0 ? y - 16 - dy : y + 4 + dy))]);
+  const box = spots.map(([bx, by]) => [Math.max(1, Math.min(W - w - 1, bx)), by]).find(([bx, by]) => free(bx, by));
+  g.fillStyle = col; g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill();
+  if (!box) return;
+  const [bx, by] = box; taken.push([bx, by, w, h]);
   g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(bx, by, w, h);
   g.fillStyle = col; g.fillText(text, bx + 3, by + 10);
-  g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill();
+}
+// Local highs and lows of a sampled curve, as [index, isHigh]; the ends of the day don't count.
+function turns(vs){
+  const out = [];
+  for (let i = 1; i < vs.length - 1; i++){
+    const a = vs[i - 1], v = vs[i], b = vs[i + 1]; if (a == null || v == null || b == null) continue;
+    if (v > a && v >= b) out.push([i, true]); else if (v < a && v <= b) out.push([i, false]);
+  }
+  return out;
 }
 function drawChart(sun){
   drawDay(cv, sun, curGraph(), { tide: true, cur: true });
@@ -1341,13 +1353,12 @@ function drawDay(cv, sun, kind, o){
   g.fillStyle = '#5B7183'; g.font = '10px ' + font;
   for (let h = 3; h < 24; h += o.compact ? 6 : 3){ const x = X(t0 + h*36e5); g.fillRect(x, H - 4, 1, 4); g.fillText(h === 12 ? '12p' : (h > 12 ? h - 12 + 'p' : h + 'a'), x + 2, H - 2); }
   const cursor = () => { g.fillStyle = '#C8167E'; g.fillRect(X(tAt()) - 1, 0, 2, H); };
-  if (kind === 'wind'){ drawWind(g, W, H, X, t0, t1, font, note, T); return cursor(); }
+  if (kind === 'wind'){ drawWind(g, W, H, X, t0, t1, font, note, T, sun); return cursor(); }
   const mid = H * .55, tags = [];
   const cur = o.cur && trip.data?.current && hasCurrents(), tide = o.tide && trip.data?.tide;
   if (cur){
-    let mx = 1, fl = null, eb = null;
-    for (let x = 0; x <= W; x += 1){ const c = curAt(at(x)); if (!c) continue; mx = Math.max(mx, Math.abs(c.v));
-      if (c.v > 0 && (!fl || c.v > fl.v)) fl = { x, v: c.v }; if (c.v < 0 && (!eb || c.v < eb.v)) eb = { x, v: c.v }; }
+    const vs = Array.from({ length: W + 1 }, (_, x) => curAt(at(x))?.v ?? null);
+    const mx = Math.max(1, ...vs.map(v => Math.abs(v ?? 0)));
     const sc = (H * .42) / mx;
     for (let x = 0; x <= W; x += 2){
       const c = curAt(at(x)); if (!c) continue;
@@ -1355,25 +1366,27 @@ function drawDay(cv, sun, kind, o){
       g.fillRect(x, c.v >= 0 ? mid - c.v * sc : mid, 2, Math.abs(c.v) * sc);
     }
     g.fillStyle = 'rgba(18,50,74,.25)'; g.fillRect(0, mid, W, 1);
-    if (fl) tags.push([fl.x, mid - fl.v * sc, T(`${fl.v.toFixed(1)} kt`, at(fl.x)), '#1F6FB2', -1]);
-    if (eb) tags.push([eb.x, mid - eb.v * sc, T(`${(-eb.v).toFixed(1)} kt`, at(eb.x)), '#2E8B57', 1]);
+    // every max flood and max ebb of the day
+    for (const [x, up] of turns(vs)) if (up ? vs[x] > .05 : vs[x] < -.05)
+      tags.push([x, mid - vs[x] * sc, T(`${Math.abs(vs[x]).toFixed(1)} kt`, at(x)), up ? '#1F6FB2' : '#2E8B57', up ? -1 : 1]);
   }
   if (tide){
-    let lo = null, hi = null;
-    for (let x = 0; x <= W; x += 1){ const d = tideAt(at(x)); if (!d) continue; if (!lo || d.v < lo.v) lo = { x, v: d.v }; if (!hi || d.v > hi.v) hi = { x, v: d.v }; }
-    if (lo){
-      const pad = o.compact ? 4 : 18, Y = v => pad + (1 - (v - lo.v) / Math.max(.5, hi.v - lo.v)) * (H - pad - (o.compact ? 14 : 28));
+    const vs = Array.from({ length: W + 1 }, (_, x) => tideAt(at(x))?.v ?? null), ok = vs.filter(v => v != null);
+    if (ok.length){
+      const lo = Math.min(...ok), hi = Math.max(...ok);
+      const pad = o.compact ? 4 : 18, Y = v => pad + (1 - (v - lo) / Math.max(.5, hi - lo)) * (H - pad - (o.compact ? 14 : 28));
       g.strokeStyle = '#12324A'; g.lineWidth = 2; g.beginPath(); let first = true;
       for (let x = 0; x <= W; x += 2){ const d = tideAt(at(x)); if (!d) { first = true; continue; } first ? g.moveTo(x, Y(d.v)) : g.lineTo(x, Y(d.v)); first = false; }
       g.stroke();
-      tags.unshift([hi.x, Y(hi.v), T(`${hi.v.toFixed(1)} ft`, at(hi.x)), '#12324A', -1], [lo.x, Y(lo.v), T(`${lo.v.toFixed(1)} ft`, at(lo.x)), '#12324A', 1]);
+      // every high and low tide of the day, ahead of the current labels
+      tags.unshift(...turns(vs).map(([x, up]) => [x, Y(vs[x]), T(`${vs[x].toFixed(1)} ft`, at(x)), '#12324A', up ? -1 : 1]));
     }
   }
   if (!tide && !cur) note(o.compact ? `Get forecast for the ${o.tide && !o.cur ? 'tide' : o.cur && !o.tide ? 'current' : 'tide and current'} graph` : `Tide${hasCurrents() ? ' and current' : ''} graph appears after Get forecast`);
   g.font = lab; const taken = []; tags.forEach(a => tag(g, W, H, ...a, taken));
   cursor();
 }
-function drawWind(g, W, H, X, t0, t1, font, note, T){
+function drawWind(g, W, H, X, t0, t1, font, note, T, sun){
   const w = trip.data?.wx;
   if (!w) return note('Wind graph appears after Get forecast');
   const idx = w.t.map((t, i) => i).filter(i => w.t[i] >= t0 - 36e5 && w.t[i] <= t1 + 36e5);
@@ -1385,11 +1398,14 @@ function drawWind(g, W, H, X, t0, t1, font, note, T){
   idx.forEach((i, k) => k ? g.lineTo(X(w.t[i]), Y(w.wg[i])) : g.moveTo(X(w.t[i]), Y(w.wg[i]))); g.stroke();
   g.setLineDash([4, 4]); g.strokeStyle = 'rgba(179,38,30,.6)'; g.beginPath(); g.moveTo(0, Y(gust())); g.lineTo(W, Y(gust())); g.stroke(); g.setLineDash([]);
   g.fillStyle = '#5B7183'; g.font = '10px ' + font; g.fillText(`${Math.round(wU(top))} ${wUnit()}`, 2, 10); g.fillText(`gust limit ${Math.round(wU(gust()))}`, W - 76, Y(gust()) - 3);
-  // the day's strongest wind and gust
-  const day = idx.filter(i => w.t[i] >= t0 && w.t[i] < t1), pk = k => day.reduce((a, i) => w[k][i] > w[k][a] ? i : a, day[0]);
-  if (day.length){ const s = pk('ws'), gi = pk('wg'); g.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
-    const taken = [[W - 78, Y(gust()) - 13, 78, 13]]; tag(g, W, H, X(w.t[gi]), Y(w.wg[gi]), T(`G${Math.round(wU(w.wg[gi]))} ${wUnit()}`, w.t[gi]), '#B3261E', -1, taken);
-    tag(g, W, H, X(w.t[s]), Y(w.ws[s]), T(`${Math.round(wU(w.ws[s]))} ${wUnit()}`, w.t[s]), '#12324A', 1, taken); }
+  // the strongest gust and wind in daylight, plus the day's strongest gust if that comes at night
+  const day = idx.filter(i => w.t[i] >= t0 && w.t[i] < t1), lit = day.filter(i => !sun.rise || (w.t[i] >= sun.rise && w.t[i] <= sun.set));
+  const pk = (k, set) => set.reduce((a, i) => w[k][i] > w[k][a] ? i : a, set[0]);
+  if (day.length){ g.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+    const taken = [[W - 78, Y(gust()) - 13, 78, 13]], put = (i, k, col, dir) => tag(g, W, H, X(w.t[i]), Y(w[k][i]), T(`${k === 'wg' ? 'G' : ''}${Math.round(wU(w[k][i]))} ${wUnit()}`, w.t[i]), col, dir, taken);
+    const set = lit.length ? lit : day, gi = pk('wg', set), all = pk('wg', day);
+    put(gi, 'wg', '#B3261E', -1); put(pk('ws', set), 'ws', '#12324A', 1);
+    if (w.wg[all] > w.wg[gi]) put(all, 'wg', '#B3261E', -1); }
 }
 function drawElev(g, W, H, font, note){
   const el = trip.data?.elev;
