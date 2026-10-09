@@ -22,7 +22,7 @@ module.exports = async (browser, url, check) => {
   const base = Date.parse(date + 'T00:00Z') - 864e5 + 36e5, maxEbb = new Date(base + 3 * 3.1 * 36e5 + 2 * 12.4 * 36e5).toISOString();
   await at(maxEbb); await page.waitForTimeout(200);
   const ebb = await page.evaluate(() => [...document.querySelectorAll('.cm')].map(e => [e.className, e.textContent.trim(), e.querySelector('svg')?.style.transform]));
-  c('slider moves arrows to max ebb', ebb.every(x => x[0].includes('ebb') && x[1] === '3.1' && x[2].includes('250')), JSON.stringify(ebb));
+  c('max ebb arrows, ebb shown negative', ebb.every(x => x[0].includes('ebb') && x[1] === '-3.1' && x[2].includes('250')), JSON.stringify(ebb));
   c('time moves the summary too', await page.evaluate(() => $('#mini').textContent.includes(hm(tAt()))));
   { const b = await page.locator('#tChart').boundingBox(), center0 = await page.evaluate(() => map.getCenter().toString());
     await page.mouse.move(b.x + b.width * .25, b.y + b.height / 2); await page.mouse.down(); await page.mouse.move(b.x + b.width * .5, b.y + b.height / 2, { steps: 4 }); await page.mouse.up();

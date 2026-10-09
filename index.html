@@ -403,7 +403,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-08k';
+const APP_VERSION = '2026-10-08l';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1253,7 +1253,7 @@ function cmIcon(cu, d, sel){
   const svg = kind === 'slack' ? '' : `<svg width="${R*2}" height="${R*2}" viewBox="${-R} ${-R} ${R*2} ${R*2}" style="transform:rotate(${dir}deg)">
     <line x1="0" y1="-14" x2="0" y2="${-len + 8}" stroke="${col}" stroke-width="4" stroke-linecap="round"/>
     <path d="M-7 ${-len + 10} L0 ${-len - 1} L7 ${-len + 10} Z" fill="${col}"/></svg>`;
-  return L.divIcon({ className: 'cm-i', html: `<div class="cm ${kind}${sel ? ' sel' : ''}" style="width:${R*2}px;height:${R*2}px">${svg}<span>${kind === 'slack' ? 'slack' : sp.toFixed(1)}</span></div>`, iconSize: [R*2, R*2], iconAnchor: [R, R] });
+  return L.divIcon({ className: 'cm-i', html: `<div class="cm ${kind}${sel ? ' sel' : ''}" style="width:${R*2}px;height:${R*2}px">${svg}<span>${kind === 'slack' ? 'slack' : (flood ? '' : '-') + sp.toFixed(1)}</span></div>`, iconSize: [R*2, R*2], iconAnchor: [R, R] });
 }
 const tmIcon = (td, sel) => L.divIcon({ className: '', html: `<div class="tm${sel ? ' sel' : ''}"><span>${td.v.toFixed(1)}${td.rising ? '↑' : '↓'}</span></div>`, iconSize: null, iconAnchor: [18, 9] });
 function cmPopup(s, cu, d){
@@ -1368,7 +1368,7 @@ function drawDay(cv, sun, kind, o){
     g.fillStyle = 'rgba(18,50,74,.25)'; g.fillRect(0, mid, W, 1);
     // every max flood and max ebb of the day
     for (const [x, up] of turns(vs)) if (up ? vs[x] > .05 : vs[x] < -.05)
-      tags.push([x, mid - vs[x] * sc, T(`${Math.abs(vs[x]).toFixed(1)} kt`, at(x)), up ? '#1F6FB2' : '#2E8B57', up ? -1 : 1]);
+      tags.push([x, mid - vs[x] * sc, T(`${vs[x].toFixed(1)} kt`, at(x)), up ? '#1F6FB2' : '#2E8B57', up ? -1 : 1]);
   }
   if (tide){
     const vs = Array.from({ length: W + 1 }, (_, x) => tideAt(at(x))?.v ?? null), ok = vs.filter(v => v != null);

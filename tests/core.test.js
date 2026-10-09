@@ -64,9 +64,9 @@ module.exports = async (browser, url, check) => {
     P.fillText = function(t, ...a){ (got[this.canvas.id] ||= []).push(t); return f.call(this, t, ...a); };
     try{ new Function(fn)(); for (const k in got) delete got[k]; render(); } finally{ P.fillText = f; } return got; }, fn);
   let tx = await texts("settings.graph = 'tide'");
-  const ftT = (tx.chart || []).filter(t => /^-?\d+\.\d ft \d+:\d\d[ap]$/.test(t)), ktT = (tx.chart || []).filter(t => /^\d+\.\d kt \d+:\d\d[ap]$/.test(t));
+  const ftT = (tx.chart || []).filter(t => /^-?\d+\.\d ft \d+:\d\d[ap]$/.test(t)), ktT = (tx.chart || []).filter(t => /^-?\d+\.\d kt \d+:\d\d[ap]$/.test(t));
   c('tide graph labels every high and low of the day, with times', ftT.length === 4 && new Set(ftT.map(parseFloat)).size === 2, (tx.chart || []).join(' | '));
-  c('tide graph labels every max flood and max ebb', ktT.length === 4, (tx.chart || []).join(' | '));
+  c('tide graph labels every max flood and max ebb, ebb negative', ktT.length === 4 && ktT.filter(t => t.startsWith('-')).length === 2, (tx.chart || []).join(' | '));
   tx = await texts("settings.graph = 'wind'");
   const gT = (tx.chart || []).filter(t => /^G\d+ kt/.test(t));
   c('wind graph labels the daylight peak gust and the night one when stronger', gT.length === 2 && parseInt(gT[1].slice(1)) > parseInt(gT[0].slice(1)), (tx.chart || []).join(' | '));
