@@ -1,15 +1,16 @@
 {
+  "id": "/outback/",
   "name": "Outback",
   "short_name": "Outback",
-  "description": "Out-and-back trip planning and navigation for paddling and hiking: tides, currents, wind, elevation, sun, routes, tracks and offline maps.",
-  "start_url": "./",
-  "scope": "./",
+  "description": "Trip planning for paddling, hiking and biking: tides, currents, wind, elevation, sun, routes, tracks and offline maps.",
+  "start_url": "/outback/",
+  "scope": "/outback/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#12324A",
   "theme_color": "#12324A",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/outback/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/outback/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
