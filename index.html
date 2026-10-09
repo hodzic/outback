@@ -156,7 +156,7 @@ table.acts td,table.acts th{padding:5px 3px}
 #curBtn[data-mode="1"]::after{content:'T+C'}#curBtn[data-mode="2"]::after{content:'C'}#curBtn[data-mode="3"]::after{content:'T'}
 #curBtn::after{position:absolute;right:-4px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--flood);border:1px solid var(--flood);border-radius:8px;padding:0 3px;line-height:14px}
 #timeBar{display:flex;align-items:center;gap:8px;padding:0 6px 6px 12px}
-#tMap{flex:1;min-width:0;height:32px;accent-color:var(--magenta)}
+#tChart{flex:1;min-width:0;height:64px;touch-action:none;cursor:ew-resize}
 #timeBar .btn{min-height:32px;padding:0 10px;font-size:14px}
 .cm-i{pointer-events:none!important} .cm-i span{pointer-events:auto;cursor:pointer}
 .cm{position:relative}
@@ -369,7 +369,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <button id="locBtn" class="pill icon" aria-label="Show my location">◎</button>
     </div>
     <div id="miniBox"><button id="mini" aria-label="Conditions; open trip details"></button>
-      <div id="timeBar" hidden><input id="tMap" type="range" min="0" max="1435" step="5" aria-label="Time of day"><button id="tMapNow" class="btn">Now</button></div></div>
+      <div id="timeBar" hidden><canvas id="tChart" aria-label="Day graph; drag to pick a time"></canvas><button id="tMapNow" class="btn">Now</button></div></div>
     <div id="drawBar" class="mbar" hidden><span class="txt">Tap to add, drag to move</span>
       <button id="markBtn" class="btn">Marker</button>
       <button id="undoBtn" class="btn">Undo</button><button id="doneBtn" class="btn">Done</button></div>
@@ -403,7 +403,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-08i';
+const APP_VERSION = '2026-10-08j';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1145,9 +1145,9 @@ function render(){
   if (w && w.dp != null && w.dp <= -2) parts.push('<span class="w">Pressure ↓</span>');
   parts.push(fmtD(nm));
   $('#mini').innerHTML = parts.join(' · ');
-  // currents on the map, with a time slider under the summary
+  // currents on the map, with a day graph under the summary to pick the time
   tcBtnState(); $('#timeBar').hidden = !tcMode();
-  if (tcMode()){ $('#tMap').value = state.tMin; if (tcMap.loadedFor !== trip.date) tcLoad(); }
+  if (tcMode() && tcMap.loadedFor !== trip.date) tcLoad();
   drawTcMap();
   renderTracks(); renderMarks();
   drawChart(sun);
@@ -1305,51 +1305,75 @@ tcBtn.onclick = () => {
   setTcMode(tcMode() ? tcMode() % 3 + 1 : settings.tcLast || 1);
 };
 map.on('moveend', () => { if (tcMode()){ clearTimeout(tcMap.mt); tcMap.mt = setTimeout(tcLoad, 300); } });
-$('#tMap').oninput = e => { state.tMin = +e.target.value; render(); };
 $('#tMapNow').onclick = setNow;
 
 /* ---------- day chart ---------- */
-const cv = $('#chart');
+const cv = $('#chart'), tcv = $('#tChart');
+const hmS = t => hm(t).replace(/\s?([AP])M$/i, (m, x) => x.toLowerCase()); // 3:12p
+// A value label with a white backing, kept inside the graph and clear of labels already placed (taken).
+// dir -1 prefers above the point, 1 below; failing both, it slides sideways.
+function tag(g, W, H, x, y, text, col, dir = -1, taken = []){
+  const w = g.measureText(text).width + 6, h = 13, cx = Math.max(1, Math.min(W - w - 1, x - w / 2));
+  const ys = [dir < 0 ? y - 16 : y + 4, dir < 0 ? y + 4 : y - 16].map(v => Math.max(1, Math.min(H - 12 - h, v)));
+  const free = (bx, by) => !taken.some(r => bx < r[0] + r[2] && r[0] < bx + w && by < r[1] + r[3] && r[1] < by + h);
+  let box = null;
+  for (const by of ys) for (const bx of [cx, x + 6, x - w - 6]) if (!box && bx >= 1 && bx + w <= W - 1 && free(bx, by)) box = [bx, by];
+  const [bx, by] = box || [cx, ys[0]]; taken.push([bx, by, w, h]);
+  g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(bx, by, w, h);
+  g.fillStyle = col; g.fillText(text, bx + 3, by + 10);
+  g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill();
+}
 function drawChart(sun){
+  drawDay(cv, sun, curGraph(), { tide: true, cur: true });
+  if (!$('#timeBar').hidden) drawDay(tcv, sun, 'tide', { tide: tcShows('tide'), cur: tcShows('current'), compact: true });
+}
+function drawDay(cv, sun, kind, o){
   const dpr = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
   if (!W) return;
   cv.width = W * dpr; cv.height = H * dpr;
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
-  const font = getComputedStyle(document.body).fontFamily, kind = curGraph();
-  const note = s => { g.fillStyle = '#5B7183'; g.font = '13px ' + font; g.fillText(s, 8, 22); };
+  const font = getComputedStyle(document.body).fontFamily, lab = '600 10px ' + font, T = o.compact ? v => v : (v, t) => `${v} ${hmS(t)}`;
+  const note = s => { g.fillStyle = '#5B7183'; g.font = (o.compact ? '11px ' : '13px ') + font; g.fillText(s, 8, o.compact ? 14 : 22); };
   if (kind === 'elev') return drawElev(g, W, H, font, note);
-  const t0 = dayStart(), t1 = t0 + 864e5, X = t => (t - t0) / (t1 - t0) * W;
+  const t0 = dayStart(), t1 = t0 + 864e5, X = t => (t - t0) / (t1 - t0) * W, at = x => t0 + x / W * 864e5;
   g.fillStyle = 'rgba(18,50,74,.10)';
   if (sun.rise){ g.fillRect(0, 0, X(sun.rise), H); g.fillRect(X(sun.set), 0, W - X(sun.set), H); }
   g.fillStyle = '#5B7183'; g.font = '10px ' + font;
-  for (let h = 3; h < 24; h += 3){ const x = X(t0 + h*36e5); g.fillRect(x, H - 4, 1, 4); g.fillText(h === 12 ? '12p' : (h > 12 ? h - 12 + 'p' : h + 'a'), x + 2, H - 2); }
+  for (let h = 3; h < 24; h += o.compact ? 6 : 3){ const x = X(t0 + h*36e5); g.fillRect(x, H - 4, 1, 4); g.fillText(h === 12 ? '12p' : (h > 12 ? h - 12 + 'p' : h + 'a'), x + 2, H - 2); }
   const cursor = () => { g.fillStyle = '#C8167E'; g.fillRect(X(tAt()) - 1, 0, 2, H); };
-  if (kind === 'wind'){ drawWind(g, W, H, X, t0, t1, font, note); return cursor(); }
-  const mid = H * .55;
-  if (trip.data?.current && hasCurrents()){
-    let mx = 1; for (let x = 0; x <= W; x += 3){ const c = curAt(t0 + x / W * 864e5); if (c) mx = Math.max(mx, Math.abs(c.v)); }
+  if (kind === 'wind'){ drawWind(g, W, H, X, t0, t1, font, note, T); return cursor(); }
+  const mid = H * .55, tags = [];
+  const cur = o.cur && trip.data?.current && hasCurrents(), tide = o.tide && trip.data?.tide;
+  if (cur){
+    let mx = 1, fl = null, eb = null;
+    for (let x = 0; x <= W; x += 1){ const c = curAt(at(x)); if (!c) continue; mx = Math.max(mx, Math.abs(c.v));
+      if (c.v > 0 && (!fl || c.v > fl.v)) fl = { x, v: c.v }; if (c.v < 0 && (!eb || c.v < eb.v)) eb = { x, v: c.v }; }
     const sc = (H * .42) / mx;
     for (let x = 0; x <= W; x += 2){
-      const c = curAt(t0 + x / W * 864e5); if (!c) continue;
+      const c = curAt(at(x)); if (!c) continue;
       g.fillStyle = c.v >= 0 ? 'rgba(31,111,178,.55)' : 'rgba(46,139,87,.55)';
       g.fillRect(x, c.v >= 0 ? mid - c.v * sc : mid, 2, Math.abs(c.v) * sc);
     }
     g.fillStyle = 'rgba(18,50,74,.25)'; g.fillRect(0, mid, W, 1);
+    if (fl) tags.push([fl.x, mid - fl.v * sc, T(`${fl.v.toFixed(1)} kt`, at(fl.x)), '#1F6FB2', -1]);
+    if (eb) tags.push([eb.x, mid - eb.v * sc, T(`${(-eb.v).toFixed(1)} kt`, at(eb.x)), '#2E8B57', 1]);
   }
-  if (trip.data?.tide){
-    let lo = Infinity, hi = -Infinity;
-    for (let x = 0; x <= W; x += 3){ const d = tideAt(t0 + x / W * 864e5); if (d){ lo = Math.min(lo, d.v); hi = Math.max(hi, d.v); } }
-    if (isFinite(lo)){
-      const Y = v => 8 + (1 - (v - lo) / Math.max(.5, hi - lo)) * (H - 22);
+  if (tide){
+    let lo = null, hi = null;
+    for (let x = 0; x <= W; x += 1){ const d = tideAt(at(x)); if (!d) continue; if (!lo || d.v < lo.v) lo = { x, v: d.v }; if (!hi || d.v > hi.v) hi = { x, v: d.v }; }
+    if (lo){
+      const pad = o.compact ? 4 : 18, Y = v => pad + (1 - (v - lo.v) / Math.max(.5, hi.v - lo.v)) * (H - pad - (o.compact ? 14 : 28));
       g.strokeStyle = '#12324A'; g.lineWidth = 2; g.beginPath(); let first = true;
-      for (let x = 0; x <= W; x += 2){ const d = tideAt(t0 + x / W * 864e5); if (!d) { first = true; continue; } first ? g.moveTo(x, Y(d.v)) : g.lineTo(x, Y(d.v)); first = false; }
+      for (let x = 0; x <= W; x += 2){ const d = tideAt(at(x)); if (!d) { first = true; continue; } first ? g.moveTo(x, Y(d.v)) : g.lineTo(x, Y(d.v)); first = false; }
       g.stroke();
+      tags.unshift([hi.x, Y(hi.v), T(`${hi.v.toFixed(1)} ft`, at(hi.x)), '#12324A', -1], [lo.x, Y(lo.v), T(`${lo.v.toFixed(1)} ft`, at(lo.x)), '#12324A', 1]);
     }
   }
-  if (!trip.data?.tide && !trip.data?.current) note(`Tide${hasCurrents() ? ' and current' : ''} graph appears after Get forecast`);
+  if (!tide && !cur) note(o.compact ? `Get forecast for the ${o.tide && !o.cur ? 'tide' : o.cur && !o.tide ? 'current' : 'tide and current'} graph` : `Tide${hasCurrents() ? ' and current' : ''} graph appears after Get forecast`);
+  g.font = lab; const taken = []; tags.forEach(a => tag(g, W, H, ...a, taken));
   cursor();
 }
-function drawWind(g, W, H, X, t0, t1, font, note){
+function drawWind(g, W, H, X, t0, t1, font, note, T){
   const w = trip.data?.wx;
   if (!w) return note('Wind graph appears after Get forecast');
   const idx = w.t.map((t, i) => i).filter(i => w.t[i] >= t0 - 36e5 && w.t[i] <= t1 + 36e5);
@@ -1361,6 +1385,11 @@ function drawWind(g, W, H, X, t0, t1, font, note){
   idx.forEach((i, k) => k ? g.lineTo(X(w.t[i]), Y(w.wg[i])) : g.moveTo(X(w.t[i]), Y(w.wg[i]))); g.stroke();
   g.setLineDash([4, 4]); g.strokeStyle = 'rgba(179,38,30,.6)'; g.beginPath(); g.moveTo(0, Y(gust())); g.lineTo(W, Y(gust())); g.stroke(); g.setLineDash([]);
   g.fillStyle = '#5B7183'; g.font = '10px ' + font; g.fillText(`${Math.round(wU(top))} ${wUnit()}`, 2, 10); g.fillText(`gust limit ${Math.round(wU(gust()))}`, W - 76, Y(gust()) - 3);
+  // the day's strongest wind and gust
+  const day = idx.filter(i => w.t[i] >= t0 && w.t[i] < t1), pk = k => day.reduce((a, i) => w[k][i] > w[k][a] ? i : a, day[0]);
+  if (day.length){ const s = pk('ws'), gi = pk('wg'); g.font = '600 10px ' + getComputedStyle(document.body).fontFamily;
+    const taken = [[W - 78, Y(gust()) - 13, 78, 13]]; tag(g, W, H, X(w.t[gi]), Y(w.wg[gi]), T(`G${Math.round(wU(w.wg[gi]))} ${wUnit()}`, w.t[gi]), '#B3261E', -1, taken);
+    tag(g, W, H, X(w.t[s]), Y(w.ws[s]), T(`${Math.round(wU(w.ws[s]))} ${wUnit()}`, w.t[s]), '#12324A', 1, taken); }
 }
 function drawElev(g, W, H, font, note){
   const el = trip.data?.elev;
@@ -1377,12 +1406,14 @@ function drawElev(g, W, H, font, note){
 }
 $('#graphSel').addEventListener('click', e => { const b = e.target.closest('button[data-g]'); if (!b) return; settings.graph = b.dataset.g; saveSettings(); render(); });
 function chartTouch(e){
-  if (curGraph() === 'elev') return;
-  const r = cv.getBoundingClientRect(), x = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
+  const c = e.currentTarget; if (c === cv && curGraph() === 'elev') return;
+  const r = c.getBoundingClientRect(), x = e.clientX - r.left;
   state.tMin = Math.max(0, Math.min(1435, Math.round(x / r.width * 1440 / 5) * 5)); render();
 }
-cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); chartTouch(e); });
-cv.addEventListener('pointermove', e => { if (e.buttons) chartTouch(e); });
+for (const c of [cv, tcv]){
+  c.addEventListener('pointerdown', e => { e.stopPropagation(); c.setPointerCapture(e.pointerId); chartTouch(e); });
+  c.addEventListener('pointermove', e => { if (e.buttons) chartTouch(e); });
+}
 function setNow(){
   if (todayIso() !== trip.date){ toast('Trip is on ' + trip.date + '. Showing that day.'); return false; }
   state.tMin = Math.floor(nowMin() / 5) * 5; render(); return true;
