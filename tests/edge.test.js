@@ -32,7 +32,7 @@ module.exports = async (browser, url, check) => {
     await page.goto(url); await ready(page); await seedRoute(page, GG);
     await page.click('#fcBtn'); await waitForecast(page);
     c('NOAA errors are reported', (await page.text('#toast')).includes('Missing: tides'), await page.text('#toast'));
-    c('wind still shown when NOAA fails', /kt/.test(await page.text('#windV'))); await ctx.close(); }
+    c('wind still shown when NOAA fails', /G\d/.test(await page.text('#windV')) && /kt/.test(await page.text('#atWind'))); await ctx.close(); }
 
   { // planning an SF trip from New York: times must be SF local
     const { ctx, page } = await open(browser, url, { timezoneId: 'America/New_York' });
