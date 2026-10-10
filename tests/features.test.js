@@ -280,6 +280,28 @@ module.exports = async (browser, url, check) => {
     c('settings saved', await page.evaluate(() => settings.variation === 14));
     await ctx.close(); }
 
+  { // Satellite layer and scale bar
+    const { ctx, page, errors } = await open(browser, url);
+    const tiles = []; page.on('request', r => { if (r.url().includes('USGSImageryOnly')) tiles.push(r.url()); });
+    await page.goto(url); await ready(page); await view(page, 2);
+    const names = [];
+    for (let i = 0; i < 4; i++){ names.push(await page.text('#layerBtn')); await page.click('#layerBtn'); await page.waitForTimeout(150); }
+    c('layer button cycles Chart, Street, Topo, Sat (satellite)', names.join() === 'Chart,Street,Topo,Sat' && (await page.text('#layerBtn')) === 'Chart', names.join());
+    await page.click('#layerBtn'); await page.click('#layerBtn'); await page.click('#layerBtn'); await page.waitForTimeout(500);
+    c('Satellite loads USGS imagery tiles and is remembered', (await page.text('#layerBtn')) === 'Sat' && tiles.length > 0 && /\/tile\/\d+\/\d+\/\d+$/.test(tiles[0])
+      && await page.evaluate(() => settings.layer === 'sat'), tiles[0]);
+    c('Satellite credited', /USGS The National Map: imagery/.test(await page.text('.leaflet-control-attribution')));
+    await page.screenshot({ path: path.join(OUT, 'feat-satellite.png') });
+    const scale = () => page.text('.leaflet-control-scale-line');
+    c('scale bar on the map in nautical miles or feet for a paddle', await page.isVisible('.leaflet-control-scale') && /^\d+ (nm|ft)$/.test(await scale()), await scale());
+    await page.evaluate(() => map.setZoom(9, { animate: false })); await page.waitForTimeout(200);
+    c('zoomed out the scale reads nm', /^\d+ nm$/.test(await scale()), await scale());
+    await page.evaluate(() => { settings.units.paddle = 'km'; changed(); }); await page.waitForTimeout(100);
+    c('scale follows the unit setting (km)', /^\d+ km$/.test(await scale()), await scale());
+    await page.evaluate(() => map.setZoom(17, { animate: false })); await page.waitForTimeout(200);
+    c('zoomed in it reads metres', /^\d+ m$/.test(await scale()), await scale());
+    c('no page errors (satellite, scale)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
   { // PDF maps from the map view: auto-placement from printed GPS labels, adjust, persistence, opacity
     const { ctx, page, errors } = await open(browser, url);
     page.promptAnswer = 'Test brochure';
