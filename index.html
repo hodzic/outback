@@ -326,6 +326,24 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li>Overlay PDF maps are included in <b>Back up</b>.</li>
         </ul>
       </details>
+      <details class="card help" id="helpWaters"><summary>Help: Tomales Bay and San Francisco Bay</summary>
+        <p>Official info for two popular Bay Area paddles. Rules and closures change; check these before you go.</p>
+        <h3>Tomales Bay (Point Reyes National Seashore)</h3>
+        <ul>
+          <li><a href="https://www.nps.gov/pore/planyourvisit/tomales-bay-boat-in-camping.htm" target="_blank" rel="noopener">Boat-in camping</a>: beaches, permits (Recreation.gov) and rules.</li>
+          <li><a href="https://www.nps.gov/pore/planyourvisit/upload/map_boatincamping.pdf" target="_blank" rel="noopener">Boat-in camping map (PDF)</a>: launches, beaches open or closed to camping, toilets.</li>
+          <li><a href="https://www.nps.gov/pore/planyourvisit/kayak.htm" target="_blank" rel="noopener">Kayaking around Point Reyes</a> and the <a href="https://www.nps.gov/pore/planyourvisit/kayak_libc.htm" target="_blank" rel="noopener">low-impact boat camping guide</a>.</li>
+          <li>Overnight parking only at Tomales Bay Resort, Miller Boat Launch and Lawson's Landing. Pelican Point, Duck Island and the east side of Hog Island are closed all year; Blue Gum Beach is closed March 1 – June 30 for seal pupping.</li>
+        </ul>
+        <h3>San Francisco Bay</h3>
+        <ul>
+          <li><a href="https://sfbaywatertrail.org/" target="_blank" rel="noopener">San Francisco Bay Area Water Trail</a>: launch sites, access and printable maps.</li>
+          <li><a href="https://abag.ca.gov/tools-resources/maps/water-trail-map" target="_blank" rel="noopener">Water Trail web map</a>: every launch and destination with directions and photos.</li>
+          <li><a href="https://sfbaywatertrail.org/conditions-on-the-bay/" target="_blank" rel="noopener">Conditions on the Bay</a>: tides, currents and other hazards.</li>
+          <li><a href="https://dolphinclub.org/boating-guide/boating-on-the-bay/" target="_blank" rel="noopener">Dolphin Club: boating on the Bay</a>: the central Bay's currents, ship traffic and hazards.</li>
+          <li>For shipping lanes and depths, use the <b>Chart</b> layer on the map (NOAA charts).</li>
+        </ul>
+      </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
         <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
@@ -438,7 +456,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10c';
+const APP_VERSION = '2026-10-10d';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }

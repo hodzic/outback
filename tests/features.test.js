@@ -276,6 +276,8 @@ module.exports = async (browser, url, check) => {
     await page.click('#pdfHelp'); await page.waitForTimeout(700);
     c('PDF list links to PDF help, which covers Auto-align', await page.evaluate(() => state.view === 0 && !document.querySelector('#sheet').open && document.querySelector('#helpPdf').open)
       && /Auto-align/.test(await page.text('#helpPdf')) && /Undo align/.test(await page.text('#helpPdf')));
+    c('Tomales Bay and SF Bay help follows PDF help, links open in a new tab', await page.evaluate(() => { const h = document.querySelector('#helpWaters'), l = [...h.querySelectorAll('a')];
+      return h.previousElementSibling.id === 'helpPdf' && l.length >= 8 && l.every(a => a.target === '_blank' && a.rel === 'noopener' && a.href.startsWith('https://')) && l.some(a => a.href.includes('nps.gov/pore')) && l.some(a => a.href.includes('sfbaywatertrail.org')); }));
     await view(page, 2);
     await page.setInputFiles('#pdfFile', path.join(OUT, 'brochure.pdf'));
     await page.waitForSelector('#nSave', { timeout: 60000 });
