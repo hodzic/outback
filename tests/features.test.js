@@ -272,7 +272,7 @@ module.exports = async (browser, url, check) => {
     page.promptAnswer = 'Test brochure';
     await page.goto(url); await ready(page); await view(page, 2);
     await page.click('#mapsBtn'); await page.waitForSelector('#addPdf');
-    c('PDF button opens the maps sheet', /PDF maps/.test(await page.text('#sheet')) && /None yet/.test(await page.text('#sheet')));
+    c('PDF button opens the maps sheet', /Overlay PDF maps/.test(await page.text('#sheet')) && /None yet/.test(await page.text('#sheet')));
     await page.click('#pdfHelp'); await page.waitForTimeout(700);
     c('PDF list links to PDF help, which covers Auto-align', await page.evaluate(() => state.view === 0 && !document.querySelector('#sheet').open && document.querySelector('#helpPdf').open)
       && /Auto-align/.test(await page.text('#helpPdf')) && /Undo align/.test(await page.text('#helpPdf')));
