@@ -87,7 +87,7 @@ module.exports = async (browser, url, check) => {
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
     c('no out-and-back or reverse buttons', await page.locator('#outBack, #reverse').count() === 0);
-    c('route card is one line plus waypoints, no buttons', await page.locator('#vTrip .rt button').count() === 0 && await page.isVisible('#wpDetails summary')
+    c('route card is one line plus waypoints, no buttons (besides parking)', await page.locator('#vTrip .rt button').count() === await page.locator('#parkBox button').count() && await page.isVisible('#wpDetails summary')
       && await page.evaluate(() => document.querySelector('.rline').getBoundingClientRect().height < 30));
     await view(page, 2); await page.click('#drawBtn');
     c('Clear sits in the map route editor', await page.isVisible('#drawBar #clearRoute'));
@@ -238,7 +238,7 @@ module.exports = async (browser, url, check) => {
   { // Help: its own page from the ? buttons
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);
-    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll('#helpPage .help').length === 6));
+    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll('#helpPage .help').length === 7));
     c('? button at the top of Trips and Trip', await page.evaluate(() => ['#vTrips', '#vTrip'].every(v => document.querySelector(v + ' [data-help]'))));
     for (const v of [1, 0]){
       await view(page, v); await page.locator(['#vTrips', '#vTrip'][v] + ' [data-help]').click();
@@ -359,6 +359,83 @@ module.exports = async (browser, url, check) => {
     await page.click('#wcBtn'); await page.waitForTimeout(200);
     c('🚻 again hides restrooms', await page.locator('.poi.wc').count() === 0 && !(await page.evaluate(() => settings.toilets)));
     c('no page errors (restrooms)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
+  { // Trip parking: nearest OSM lots to the route start, Park here from a popup, set by hand; Drive there; in Share and Print
+    const { ctx, page, errors } = await open(browser, url);
+    await page.goto(url); await ready(page);
+    await seedRoute(page, [[37.8320, -122.4760], [37.8250, -122.4600], [37.8150, -122.4500]]);
+    await view(page, 1);
+    c('Parking row on the Trip tab, none set', /Parking/.test(await page.text('#parkBox')) && await page.isVisible('[data-pk="find"]') && await page.evaluate(() => trip.parking === null));
+    await page.click('[data-pk="find"]'); await page.waitForSelector('#parkList', { timeout: 5000 }).catch(() => {});
+    const list = await page.text('#parkList');
+    c('Find nearby lists public lots near the start, with distance and fee; not customers-only', /Horseshoe Cove lot/.test(list) && /m from the start/.test(list) && /Fee: \$5\/day/.test(list) && /40 spaces/.test(list) && !/Max stay/.test(list) && ctx.parkingHits === 1, list);
+    await page.click('[data-pkuse="0"]'); await page.waitForTimeout(300);
+    const pk = await page.evaluate(() => trip.parking);
+    c('Use saves the lot with the trip', pk && pk.name === 'Horseshoe Cove lot' && pk.lat === 37.8331 && pk.lng === -122.4772 && /\$5\/day/.test(pk.note), JSON.stringify(pk));
+    c('Trip tab shows the parking and the walk to the start', /Parking: Horseshoe Cove lot/.test(await page.text('#parkBox')) && /\d+ m to the start/.test(await page.text('#parkBox')), await page.text('#parkBox'));
+    const href = await page.getAttribute('#driveBtn', 'href');
+    c('Drive there opens Google Maps driving directions (Android, desktop)', href === 'https://www.google.com/maps/dir/?api=1&destination=37.833100,-122.477200&travelmode=driving' && await page.getAttribute('#driveBtn', 'target') === '_blank', href);
+    c('parking shown on the map with a dashed line to the start', await page.locator('.poi.pk.mine').count() === 1 && await page.evaluate(() => parkLayer.getLayers().length === 2));
+    const txt = await page.evaluate(() => planText());
+    c('Share plan includes the parking and its driving link', /Parking: Horseshoe Cove lot \(Fee: \$5\/day/.test(txt) && /Driving directions: https:\/\/www\.google\.com\/maps\/dir\/\?api=1&destination=37\.833100,-122\.477200&travelmode=driving/.test(txt), txt);
+    await page.click('#printPlan'); await page.waitForTimeout(800);
+    c('Print shows the parking line and its P on the map', /Parking: Horseshoe Cove lot/.test(await page.text('#printDoc')) && await page.locator('#pMap .poi.pk.mine').count() === 1);
+    await page.click('#pClose'); await page.waitForTimeout(300);
+    // Park here from a P popup
+    await view(page, 2); await page.evaluate(() => { settings.parking = true; poiState(POI.parking); poiRefresh(POI.parking); map.setView([37.82, -122.44], 13, { animate: false }); });
+    await page.waitForTimeout(800);
+    await page.evaluate(() => POI.parking.layer.getLayers().find(m => m.getLatLng().lat === 37.8065).openPopup()); await page.waitForTimeout(200);
+    await page.click('.leaflet-popup-content a[data-park]'); await page.waitForTimeout(300);
+    c('Park here in a P popup sets the trip parking', await page.evaluate(() => trip.parking.lat === 37.8065 && trip.parking.name === 'Parking' && /Free/.test(trip.parking.note)), JSON.stringify(await page.evaluate(() => trip.parking)));
+    // set by hand
+    await view(page, 1); await page.click('[data-pk="find"]'); await page.waitForSelector('#parkList'); await page.click('#parkList [data-pk="set"]'); await page.waitForTimeout(500);
+    page.promptAnswer = 'Dirt pullout';
+    await page.evaluate(() => map.fire('click', { latlng: L.latLng(37.8300, -122.4700) })); await page.waitForTimeout(300);
+    c('Set on map: tap the spot and name it', await page.evaluate(() => trip.parking.name === 'Dirt pullout' && trip.parking.lat === 37.83 && !trip.parking.note));
+    page.promptAnswer = undefined;
+    await page.evaluate(() => { const p = trip.parking; parkLayer.getLayers().find(l => l.getIcon).openPopup(); });
+    await page.click('.leaflet-popup-content a[data-pk="rm"]'); await page.waitForTimeout(300);
+    c('Remove from the parking popup', await page.evaluate(() => trip.parking === null) && await page.locator('.poi.pk.mine').count() === 0);
+    c('no page errors (parking)', errors.length === 0, errors.join(' | ')); await ctx.close();
+    // Apple Maps on iPhone
+    const I = await open(browser, url, { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148' });
+    await I.page.goto(url); await ready(I.page);
+    await I.page.evaluate(() => { trip.parking = { lat: 37.8331, lng: -122.4772, name: 'Lot' }; changed(); });
+    await view(I.page, 1);
+    c('Drive there uses Apple Maps on iPhone', await I.page.getAttribute('#driveBtn', 'href') === 'https://maps.apple.com/?daddr=37.833100,-122.477200&dirflg=d', await I.page.getAttribute('#driveBtn', 'href'));
+    await I.ctx.close(); }
+
+  { // Stops: a waypoint can carry a pause (lunch), counted into the duration and every later arrival
+    const { ctx, page, errors } = await open(browser, url);
+    await page.goto(url); await ready(page);
+    await seedRoute(page, [[37.80, -122.45], [37.83, -122.45], [37.86, -122.45]]); // 1.8 nm legs at 3 kt: 36 min each
+    await view(page, 1);
+    const dur0 = await page.text('#dur');
+    await view(page, 2);
+    await page.evaluate(() => routeLayer.getLayers().filter(l => l.getIcon)[1].openPopup()); await page.waitForTimeout(200);
+    c('waypoint popup offers Stop here', /Stop here/.test(await page.text('.leaflet-popup-content')));
+    await page.evaluate(() => { const a = ['45', 'Lunch']; window.prompt = () => a.shift(); }); // minutes, then the suggested name
+    await page.click('.leaflet-popup-content [data-pause]'); await page.waitForTimeout(300);
+    const p = await page.evaluate(() => trip.route[1]);
+    c('stop saved on the waypoint, named Lunch by default', p[3] === 45 && p[2] === 'Lunch', JSON.stringify(p));
+    c('stop shown next to the waypoint on the map', /Lunch · ⏸ 45 min/.test(await page.text('.wpname')), await page.text('.wpname'));
+    await view(page, 1);
+    const dur1 = await page.text('#dur'), legs = await page.text('#legs');
+    c('duration includes the stop', dur0 === '1 h 12' && dur1 === '1 h 57' && /1 stop 45 min/.test(legs), `${dur0} → ${dur1}; ${legs}`);
+    await page.click('#wpDetails summary'); await page.waitForTimeout(200);
+    const rows = await page.locator('#routeTable tr').allInnerTexts();
+    const t = s => { const [h, m] = s.match(/(\d+):(\d\d)/).slice(1).map(Number); return h * 60 + m; };
+    c('arrival after the stop is 45 min later; the stop shows its leave time', /⏸ 45 min/.test(rows[2]) && /leave/.test(rows[2]) && t(rows[3].split('\t').pop()) - t(rows[2].split('\t').pop()) === 36 + 45, rows.join(' | '));
+    const txt = await page.evaluate(() => planText());
+    c('Share plan lists the stop', /2 Lunch .*stop 45 min \(leave/.test(txt), txt);
+    // moving the waypoint keeps its stop
+    await page.evaluate(() => { const m = routeLayer.getLayers().filter(l => l.getIcon)[1]; m.setLatLng([37.831, -122.451]); m.fire('dragend'); });
+    c('dragging keeps the stop and the name', await page.evaluate(() => trip.route[1][3] === 45 && trip.route[1][2] === 'Lunch'));
+    await view(page, 2);
+    await page.evaluate(() => routeLayer.getLayers().filter(l => l.getIcon)[1].openPopup()); await page.waitForTimeout(200);
+    await page.evaluate(() => { window.prompt = () => '0'; }); await page.click('.leaflet-popup-content [data-pause]'); await page.waitForTimeout(300);
+    c('0 removes the stop, keeps the name', await page.evaluate(() => trip.route[1].length === 3 && trip.route[1][2] === 'Lunch'));
+    c('no page errors (stops)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // Boat launches: SF Bay Area Water Trail sites (shipped) plus OSM ramps and put-ins
     const { ctx, page, errors } = await open(browser, url);
