@@ -316,6 +316,35 @@ module.exports = async (browser, url, check) => {
     c('back closes the print preview', await page.isHidden('#printView') && await page.evaluate(() => state.view === 1 && !pMap));
     c('no page errors (share, print)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
+  { // Restrooms: 🚻 shows OpenStreetMap toilets in view, with details and directions; kept for offline
+    const { ctx, page, errors } = await open(browser, url);
+    await page.goto(url); await ready(page); await view(page, 2);
+    await page.evaluate(() => map.setView([37.82, -122.45], 13, { animate: false })); await page.waitForTimeout(300);
+    c('🚻 button on the map, off at first', await page.isVisible('#wcBtn') && !(await page.evaluate(() => settings.toilets)) && await page.locator('.wc').count() === 0);
+    await page.click('#wcBtn'); await page.waitForFunction(() => document.querySelectorAll('.wc').length === 2, null, { timeout: 5000 }).catch(() => {});
+    c('🚻 shows restrooms from OpenStreetMap (nodes and areas)', await page.locator('.wc').count() === 2 && ctx.toiletHits === 1, ctx.toiletHits);
+    await page.locator('.wc').first().click(); await page.waitForTimeout(300);
+    const pop = await page.text('.leaflet-popup-content');
+    c('restroom details: name, free, flush, hours, wheelchair, directions', /Horseshoe Cove restroom/.test(pop) && /Free/.test(pop) && /Flush/.test(pop) && /Open 24\/7/.test(pop) && /Wheelchair accessible/.test(pop)
+      && await page.locator('.leaflet-popup-content a[href^="https://www.google.com/maps/dir/?api=1&destination=37.8326,-122.4766"]').count() === 1, pop);
+    await page.evaluate(() => map.closePopup());
+    await page.locator('.wc').nth(1).click(); await page.waitForTimeout(300);
+    c('customers-only vault toilet labelled', /Customers only/.test(await page.text('.leaflet-popup-content')) && /Vault or pit toilet/.test(await page.text('.leaflet-popup-content')));
+    await page.evaluate(() => { map.closePopup(); map.panBy([40, 0], { animate: false }); }); await page.waitForTimeout(1200);
+    c('panning within fetched cells does not ask again', ctx.toiletHits === 1, ctx.toiletHits);
+    await page.screenshot({ path: path.join(OUT, 'feat-restrooms.png') });
+    // later, with OpenStreetMap out of reach: the saved restrooms still show
+    await page.route(/overpass/, r => r.abort()); const hits = ctx.toiletHits;
+    await page.reload(); await ready(page); await view(page, 2);
+    await page.evaluate(() => map.setView([37.82, -122.45], 13, { animate: false })); await page.waitForTimeout(1800);
+    c('restrooms remembered and shown without OpenStreetMap', await page.locator('.wc').count() === 2 && await page.evaluate(() => settings.toilets) && ctx.toiletHits === hits);
+    await page.unroute(/overpass/);
+    await page.evaluate(() => map.setView([37.5, -122.0], 8, { animate: false })); await page.waitForTimeout(1200);
+    c('zoomed far out: asks to zoom in instead of fetching a huge area', /Zoom in to see restrooms/.test(await page.text('#toast')) && ctx.toiletHits === 1, await page.text('#toast'));
+    await page.click('#wcBtn'); await page.waitForTimeout(200);
+    c('🚻 again hides restrooms', await page.locator('.wc').count() === 0 && !(await page.evaluate(() => settings.toilets)));
+    c('no page errors (restrooms)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
   { // Satellite layer and scale bar
     const { ctx, page, errors } = await open(browser, url);
     const tiles = []; page.on('request', r => { if (r.url().includes('USGSImageryOnly')) tiles.push(r.url()); });

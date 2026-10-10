@@ -70,8 +70,15 @@ async function install(ctx, opts = {}){
     for (let i = 0; i < 40; i++) values.push({ validTime: new Date(start + i*3*36e5).toISOString().replace('.000', '') + '/PT3H', value: i % 5 === 0 ? 30 : 0 });
     json(r, { properties: { probabilityOfThunder: { values } } });
   });
-  // OpenStreetMap water (Overpass), for PDF map Auto-align: none unless the test supplies opts.overpass (elements)
+  // Overpass (OpenStreetMap): restrooms for the 🚻 button (two near the Golden Gate unless opts.toilets),
+  // and water for PDF map Auto-align (none unless opts.overpass)
+  const TOILETS = [{ type: 'node', id: 1, lat: 37.8326, lon: -122.4766, tags: { amenity: 'toilets', name: 'Horseshoe Cove restroom', fee: 'no', wheelchair: 'yes', 'toilets:disposal': 'flush', opening_hours: '24/7' } },
+    { type: 'way', id: 2, center: { lat: 37.8072, lon: -122.4236 }, tags: { amenity: 'toilets', access: 'customers', 'toilets:disposal': 'pitlatrine' } }];
   for (const h of ['overpass-api.de', 'overpass.kumi.systems'])
-    await ctx.route(`https://${h}/**`, r => { (ctx.overpassHits = (ctx.overpassHits || 0) + 1); json(r, { elements: opts.overpass || [] }); });
+    await ctx.route(`https://${h}/**`, r => {
+      const q = decodeURIComponent((r.request().postData() || '').replace(/^data=/, ''));
+      if (/amenity"="toilets/.test(q)){ ctx.toiletHits = (ctx.toiletHits || 0) + 1; return json(r, { elements: opts.toilets || TOILETS }); }
+      ctx.overpassHits = (ctx.overpassHits || 0) + 1; json(r, { elements: opts.overpass || [] });
+    });
 }
 module.exports = { install };
