@@ -80,8 +80,6 @@ td:first-child,th:first-child{text-align:left}
 .new button{height:52px;font-size:16px}
 
 /* trip details */
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 6px}
-.stat .k{font-size:12px;color:var(--muted)} .stat .v{font-size:clamp(17px,5.6vw,22px);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 table.acts td,table.acts th{text-align:left;vertical-align:middle}
 table.acts select,table.acts input{height:38px;border:1px solid var(--line);border-radius:8px;padding:0 6px;background:var(--paper)}
 table.acts input{width:64px}
@@ -97,9 +95,13 @@ table.acts td,table.acts th{padding:5px 3px}
 .cell .k{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .cell .v{font-size:clamp(17px,5.2vw,20px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere}
 .cell .s{font-size:13px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
+.rt{padding-bottom:4px} .rline{font-size:16px;font-variant-numeric:tabular-nums} .rline b{margin-right:4px}
 .v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
-.now{display:flex;flex-wrap:wrap;gap:2px 14px;margin:-2px 0 4px;padding:6px 8px;background:var(--wash);border-radius:10px;font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
-.now .ri{white-space:nowrap} .now .ri[hidden]{display:none} .now .k{font-size:12px;color:var(--muted)}
+.now{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin:8px 0 0;padding:6px 10px;background:var(--wash);border-radius:10px;font-variant-numeric:tabular-nums}
+.now .ri{min-width:0;height:38px} .now .ri[hidden]{display:none}
+.now .k{font-size:12px;line-height:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.now b{display:block;font-size:16px;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl{display:grid;grid-template-columns:auto 1fr;gap:0 8px;font-variant-numeric:tabular-nums} .tl .flood{color:var(--flood)} .tl .ebb{color:var(--ebb)}
 .now b.flood{color:var(--flood)} .now b.ebb{color:var(--ebb)} .now b.warn{color:var(--warn)}
 #status{margin:6px 0;font-size:13px;color:var(--muted)}
 #status.warn{color:var(--warn)}
@@ -311,15 +313,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <div class="chips" id="envSel"></div>
       </div>
 
-      <div class="card">
-        <h2>Route</h2>
-        <div class="stats">
-          <div class="stat"><div class="k">Length</div><div class="v" id="dist">0.0 nm</div></div>
-          <div class="stat"><div class="k">Duration</div><div class="v" id="dur">–</div></div>
-          <div class="stat"><div class="k">Speed</div><div class="v" id="spd">–</div></div>
-        </div>
-        <p class="muted" id="legs">Tap Edit route to draw it on the map.</p>
-        <div class="row"><button class="btn" id="editRoute">Edit route on map</button><button class="btn" id="clearRoute">Clear waypoints</button></div>
+      <div class="card rt">
+        <div class="rline"><b>Route</b> <span id="dist">0.0 nm</span><span id="routeMore"> · <span id="dur">–</span> at <span id="spd">–</span> · <span id="legs"></span></span></div>
         <details id="wpDetails"><summary>Waypoints</summary><div id="routeTable"></div></details>
       </div>
 
@@ -327,15 +322,15 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <div class="row"><h2 class="grow" style="margin:0">Forecast</h2><button class="btn primary" id="fcBtn">Get forecast</button></div>
         <p id="status"></p>
         <div class="row"><div class="seg" id="graphSel" role="group" aria-label="Graph"></div><span class="grow"></span><output id="timeOut" aria-live="polite"></output><button id="nowBtn" class="btn">Now</button></div>
-        <canvas id="chart" aria-label="Day graph for the trip"></canvas>
         <div class="now" id="atRead" aria-live="polite">
-          <span class="ri tidal"><span class="k">Tide</span> <b id="atTide">–</b></span>
-          <span class="ri curc"><span class="k">Current</span> <b id="atCur">–</b></span>
-          <span class="ri"><span class="k">Wind</span> <b id="atWind">–</b></span>
-          <span class="ri"><span class="k">Air</span> <b id="atAir">–</b></span>
-          <span class="ri"><span class="k">Pressure</span> <b id="atPres">–</b></span>
-          <span class="ri"><span class="k">Lightning</span> <b id="atLtg">–</b></span>
+          <div class="ri tidal"><div class="k">Tide</div><b id="atTide">–</b></div>
+          <div class="ri curc"><div class="k">Current</div><b id="atCur">–</b></div>
+          <div class="ri"><div class="k">Wind</div><b id="atWind">–</b></div>
+          <div class="ri"><div class="k" id="atSky">Air</div><b id="atAir">–</b></div>
+          <div class="ri"><div class="k">Pressure</div><b id="atPres">–</b></div>
+          <div class="ri"><div class="k">Lightning</div><b id="atLtg">–</b></div>
         </div>
+        <canvas id="chart" aria-label="Day graph for the trip"></canvas>
         <p class="muted" id="chartHint" style="margin:0 0 8px">Tap or drag the graph to pick a time. Below: the whole day.</p>
         <div class="read">
           <div class="cell wide tempc"><div class="k">Temperature</div><div class="v" id="tempV">–</div><div class="s" id="tempS">&nbsp;</div></div>
@@ -383,7 +378,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <div id="timeBar" hidden><canvas id="tChart" aria-label="Day graph; drag to pick a time"></canvas><button id="tMapNow" class="btn">Now</button></div></div>
     <div id="drawBar" class="mbar" hidden><span class="txt">Tap to add, drag to move</span>
       <button id="markBtn" class="btn">Marker</button>
-      <button id="undoBtn" class="btn">Undo</button><button id="doneBtn" class="btn">Done</button></div>
+      <button id="undoBtn" class="btn">Undo</button><button id="clearRoute" class="btn">Clear</button><button id="doneBtn" class="btn">Done</button></div>
     <div id="mapBar" class="mbar" hidden></div>
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     </div>
@@ -414,7 +409,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-09b';
+const APP_VERSION = '2026-10-09c';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1099,7 +1094,9 @@ function render(){
   $('#dist').textContent = fmtD(nm);
   $('#dur').textContent = legs ? fmtDur(hoursFor(nm, es?.up)) : '–';
   $('#spd').textContent = `${speed()} ${u().spd}`;
-  $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''}${es ? ` · climb +${ft(es.up)}, adds ${fmtDur(es.up / act().climb)}` : hike ? ' · Get forecast for the climb' : ''}` : 'Tap Edit route to draw it on the map.';
+  $('#routeMore').hidden = !legs;
+  $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''}${es ? ` · climb +${ft(es.up)}` : ''}` : '';
+  $('#dist').textContent = legs ? fmtD(nm) : 'none yet: draw it on the map';
   $('#clearRoute').disabled = !trip.route.length;
   if ($('#wpDetails').open) routeTable();
   // forecast
@@ -1118,7 +1115,8 @@ function render(){
   const aw = $('#atWind');
   aw.textContent = w ? `${Math.round(wU(w.ws))} G${Math.round(wU(w.wg))} ${wUnit()} ${compass(w.wd)}` : '–';
   aw.classList.toggle('warn', !!w && w.wg >= gust());
-  $('#atAir').textContent = w ? `${temp(w.temp)}${tUnit()}${wxText(w.code) ? ' ' + wxText(w.code).toLowerCase() : ''}${w.pop != null ? ' · rain ' + w.pop + '%' : ''}` : '–';
+  $('#atSky').textContent = w && wxText(w.code) ? 'Air · ' + wxText(w.code).toLowerCase() : 'Air';
+  $('#atAir').textContent = w ? `${temp(w.temp)}${tUnit()}${w.pop != null ? ' · rain ' + w.pop + '%' : ''}` : '–';
   const ap = $('#atPres'); ap.classList.remove('warn');
   if (w && w.p != null){
     const dp = w.dp; ap.textContent = Math.round(w.p) + ' mb' + (dp == null ? '' : dp >= 0.5 ? ' ↑' : dp <= -0.5 ? ' ↓' : ' →');
@@ -1142,13 +1140,12 @@ function render(){
 
   $('#tideK').textContent = trip.tide ? 'Tide · ' + trip.tide.name : 'Tide';
   $('#tideV').textContent = dy.tide.length ? `${Math.min(...dy.tide.map(e => e.v)).toFixed(1)} – ${Math.max(...dy.tide.map(e => e.v)).toFixed(1)} ft` : '–';
-  $('#tideS').textContent = dy.tide.length ? dy.tide.map(e => `${e.type === 'H' ? 'High' : 'Low'} ${e.v.toFixed(1)} ${hmS(e.t)}`).join(' · ') : ' ';
+  $('#tideS').innerHTML = dy.tide.length ? `<div class="tl">${dy.tide.map(e => `<span>${hmS(e.t)}</span><span>${e.type === 'H' ? 'High' : 'Low'} ${e.v.toFixed(1)} ft</span>`).join('')}</div>` : ' ';
   $('#curK').textContent = trip.current ? 'Current · ' + trip.current.name : 'Current';
-  const cv = $('#curV'), fl = dy.cur.filter(e => e.type === 'flood'), eb = dy.cur.filter(e => e.type === 'ebb'), sl = dy.cur.filter(e => e.type === 'slack');
+  const cv = $('#curV'), fl = dy.cur.filter(e => e.type === 'flood'), eb = dy.cur.filter(e => e.type === 'ebb');
   const top = es => es.reduce((a, e) => Math.abs(e.v) > Math.abs(a.v) ? e : a, es[0]);
   cv.innerHTML = fl.length || eb.length ? [fl.length && `<span class="flood">${Math.abs(top(fl).v).toFixed(1)}</span>`, eb.length && `<span class="ebb">-${Math.abs(top(eb).v).toFixed(1)}</span>`].filter(Boolean).join(' / ') + ' kt' : '–';
-  $('#curS').textContent = dy.cur.length ? [fl.length && `Flood ${fl.map(e => hmS(e.t)).join(', ')}`,
-    eb.length && `ebb ${eb.map(e => hmS(e.t)).join(', ')}`, sl.length && `slack ${sl.map(e => hmS(e.t)).join(', ')}`].filter(Boolean).join(' · ').replace(/^e/, 'E').replace(/^s/, 'S') : ' ';
+  $('#curS').innerHTML = dy.cur.length ? `<div class="tl">${dy.cur.map(e => `<span>${hmS(e.t)}</span><span class="${e.type}">${e.type === 'slack' ? 'Slack' : `${e.type === 'flood' ? 'Flood' : 'Ebb'} ${e.v.toFixed(1)}`}</span>`).join('')}</div>` : ' ';
   $('#elevV').textContent = es ? `+${ft(es.up)} / −${ft(es.down)}` : '–';
   $('#elevS').textContent = es ? `High ${ft(es.hi)} · low ${ft(es.lo)}` : (trip.route.length > 1 ? 'Tap Get forecast for the profile' : ' ');
 
@@ -1510,7 +1507,6 @@ $('#envSel').addEventListener('click', e => {
   changed();
   if (isTidal() && !trip.data?.tide) toast(`Tap Get forecast for tides${hasCurrents() ? ' and currents' : ''}.`);
 });
-$('#editRoute').onclick = () => { showView(2); setDrawing(true); };
 $('#clearRoute').onclick = () => {
   if (!trip.route.length || !confirm(`Clear all ${trip.route.length} waypoints?`)) return;
   trip.route = []; state.legs.clear(); changed(); toast('Waypoints cleared.');

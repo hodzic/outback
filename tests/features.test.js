@@ -80,14 +80,20 @@ module.exports = async (browser, url, check) => {
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
     c('no out-and-back or reverse buttons', await page.locator('#outBack, #reverse').count() === 0);
+    c('route card is one line plus waypoints, no buttons', await page.locator('#vTrip .rt button').count() === 0 && await page.isVisible('#wpDetails summary')
+      && await page.evaluate(() => document.querySelector('.rline').getBoundingClientRect().height < 30));
+    await view(page, 2); await page.click('#drawBtn');
+    c('Clear sits in the map route editor', await page.isVisible('#drawBar #clearRoute'));
     await page.click('#clearRoute'); await page.waitForTimeout(200);
-    c('clear waypoints empties the route', await page.evaluate(() => trip.route.length) === 0 && /0\.0 nm/.test(await page.text('#dist')));
+    c('clear waypoints empties the route', await page.evaluate(() => trip.route.length) === 0 && await page.locator('.wp').count() === 0);
     c('clear is disabled with no waypoints', await page.isDisabled('#clearRoute'));
+    await page.click('#doneBtn'); await view(page, 1);
+    c('empty route says to draw it on the map', /none yet/.test(await page.text('#dist')) && !(await page.isVisible('#dur')), await page.text('#dist'));
     await view(page, 0);
     c('paddle trips show a kayak with a double-bladed paddle', await page.locator('#tripList .trip .ic svg ellipse[transform]').count() >= 2 && await page.locator('#tripList .trip', { hasText: '🛶' }).count() === 0);
     await seedRoute(page, GG); await view(page, 1);
-    await page.click('#editRoute'); await page.waitForTimeout(500);
-    c('Edit route opens the map in draw mode', await page.evaluate(() => state.view === 2 && state.drawing));
+    await view(page, 2); await page.click('#drawBtn');
+    c('route button opens draw mode', await page.evaluate(() => state.view === 2 && state.drawing));
     await page.click('#doneBtn');
     c('Done leaves draw mode', await page.evaluate(() => !state.drawing));
     await ctx.close(); }

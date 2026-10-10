@@ -40,16 +40,19 @@ module.exports = async (browser, url, check) => {
   c('route length in nm', / nm$/.test(await page.text('#dist')) && parseFloat(await page.text('#dist')) > 0, await page.text('#dist'));
   c('duration shown', /min|h/.test(await page.text('#dur')), await page.text('#dur'));
   c('legs summary', (await page.text('#legs')).startsWith('2 legs'), await page.text('#legs'));
+  c('route on one line', /^Route \d+\.\d nm · .+ at 3 kt · 2 legs$/.test(await page.text('.rline')), await page.text('.rline'));
   await page.click('#fcBtn'); await waitForecast(page); await page.waitForTimeout(200);
   c('forecast saved toast', /Forecast saved/.test(await page.text('#toast')), await page.text('#toast'));
   c('tidal water detected as bay (auto)', await page.evaluate(() => trip.env === 'bay' && !trip.envSet) && /Auto: Bay/.test(await page.text('#envSel')));
   c('tide range for the day', /^-?\d+\.\d – -?\d+\.\d ft$/.test(await page.text('#tideV')), await page.text('#tideV'));
-  c('every high and low tide of the day, with times', ((await page.text('#tideS')).match(/(High|Low) -?\d+\.\d \d+:\d\d[ap]/g) || []).length === 4, await page.text('#tideS'));
+  c('every high and low tide, one per line in time order', await page.evaluate(() => { const r = [...document.querySelectorAll('#tideS .tl > span')].map(e => e.textContent);
+    return r.length === 8 && r.filter((_, i) => i % 2).every(x => /^(High|Low) -?\d+\.\d ft$/.test(x)) && trip.data.tide.filter(e => e.t >= dayStart() && e.t < dayStart() + 864e5).every((e, i) => r[2 * i] === hmS(e.t)); }), await page.text('#tideS'));
   c('forecast readouts are not truncated', await page.evaluate(() => [...document.querySelectorAll('.read .k, .read .v, .read .s')].every(e => e.scrollWidth <= e.clientWidth + 1 && getComputedStyle(e).textOverflow !== 'ellipsis')));
   c('nearest tide station', (await page.text('#tideK')).includes('San Francisco'), await page.text('#tideK'));
   c('current station deduped to shallowest bin', await page.evaluate(() => state.nearby.current.find(s => s.id === 'SFB1201')?.bin === 2));
   c('strongest flood and ebb, ebb negative', /^\d+\.\d \/ -\d+\.\d kt$/.test(await page.text('#curV')), await page.text('#curV'));
-  c('max flood, max ebb and slack times', /^Flood \d.* ebb \d.* slack \d+:\d\d[ap]/.test(await page.text('#curS')), await page.text('#curS'));
+  c('max flood, max ebb and slack, one per line in time order', await page.evaluate(() => { const r = [...document.querySelectorAll('#curS .tl > span')].map(e => e.textContent), ev = trip.data.current.filter(e => e.t >= dayStart() && e.t < dayStart() + 864e5);
+    return r.length === ev.length * 2 && ev.every((e, i) => r[2 * i] === hmS(e.t)) && r.some(x => /^Flood \d+\.\d$/.test(x)) && r.some(x => /^Ebb -\d+\.\d$/.test(x)) && r.includes('Slack'); }), await page.text('#curS'));
   c('wind morning and afternoon with gusts', /^AM \d+ G\d+\s*PM \d+ G\d+$/.test(await page.text('#windV')), await page.text('#windV'));
   c('wind unit and direction', /^kt · from [NESW]+(, then [NESW]+)?$/.test(await page.text('#windS')), await page.text('#windS'));
   const tv = await page.text('#tempV'), m = tv.match(/Low (\d+)° · High (\d+)°F/);
@@ -58,13 +61,16 @@ module.exports = async (browser, url, check) => {
     const v = w.temp.filter((_, i) => w.t[i] >= t0 && w.t[i] < t0 + 864e5); return d.lo === Math.min(...v) && d.hi === Math.max(...v); }));
   c('daylight sky and rain', /in daylight$/.test(await page.text('#tempS')), await page.text('#tempS'));
   c('time readout under the graph', /ft [↑↓]$/.test(await page.text('#atTide')) && /kt|Slack/.test(await page.text('#atCur')) && /^\d+ G\d+ kt [NESW]+$/.test(await page.text('#atWind'))
-    && /^\d+°F/.test(await page.text('#atAir')) && /mb/.test(await page.text('#atPres')) && /%/.test(await page.text('#atLtg')), [await page.text('#atTide'), await page.text('#atCur'), await page.text('#atWind'), await page.text('#atAir')].join(' | '));
+    && /^\d+°F · rain \d+%$/.test(await page.text('#atAir')) && /mb/.test(await page.text('#atPres')) && /%/.test(await page.text('#atLtg')), [await page.text('#atTide'), await page.text('#atCur'), await page.text('#atWind'), await page.text('#atAir')].join(' | '));
   { const day = () => page.evaluate(() => [...document.querySelectorAll('.read .v, .read .s')].map(e => e.textContent).join('|'));
     const at = () => page.evaluate(() => [...document.querySelectorAll('#atRead b')].map(e => e.textContent).join('|'));
     await page.evaluate(() => { state.tMin = 8 * 60; render(); }); const d1 = await day(), a1 = await at();
     await page.evaluate(() => { state.tMin = 16 * 60; render(); }); const d2 = await day(), a2 = await at();
     c('cells stay put when the time changes', d1 === d2, d1 + ' ≠ ' + d2);
-    c('readout follows the time', a1 !== a2, a1); }
+    c('readout follows the time', a1 !== a2, a1);
+    c('readout sits above the graph with a fixed height', await page.evaluate(() => { const r = document.querySelector('#atRead'), h = r.offsetHeight;
+      const ok = r.nextElementSibling === cv && [...r.children].every(e => e.hidden || e.offsetHeight === 38);
+      for (const m of [0, 300, 700, 1100]){ state.tMin = m; render(); if (r.offsetHeight !== h) return false; } return ok; })); }
   c('temperature is the first, full-width reading', await page.evaluate(() => document.querySelector('.read').firstElementChild.id === '' && document.querySelector('.read .cell').classList.contains('tempc')));
   c('map summary shows the range', /\d+°–\d+°/.test(await page.text('#mini')), await page.text('#mini'));
   c('pressure over daylight', /^\d+ → \d+$/.test(await page.text('#presV')) && /^mb · .*in daylight/.test(await page.text('#presS')), await page.text('#presV') + ' ' + await page.text('#presS'));
