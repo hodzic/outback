@@ -96,8 +96,12 @@ table.acts td,table.acts th{padding:5px 3px}
 .cell .v{font-size:clamp(17px,5.2vw,20px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere}
 .cell .s{font-size:13px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
 .when{flex-wrap:nowrap;margin-bottom:10px} .when .f{min-width:0;padding:0 6px} #date{flex:1.35} #start{flex:1;height:42px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:inherit;font:inherit;text-align:left;white-space:nowrap;overflow:hidden}
-.tp{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:6px 0 12px} .tp button{height:40px;padding:0;font-size:15px}
-.tp button.on{background:var(--ink);color:#fff;border-color:var(--ink)} .tpNow{font-size:28px;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
+.tpw{position:relative;display:flex;justify-content:center;gap:8px;margin:12px 0 16px}
+.tpw::before{content:'';position:absolute;left:0;right:0;top:80px;height:40px;background:var(--wash);border-radius:10px;pointer-events:none}
+.roll{position:relative;width:76px;height:200px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none;overscroll-behavior:contain;
+  -webkit-mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent);mask-image:linear-gradient(transparent,#000 30%,#000 70%,transparent)}
+.roll::-webkit-scrollbar{display:none} .roll .pad{height:80px}
+.roll div[data-i]{height:40px;line-height:40px;text-align:center;font-size:24px;font-variant-numeric:tabular-nums;scroll-snap-align:center;cursor:pointer}
 .rt{padding-bottom:4px} .rline{font-size:16px;font-variant-numeric:tabular-nums} .rline b{margin-right:4px}
 #windV,#sunV{font-size:clamp(15px,4.6vw,18px);white-space:nowrap}
 .v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
@@ -409,7 +413,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-09h';
+const APP_VERSION = '2026-10-09i';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1506,23 +1510,26 @@ $('#date').onchange = e => {
   trip.date = e.target.value; trip.data = null; trip.fetchedAt = null; changed();
   toast('Date changed. Tap Get forecast for the new day.');
 };
-// The start time picker: an hour grid and a minute grid. The phone's own clock dialog can crop its OK button.
+// The start time picker: three rollers, hour, minute and AM/PM. The phone's own clock dialog can crop its OK button.
+const ROW = 40;
+const roller = (id, items, i) => `<div class="roll" id="${id}" data-i="${i}"><div class="pad"></div>${items.map((t, k) => `<div data-i="${k}">${t}</div>`).join('')}<div class="pad"></div></div>`;
+const rollAt = el => Math.max(0, Math.min(el.querySelectorAll('div[data-i]').length - 1, Math.round(el.scrollTop / ROW)));
 $('#start').onclick = () => {
-  let h = Math.floor(trip.start / 60), m = trip.start % 60 - trip.start % 5;
-  const lab = x => (x % 12 || 12) + (x < 12 ? 'a' : 'p');
-  const draw = () => openSheet(`<h2 style="margin:0">Planned start</h2><div class="tpNow" id="tpNow">${hm(dayStart() + (h * 60 + m) * 6e4)}</div>
-    <div class="muted">Hour</div><div class="tp" id="tpH">${[...Array(24).keys()].map(x => `<button class="btn${x === h ? ' on' : ''}" data-h="${x}">${lab(x)}</button>`).join('')}</div>
-    <div class="muted">Minute</div><div class="tp" id="tpM">${[...Array(12).keys()].map(i => i * 5).map(x => `<button class="btn${x === m ? ' on' : ''}" data-m="${x}">:${String(x).padStart(2, '0')}</button>`).join('')}</div>
+  const h = Math.floor(trip.start / 60), m = Math.floor(trip.start % 60 / 5);
+  openSheet(`<h2 style="margin:0">Planned start</h2>
+    <div class="tpw">${roller('tpH', [...Array(12).keys()].map(k => k + 1), (h % 12 || 12) - 1)}${roller('tpM', [...Array(12).keys()].map(k => ':' + String(k * 5).padStart(2, '0')), m)}${roller('tpA', ['AM', 'PM'], h < 12 ? 0 : 1)}</div>
     <div class="row"><span class="grow"></span><button class="btn" id="tpCancel">Cancel</button><button class="btn primary" id="tpOk">OK</button></div>`);
-  draw(); sheet.addEventListener('close', () => { sheet.onclick = null; }, { once: true });
+  sheet.querySelectorAll('.roll').forEach(el => { el.scrollTop = +el.dataset.i * ROW; });
+  sheet.addEventListener('close', () => { sheet.onclick = null; }, { once: true });
   sheet.onclick = e => {
+    const it = e.target.closest('.roll div[data-i]');
+    if (it) return it.parentElement.scrollTo({ top: +it.dataset.i * ROW, behavior: 'smooth' });
     const b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.h != null){ h = +b.dataset.h; draw(); }
-    else if (b.dataset.m != null){ m = +b.dataset.m; draw(); }
-    else if (b.id === 'tpCancel') sheet.close();
+    if (b.id === 'tpCancel') sheet.close();
     else if (b.id === 'tpOk'){
+      const hh = rollAt($('#tpH')) + 1, mm = rollAt($('#tpM')) * 5, pm = rollAt($('#tpA')) === 1; // read before closing hides them
       sheet.close();
-      trip.start = h * 60 + m; settings.start = trip.start; saveSettings();
+      trip.start = (hh % 12 + (pm ? 12 : 0)) * 60 + mm; settings.start = trip.start; saveSettings();
       state.tMin = trip.start; changed();
     }
   };

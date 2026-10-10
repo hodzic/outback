@@ -42,9 +42,11 @@ module.exports = async (browser, url, check) => {
   c('legs summary', (await page.text('#legs')).startsWith('2 legs'), await page.text('#legs'));
   c('start time next to the date, 9:00 by default', (await page.text('#start')) === '9:00 AM' && await page.evaluate(() => document.querySelector('#date').parentElement.contains(document.querySelector('#start'))));
   await page.click('#start');
-  c('start picker: hour and minute grids with OK', await page.locator('#tpH button').count() === 24 && await page.locator('#tpM button').count() === 12 && await page.isVisible('#tpOk'));
-  await page.click('#tpH [data-h="7"]'); await page.click('#tpM [data-m="30"]');
-  c('picker shows the picked time', (await page.text('#tpNow')) === '7:30 AM' && await page.evaluate(() => trip.start) === 540, await page.text('#tpNow'));
+  c('start picker: hour, minute and AM/PM rollers set to the start', await page.evaluate(() => [rollAt($('#tpH')), rollAt($('#tpM')), rollAt($('#tpA'))].join()) === '8,0,0' && await page.isVisible('#tpOk'));
+  await page.evaluate(() => { $('#tpH').scrollTop = 6 * ROW; $('#tpM').scrollTop = 6 * ROW; });
+  await page.click('#tpA div[data-i="1"]'); await page.waitForTimeout(600);
+  c('tapping a roller item rolls to it', await page.evaluate(() => rollAt($('#tpA'))) === 1);
+  await page.evaluate(() => { $('#tpA').scrollTop = 0; }); await page.waitForTimeout(100);
   await page.click('#tpOk');
   c('start time is saved and moves the graph time', await page.evaluate(() => trip.start === 450 && state.tMin === 450 && settings.start === 450) && /^7:30/.test(await page.text('#timeOut')) && (await page.text('#start')) === '7:30 AM' && !(await page.evaluate(() => sheet.open)), await page.text('#timeOut'));
   await page.click('#wpDetails summary'); await page.waitForTimeout(150);
