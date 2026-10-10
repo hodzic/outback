@@ -235,20 +235,33 @@ module.exports = async (browser, url, check) => {
     c('without a share sheet the link is copied', (await page.evaluate(() => navigator.clipboard.readText())) === url && /Link copied/.test(await page.text('#toast')), await page.text('#toast'));
     await ctx.close(); }
 
-  { // install help on the Trips view
+  { // Help: its own page from the ? buttons
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);
+    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll('#helpPage .help').length === 5));
+    c('? button at the top of Trips and Trip', await page.evaluate(() => ['#vTrips', '#vTrip'].every(v => document.querySelector(v + ' [data-help]'))));
+    for (const v of [1, 0]){
+      await view(page, v); await page.locator(['#vTrips', '#vTrip'][v] + ' [data-help]').click();
+      c(`? opens the help page (tab ${v})`, await page.isVisible('#helpPage') && /Install on your phone/.test(await page.text('#helpPage')));
+      if (v === 1){ await page.goBack(); await page.waitForTimeout(200); c('phone back button closes help', await page.isHidden('#helpPage') && await page.evaluate(() => state.view === 1)); }
+      else { await page.click('#helpClose'); await page.waitForTimeout(200); c(`Close returns to the tab (${v})`, await page.isHidden('#helpPage') && await page.evaluate(v => state.view === v, v)); }
+    }
+    await page.screenshot({ path: path.join(OUT, 'feat-help-btn.png') });
+    await page.locator('#vTrips [data-help]').click();
+    await page.screenshot({ path: path.join(OUT, 'feat-help.png') });
     c('install help is collapsed at first', !(await page.isVisible('#helpInstall ol')));
     await page.click('#helpInstall summary');
     const t = await page.text('#helpInstall');
     c('install help covers Android and iPhone', /Android \(Chrome\)/.test(t) && /Install app/.test(t) && /iPhone and iPad \(Safari\)/.test(t) && /Add to Home Screen/.test(t), t.slice(0, 80));
     c('install help comes before offline help', await page.evaluate(() => document.querySelector('#helpInstall').nextElementSibling.id === 'helpOffline'));
+    await page.keyboard.press('Escape'); await page.waitForTimeout(200);
+    c('Escape closes help', await page.isHidden('#helpPage'));
     c('iPhone home-screen icon and name set', await page.evaluate(() => !!document.querySelector('link[rel=apple-touch-icon]') && document.querySelector('meta[name=apple-mobile-web-app-title]').content === 'Outback'));
     await ctx.close(); }
 
-  { // offline help on the Trips view
+  { // offline help
     const { ctx, page } = await open(browser, url);
-    await page.goto(url); await ready(page); await view(page, 0);
+    await page.goto(url); await ready(page); await view(page, 0); await page.locator('#vTrips [data-help]').click();
     c('offline help is collapsed at first', !(await page.isVisible('#helpOffline ol')));
     await page.click('#helpOffline summary');
     const t = await page.text('#helpOffline');
@@ -274,11 +287,12 @@ module.exports = async (browser, url, check) => {
     await page.click('#mapsBtn'); await page.waitForSelector('#addPdf');
     c('PDF button opens the maps sheet', /Overlay PDF maps/.test(await page.text('#sheet')) && /None yet/.test(await page.text('#sheet')));
     await page.click('#pdfHelp'); await page.waitForTimeout(700);
-    c('PDF list links to PDF help, which covers Auto-align', await page.evaluate(() => state.view === 0 && !document.querySelector('#sheet').open && document.querySelector('#helpPdf').open)
+    c('PDF list links to PDF help, which covers Auto-align', await page.evaluate(() => !document.querySelector('#helpPage').hidden && !document.querySelector('#sheet').open && document.querySelector('#helpPdf').open)
       && /Auto-align/.test(await page.text('#helpPdf')) && /Undo align/.test(await page.text('#helpPdf')));
     c('Tomales Bay and SF Bay help follows PDF help, links open in a new tab', await page.evaluate(() => { const h = document.querySelector('#helpWaters'), l = [...h.querySelectorAll('a')];
       return h.previousElementSibling.id === 'helpPdf' && l.length >= 8 && l.every(a => a.target === '_blank' && a.rel === 'noopener' && a.href.startsWith('https://')) && l.some(a => a.href.includes('nps.gov/pore')) && l.some(a => a.href.includes('sfbaywatertrail.org')); }));
-    await view(page, 2);
+    await page.click('#helpClose'); await page.waitForTimeout(200);
+    c('closing PDF help returns to the map', await page.evaluate(() => state.view === 2) && await page.isHidden('#helpPage'));
     await page.setInputFiles('#pdfFile', path.join(OUT, 'brochure.pdf'));
     await page.waitForSelector('#nSave', { timeout: 60000 });
     c('PDF labels detected', /Found 3 GPS labels/.test(await page.text('#toast')), await page.text('#toast'));

@@ -114,6 +114,10 @@ table.acts td,table.acts th{padding:5px 3px}
 #status{margin:6px 0;font-size:13px;color:var(--muted)}
 #status.warn{color:var(--warn)}
 .help h3{font-size:15px;margin:12px 0 4px}
+#helpPage{position:fixed;inset:0;z-index:2500;background:var(--wash);overflow-y:auto;-webkit-overflow-scrolling:touch}
+#helpPage[hidden]{display:none}
+#helpPage .help{margin-bottom:10px}
+.qbtn{width:40px;padding:0;font-weight:700;flex:none}
 .help p,.help li{font-size:14px;line-height:1.45}
 .help ol,.help ul{margin:0;padding-left:20px}
 .help li{margin:3px 0}
@@ -220,7 +224,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
   <!-- 1. Trips -->
   <section class="view" id="vTrips" aria-label="Trips">
     <div class="page">
-      <div class="row" style="margin-bottom:12px"><h1 class="grow" style="margin:0">Outback</h1><button class="btn" id="shareApp">Share Outback</button></div>
+      <div class="row" style="margin-bottom:12px"><h1 class="grow" style="margin:0">Outback</h1><button class="btn" id="shareApp">Share Outback</button><button class="btn qbtn" data-help aria-label="Help" title="Help">?</button></div>
       <div class="new"><button class="btn primary" id="newPaddle">+ Paddle</button><button class="btn primary" id="newHike">+ Hike</button><button class="btn primary" id="newBike">+ Bike</button></div>
       <div id="tripList"></div>
       <div class="row" style="margin-top:6px"><button class="btn" id="importBtn">Import trip or GPX…</button></div>
@@ -235,116 +239,6 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
         <label class="f" for="sAis">AIS ships: AISStream API key (free at aisstream.io; "demo" for sample ships)</label><input class="f" id="sAis" type="text" autocomplete="off" spellcheck="false">
       </details>
-      <details class="card help" id="helpInstall"><summary>Help: install on your phone</summary>
-        <p>Installing puts Outback on your home screen. It opens full screen and keeps its offline data.</p>
-        <h3>Android (Chrome)</h3>
-        <ol>
-          <li>Open <b class="appUrl">this page</b> in Chrome.</li>
-          <li>Tap the <b>⋮</b> menu, then <b>Install app</b> (or <b>Add to Home screen</b>).</li>
-          <li>Tap <b>Install</b>.</li>
-        </ol>
-        <h3>iPhone and iPad (Safari)</h3>
-        <ol>
-          <li>Open <b class="appUrl">this page</b> in Safari.</li>
-          <li>Tap the <b>Share</b> button (square with an arrow), then <b>Add to Home Screen</b>.</li>
-          <li>Tap <b>Add</b>.</li>
-        </ol>
-        <p>From then on, open Outback from its home screen icon.</p>
-      </details>
-      <details class="card help" id="helpOffline"><summary>Help: using it offline</summary>
-        <p>Outback works offline once each trip has been prepared while you still have a connection.</p>
-        <h3>Before you leave</h3>
-        <ol>
-          <li>Open the trip, choose the map layer you'll use (Chart, Street or Topo), then tap <b>Get forecast</b>. Wait until the status says the map was saved offline.</li>
-          <li>Open the Map view once and zoom in to the detail you'll want.</li>
-          <li>Add the app to your home screen. iPhones can clear saved data for websites that aren't installed and haven't been used for a while.</li>
-        </ol>
-        <h3>Works offline</h3>
-        <ul>
-          <li><b>The app itself</b>, once you've opened it online.</li>
-          <li><b>Your trips</b>: routes, settings, recorded tracks and overlay PDF maps are stored on the phone.</li>
-          <li><b>The forecast you already fetched</b>: tides, currents, wind, pressure, lightning and elevation. It can't refresh; the status line says when it was fetched.</li>
-          <li><b>GPS</b>: your location on the map (◎) uses satellites, not data.</li>
-          <li><b>Map tiles</b> that Get forecast saved around the route, and areas you've already looked at.</li>
-        </ul>
-        <h3>Needs a connection</h3>
-        <ul>
-          <li>Getting or refreshing a forecast, or changing tide stations.</li>
-          <li>Tides and currents on the map (≈) for stations and days you haven't looked at yet. Ones you've seen are kept.</li>
-          <li>Map areas you haven't saved or viewed, and map layers you didn't save (Get forecast saves only the layer selected at the time).</li>
-          <li>Importing your first overlay PDF map (the PDF reader downloads on first use). Overlay PDF maps you've imported show fine offline.</li>
-          <li>The first Auto-align of an overlay PDF map (it gets OpenStreetMap water for the area once, then keeps it with the map).</li>
-          <li>AIS ships: they are live only and need a data connection.</li>
-        </ul>
-      </details>
-      <details class="card help" id="helpAis"><summary>Help: AIS ships</summary>
-        <p>On paddle trips, the <b>AIS</b> button at the bottom right of the map shows large vessels nearby, from their AIS radio broadcasts collected by <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a>.</p>
-        <h3>Get a free key (once)</h3>
-        <ol>
-          <li>Go to <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a> and tap <b>Sign In</b> (with a GitHub account).</li>
-          <li>Open <b>API Keys</b> and create a new key. Copy it.</li>
-          <li>In Outback, tap <b>AIS</b> on the map and paste it, or paste it in <b>Settings</b> above.</li>
-        </ol>
-        <p>The key is stored only on this phone. Type <b>demo</b> instead to see made-up ships.</p>
-        <h3>On the map</h3>
-        <ul>
-          <li>Colour shows the type: <b style="color:#2e7d32">cargo</b>, <b style="color:#c62828">tanker</b>, <b style="color:#1565c0">passenger/ferry</b>, <b style="color:#00838f">tug, pilot or patrol</b>, <b style="color:#ef6c00">high-speed</b>, grey for other or not yet known. Bigger icons are longer ships; faded ones are stopped.</li>
-          <li>The dashed line is where the ship will be in the next 15 minutes at its current speed and course, with a dot every 5 minutes.</li>
-          <li>Tap a ship for its name, type, size, speed, course, destination, distance from you and photo links.</li>
-          <li>With location (◎) on, a ship that will pass within 0.5 nm of you in the next 20 minutes turns the button red, vibrates and shows a warning.</li>
-          <li>The number on the button is how many ships are shown.</li>
-        </ul>
-        <h3>Good to know</h3>
-        <ul>
-          <li>Ships send their name, type and size only every few minutes. Until then a ship is grey; once seen, the phone remembers it.</li>
-          <li>Positions can lag from seconds to a few minutes, and coverage depends on volunteer receivers.</li>
-          <li>Many small boats don't send AIS. Keep a lookout; this doesn't replace one.</li>
-          <li>It uses data only while AIS is on and the app is open. Tap AIS again to turn it off.</li>
-        </ul>
-      </details>
-      <details class="card help" id="helpPdf"><summary>Help: overlay PDF maps</summary>
-        <p>Lay a park or trail map PDF over the map, e.g. a brochure from the park's website. Tap <b>PDF</b> on the map, then <b>Add an overlay PDF map…</b> It's saved on this phone and shows offline.</p>
-        <h3>Placing it</h3>
-        <ul>
-          <li>Outback places it from the PDF's own map data (GeoPDF) or from printed <b>GPS Coordinates</b> labels when the PDF has them. Otherwise it starts over the area you're looking at.</li>
-          <li>Drag the 4 pink points onto the spots they belong, or <b>✥</b> to move the whole map. The others follow as you drag one. The PDF slider on the right makes it see-through.</li>
-          <li><b>Save</b> keeps it; <b>Cancel</b> drops the change. Later, <b>Adjust</b> in the PDF list brings the points back.</li>
-        </ul>
-        <h3>Auto-align</h3>
-        <ul>
-          <li>For maps that show water (a lake, river or bay): place it roughly first, within a few hundred metres, then tap <b>Auto-align</b>.</li>
-          <li>It finds the light-blue water on the map and fits it to OpenStreetMap's shoreline, turning, shifting and scaling the map a little. The OpenStreetMap shoreline shows as a dashed blue line so you can check it, and the message gives how far off the shoreline was before and after.</li>
-          <li>Not right? <b>Undo align</b> puts the points back. Fine-tune by dragging, then Save.</li>
-          <li>The first time needs a connection, to get the water for the area. It's kept with the map, so later it works offline.</li>
-          <li>Brochure maps are simplified, so small coves can still be off by a little. Maps without water can't be auto-aligned.</li>
-        </ul>
-        <h3>Good to know</h3>
-        <ul>
-          <li>The first PDF import downloads the PDF reader (about 10 MB). Big PDFs can take a while.</li>
-          <li>One page is used: the one with map data or GPS labels, otherwise the first page.</li>
-          <li><b>Built-in maps</b> (in the PDF list) come already placed: tap <b>Add</b> once while online. Now: Tomales Bay boat-in camping (National Park Service), Del Valle Regional Park (East Bay Regional Park District) and Sacramento–San Joaquin Delta boating (California Coastal Commission, 2005: marinas, pump-outs and fuel docks may have changed).</li>
-          <li>Overlay PDF maps you saved in the GPS Map app can be copied in from the PDF list.</li>
-          <li>Overlay PDF maps are included in <b>Back up</b>.</li>
-        </ul>
-      </details>
-      <details class="card help" id="helpWaters"><summary>Help: Tomales Bay and San Francisco Bay</summary>
-        <p>Official info for two popular Bay Area paddles. Rules and closures change; check these before you go.</p>
-        <h3>Tomales Bay (Point Reyes National Seashore)</h3>
-        <ul>
-          <li><a href="https://www.nps.gov/pore/planyourvisit/tomales-bay-boat-in-camping.htm" target="_blank" rel="noopener">Boat-in camping</a>: beaches, permits (Recreation.gov) and rules.</li>
-          <li><a href="https://www.nps.gov/pore/planyourvisit/upload/map_boatincamping.pdf" target="_blank" rel="noopener">Boat-in camping map (PDF)</a>: launches, beaches open or closed to camping, toilets.</li>
-          <li><a href="https://www.nps.gov/pore/planyourvisit/kayak.htm" target="_blank" rel="noopener">Kayaking around Point Reyes</a> and the <a href="https://www.nps.gov/pore/planyourvisit/kayak_libc.htm" target="_blank" rel="noopener">low-impact boat camping guide</a>.</li>
-          <li>Overnight parking only at Tomales Bay Resort, Miller Boat Launch and Lawson's Landing. Pelican Point, Duck Island and the east side of Hog Island are closed all year; Blue Gum Beach is closed March 1 – June 30 for seal pupping.</li>
-        </ul>
-        <h3>San Francisco Bay</h3>
-        <ul>
-          <li><a href="https://sfbaywatertrail.org/" target="_blank" rel="noopener">San Francisco Bay Area Water Trail</a>: launch sites, access and printable maps.</li>
-          <li><a href="https://abag.ca.gov/tools-resources/maps/water-trail-map" target="_blank" rel="noopener">Water Trail web map</a>: every launch and destination with directions and photos.</li>
-          <li><a href="https://sfbaywatertrail.org/conditions-on-the-bay/" target="_blank" rel="noopener">Conditions on the Bay</a>: tides, currents and other hazards.</li>
-          <li><a href="https://dolphinclub.org/boating-guide/boating-on-the-bay/" target="_blank" rel="noopener">Dolphin Club: boating on the Bay</a>: the central Bay's currents, ship traffic and hazards.</li>
-          <li>For shipping lanes and depths, use the <b>Chart</b> layer on the map (NOAA charts).</li>
-        </ul>
-      </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
         <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
@@ -357,7 +251,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
   <!-- 2. Trip details -->
   <section class="view" id="vTrip" aria-label="Trip">
     <div class="page">
-      <input class="f" id="tripName" aria-label="Trip name" autocomplete="off">
+      <div class="row" style="gap:8px"><input class="f grow" id="tripName" aria-label="Trip name" autocomplete="off"><button class="btn qbtn" data-help aria-label="Help" title="Help">?</button></div>
       <div class="card">
         <div class="row when"><span id="dow" class="dow"></span><input class="f" id="date" type="date" aria-label="Trip date"><button class="f" id="start" type="button" aria-label="Start time" title="Planned start"></button></div>
         <div class="seg" id="actSel" role="group" aria-label="Activity"><button data-act="paddle">Paddle</button><button data-act="hike">Hike</button><button data-act="bike">Bike</button></div>
@@ -435,6 +329,122 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="Overlay PDF map opacity"><span id="opVal">80%</span></div>
   </section>
 </main>
+<!-- Help: its own page over the app, opened by the ? buttons -->
+<div id="helpPage" hidden role="dialog" aria-modal="true" aria-label="Help">
+  <div class="page">
+    <div class="row" style="margin-bottom:12px"><h1 class="grow" style="margin:0">Help</h1><button class="btn" id="helpClose">Close</button></div>
+      <details class="card help" id="helpInstall"><summary>Install on your phone</summary>
+        <p>Installing puts Outback on your home screen. It opens full screen and keeps its offline data.</p>
+        <h3>Android (Chrome)</h3>
+        <ol>
+          <li>Open <b class="appUrl">this page</b> in Chrome.</li>
+          <li>Tap the <b>⋮</b> menu, then <b>Install app</b> (or <b>Add to Home screen</b>).</li>
+          <li>Tap <b>Install</b>.</li>
+        </ol>
+        <h3>iPhone and iPad (Safari)</h3>
+        <ol>
+          <li>Open <b class="appUrl">this page</b> in Safari.</li>
+          <li>Tap the <b>Share</b> button (square with an arrow), then <b>Add to Home Screen</b>.</li>
+          <li>Tap <b>Add</b>.</li>
+        </ol>
+        <p>From then on, open Outback from its home screen icon.</p>
+      </details>
+      <details class="card help" id="helpOffline"><summary>Using it offline</summary>
+        <p>Outback works offline once each trip has been prepared while you still have a connection.</p>
+        <h3>Before you leave</h3>
+        <ol>
+          <li>Open the trip, choose the map layer you'll use (Chart, Street or Topo), then tap <b>Get forecast</b>. Wait until the status says the map was saved offline.</li>
+          <li>Open the Map view once and zoom in to the detail you'll want.</li>
+          <li>Add the app to your home screen. iPhones can clear saved data for websites that aren't installed and haven't been used for a while.</li>
+        </ol>
+        <h3>Works offline</h3>
+        <ul>
+          <li><b>The app itself</b>, once you've opened it online.</li>
+          <li><b>Your trips</b>: routes, settings, recorded tracks and overlay PDF maps are stored on the phone.</li>
+          <li><b>The forecast you already fetched</b>: tides, currents, wind, pressure, lightning and elevation. It can't refresh; the status line says when it was fetched.</li>
+          <li><b>GPS</b>: your location on the map (◎) uses satellites, not data.</li>
+          <li><b>Map tiles</b> that Get forecast saved around the route, and areas you've already looked at.</li>
+        </ul>
+        <h3>Needs a connection</h3>
+        <ul>
+          <li>Getting or refreshing a forecast, or changing tide stations.</li>
+          <li>Tides and currents on the map (≈) for stations and days you haven't looked at yet. Ones you've seen are kept.</li>
+          <li>Map areas you haven't saved or viewed, and map layers you didn't save (Get forecast saves only the layer selected at the time).</li>
+          <li>Importing your first overlay PDF map (the PDF reader downloads on first use). Overlay PDF maps you've imported show fine offline.</li>
+          <li>The first Auto-align of an overlay PDF map (it gets OpenStreetMap water for the area once, then keeps it with the map).</li>
+          <li>AIS ships: they are live only and need a data connection.</li>
+        </ul>
+      </details>
+      <details class="card help" id="helpAis"><summary>AIS ships</summary>
+        <p>On paddle trips, the <b>AIS</b> button at the bottom right of the map shows large vessels nearby, from their AIS radio broadcasts collected by <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a>.</p>
+        <h3>Get a free key (once)</h3>
+        <ol>
+          <li>Go to <a href="https://aisstream.io" target="_blank" rel="noopener">aisstream.io</a> and tap <b>Sign In</b> (with a GitHub account).</li>
+          <li>Open <b>API Keys</b> and create a new key. Copy it.</li>
+          <li>In Outback, tap <b>AIS</b> on the map and paste it, or paste it in <b>Settings</b> above.</li>
+        </ol>
+        <p>The key is stored only on this phone. Type <b>demo</b> instead to see made-up ships.</p>
+        <h3>On the map</h3>
+        <ul>
+          <li>Colour shows the type: <b style="color:#2e7d32">cargo</b>, <b style="color:#c62828">tanker</b>, <b style="color:#1565c0">passenger/ferry</b>, <b style="color:#00838f">tug, pilot or patrol</b>, <b style="color:#ef6c00">high-speed</b>, grey for other or not yet known. Bigger icons are longer ships; faded ones are stopped.</li>
+          <li>The dashed line is where the ship will be in the next 15 minutes at its current speed and course, with a dot every 5 minutes.</li>
+          <li>Tap a ship for its name, type, size, speed, course, destination, distance from you and photo links.</li>
+          <li>With location (◎) on, a ship that will pass within 0.5 nm of you in the next 20 minutes turns the button red, vibrates and shows a warning.</li>
+          <li>The number on the button is how many ships are shown.</li>
+        </ul>
+        <h3>Good to know</h3>
+        <ul>
+          <li>Ships send their name, type and size only every few minutes. Until then a ship is grey; once seen, the phone remembers it.</li>
+          <li>Positions can lag from seconds to a few minutes, and coverage depends on volunteer receivers.</li>
+          <li>Many small boats don't send AIS. Keep a lookout; this doesn't replace one.</li>
+          <li>It uses data only while AIS is on and the app is open. Tap AIS again to turn it off.</li>
+        </ul>
+      </details>
+      <details class="card help" id="helpPdf"><summary>Overlay PDF maps</summary>
+        <p>Lay a park or trail map PDF over the map, e.g. a brochure from the park's website. Tap <b>PDF</b> on the map, then <b>Add an overlay PDF map…</b> It's saved on this phone and shows offline.</p>
+        <h3>Placing it</h3>
+        <ul>
+          <li>Outback places it from the PDF's own map data (GeoPDF) or from printed <b>GPS Coordinates</b> labels when the PDF has them. Otherwise it starts over the area you're looking at.</li>
+          <li>Drag the 4 pink points onto the spots they belong, or <b>✥</b> to move the whole map. The others follow as you drag one. The PDF slider on the right makes it see-through.</li>
+          <li><b>Save</b> keeps it; <b>Cancel</b> drops the change. Later, <b>Adjust</b> in the PDF list brings the points back.</li>
+        </ul>
+        <h3>Auto-align</h3>
+        <ul>
+          <li>For maps that show water (a lake, river or bay): place it roughly first, within a few hundred metres, then tap <b>Auto-align</b>.</li>
+          <li>It finds the light-blue water on the map and fits it to OpenStreetMap's shoreline, turning, shifting and scaling the map a little. The OpenStreetMap shoreline shows as a dashed blue line so you can check it, and the message gives how far off the shoreline was before and after.</li>
+          <li>Not right? <b>Undo align</b> puts the points back. Fine-tune by dragging, then Save.</li>
+          <li>The first time needs a connection, to get the water for the area. It's kept with the map, so later it works offline.</li>
+          <li>Brochure maps are simplified, so small coves can still be off by a little. Maps without water can't be auto-aligned.</li>
+        </ul>
+        <h3>Good to know</h3>
+        <ul>
+          <li>The first PDF import downloads the PDF reader (about 10 MB). Big PDFs can take a while.</li>
+          <li>One page is used: the one with map data or GPS labels, otherwise the first page.</li>
+          <li><b>Built-in maps</b> (in the PDF list) come already placed: tap <b>Add</b> once while online. Now: Tomales Bay boat-in camping (National Park Service), Del Valle Regional Park (East Bay Regional Park District) and Sacramento–San Joaquin Delta boating (California Coastal Commission, 2005: marinas, pump-outs and fuel docks may have changed).</li>
+          <li>Overlay PDF maps you saved in the GPS Map app can be copied in from the PDF list.</li>
+          <li>Overlay PDF maps are included in <b>Back up</b>.</li>
+        </ul>
+      </details>
+      <details class="card help" id="helpWaters"><summary>Tomales Bay and San Francisco Bay</summary>
+        <p>Official info for two popular Bay Area paddles. Rules and closures change; check these before you go.</p>
+        <h3>Tomales Bay (Point Reyes National Seashore)</h3>
+        <ul>
+          <li><a href="https://www.nps.gov/pore/planyourvisit/tomales-bay-boat-in-camping.htm" target="_blank" rel="noopener">Boat-in camping</a>: beaches, permits (Recreation.gov) and rules.</li>
+          <li><a href="https://www.nps.gov/pore/planyourvisit/upload/map_boatincamping.pdf" target="_blank" rel="noopener">Boat-in camping map (PDF)</a>: launches, beaches open or closed to camping, toilets.</li>
+          <li><a href="https://www.nps.gov/pore/planyourvisit/kayak.htm" target="_blank" rel="noopener">Kayaking around Point Reyes</a> and the <a href="https://www.nps.gov/pore/planyourvisit/kayak_libc.htm" target="_blank" rel="noopener">low-impact boat camping guide</a>.</li>
+          <li>Overnight parking only at Tomales Bay Resort, Miller Boat Launch and Lawson's Landing. Pelican Point, Duck Island and the east side of Hog Island are closed all year; Blue Gum Beach is closed March 1 – June 30 for seal pupping.</li>
+        </ul>
+        <h3>San Francisco Bay</h3>
+        <ul>
+          <li><a href="https://sfbaywatertrail.org/" target="_blank" rel="noopener">San Francisco Bay Area Water Trail</a>: launch sites, access and printable maps.</li>
+          <li><a href="https://abag.ca.gov/tools-resources/maps/water-trail-map" target="_blank" rel="noopener">Water Trail web map</a>: every launch and destination with directions and photos.</li>
+          <li><a href="https://sfbaywatertrail.org/conditions-on-the-bay/" target="_blank" rel="noopener">Conditions on the Bay</a>: tides, currents and other hazards.</li>
+          <li><a href="https://dolphinclub.org/boating-guide/boating-on-the-bay/" target="_blank" rel="noopener">Dolphin Club: boating on the Bay</a>: the central Bay's currents, ship traffic and hazards.</li>
+          <li>For shipping lanes and depths, use the <b>Chart</b> layer on the map (NOAA charts).</li>
+        </ul>
+      </details>
+  </div>
+</div>
 
 <nav id="tabs" aria-label="Views">
   <button data-view="0">Trips</button><button data-view="1" id="tabTrip">Trip</button><button data-view="2">Map</button>
@@ -457,7 +467,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10g';
+const APP_VERSION = '2026-10-10h';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2198,12 +2208,25 @@ function aisDemo(){
   ais.demoT = setInterval(() => fleet.forEach(f => { if (f.sog) f.p = fwd(f.p, f.cog, f.sog * 2 / 3600); send(f); }), 2000);
 }
 
+/* ---------- help page ---------- */
+// Opens over the app; Close, Escape or the phone's back button return to where you were.
+function openHelp(id){
+  const hp = $('#helpPage'); if (hp.hidden){ hp.hidden = false; history.pushState({ help: 1 }, ''); }
+  const d = id && $('#' + id);
+  if (d){ d.open = true; setTimeout(() => d.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); } else hp.scrollTop = 0;
+}
+const closeHelp = () => { if (!$('#helpPage').hidden) history.state?.help ? history.back() : ($('#helpPage').hidden = true); };
+addEventListener('popstate', () => { $('#helpPage').hidden = true; });
+document.addEventListener('click', e => { if (e.target.closest('[data-help]')) openHelp(); });
+$('#helpClose').onclick = closeHelp;
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#helpPage').hidden) closeHelp(); });
+
 /* ---------- sheet (PDF maps) ---------- */
 const sheet = $('#sheet');
 function openSheet(html){ sheet.innerHTML = `<div class="sh">${html}</div>`; if (!sheet.open) sheet.showModal(); }
 sheet.addEventListener('click', async e => {
   if (e.target === sheet || e.target.closest('[data-close]')) return sheet.close();
-  if (e.target.id === 'pdfHelp'){ e.preventDefault(); sheet.close(); showView(0); const h = $('#helpPdf'); h.open = true; return setTimeout(() => h.scrollIntoView({ behavior: 'smooth' }), 400); }
+  if (e.target.id === 'pdfHelp'){ e.preventDefault(); sheet.close(); return openHelp('helpPdf'); }
   const b = e.target.closest('button'); if (!b) return;
   const ds = b.dataset;
   if (b.id === 'addPdf'){ sheet.close(); return $('#pdfFile').click(); }
