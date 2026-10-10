@@ -6,7 +6,7 @@ const CORS = { 'access-control-allow-origin': '*' };
 const pad = n => String(n).padStart(2, '0');
 const gmtStr = ms => { const d = new Date(ms); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`; };
 const ymdToMs = s => Date.UTC(+s.slice(0,4), +s.slice(4,6)-1, +s.slice(6,8));
-const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org', 'basemap.nationalmap.gov', 'server.arcgisonline.com', 'tile.opentopomap.org'];
+const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org', 'basemap.nationalmap.gov', 'server.arcgisonline.com', 'tile.opentopomap.org', 'tiles.openseamap.org'];
 
 // opts: { tilesFail: bool, noaaErr: bool, tz: IANA zone reported by Open-Meteo (default America/Los_Angeles), tzOffset: seconds }
 async function install(ctx, opts = {}){

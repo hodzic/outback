@@ -238,7 +238,7 @@ module.exports = async (browser, url, check) => {
   { // Help: its own page from the ? buttons
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);
-    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll('#helpPage .help').length === 5));
+    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll('#helpPage .help').length === 6));
     c('? button at the top of Trips and Trip', await page.evaluate(() => ['#vTrips', '#vTrip'].every(v => document.querySelector(v + ' [data-help]'))));
     for (const v of [1, 0]){
       await view(page, v); await page.locator(['#vTrips', '#vTrip'][v] + ' [data-help]').click();
@@ -279,6 +279,79 @@ module.exports = async (browser, url, check) => {
     await page.fill('#sVar', '14'); await page.dispatchEvent('#sVar', 'change');
     c('settings saved', await page.evaluate(() => settings.variation === 14));
     await ctx.close(); }
+
+  { // Share plan (text for a forum, plus GPX) and the printable trip sheet
+    const { ctx, page, errors } = await open(browser, url, { permissions: ['geolocation', 'clipboard-read', 'clipboard-write'] });
+    await page.addInitScript(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
+    await page.goto(url); await ready(page); await view(page, 2);
+    await seedRoute(page, [[37.8321, -122.4762, 'Horseshoe Cove'], [37.8270, -122.4400], [37.8110, -122.4200, 'Aquatic Park']]);
+    await page.evaluate(() => { trip.marks.push({ id: 'k1', lat: 37.826, lng: -122.4228, name: 'Alcatraz' }); trip.name = 'Club paddle'; changed(); });
+    await view(page, 1);
+    await page.click('#sharePlan'); await page.waitForSelector('#planTxt');
+    let t = await page.inputValue('#planTxt');
+    c('plan text without a forecast: name, day, start, route, waypoints, markers, app link', /^Club paddle\nPaddle · .*start 9:00 AM/.test(t) && /Route: [\d.]+ nm/.test(t) && /1 Horseshoe Cove  37\.83210, -122\.47620  leave 9:00 AM/.test(t)
+      && /3 Aquatic Park  37\.81100, -122\.42000  [\d.]+ nm, \d{3}°M, \d+:\d\d [AP]M/.test(t) && /Alcatraz  37\.82600, -122\.42280/.test(t) && /google\.com\/maps\/search\/\?api=1&query=37\.83210,-122\.47620/.test(t)
+      && /Planned with Outback: http/.test(t) && !/Forecast for the day/.test(t), t);
+    await page.click('#sheet [data-close]');
+    await page.click('#fcBtn'); await waitForecast(page);
+    await page.click('#sharePlan'); await page.waitForSelector('#planTxt'); t = await page.inputValue('#planTxt');
+    c('plan text includes the day forecast', /Forecast for the day \(as of/.test(t) && /Tide · San Francisco: [\d.]+ – [\d.]+ ft; \d+:\d\d[ap] (Low|High)/.test(t) && /Wind · kt: AM \d+ G\d+ \w+; PM/.test(t) && /Sun: Rise \d/.test(t), t);
+    await page.click('#planCopy'); await page.waitForTimeout(150);
+    c('Copy text puts the plan on the clipboard', (await page.evaluate(() => navigator.clipboard.readText())) === t && /copied/.test(await page.text('#toast')));
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#planGpx')]);
+    c('GPX file from the share sheet', dl && /^Club-paddle_\d{4}-\d\d-\d\d\.gpx$/.test(dl.suggestedFilename()), dl && dl.suggestedFilename());
+    await page.click('#sheet [data-close]');
+    await page.click('#printPlan'); await page.waitForTimeout(1200);
+    c('Print opens a preview with title, map, waypoints, forecast and graphs', await page.isVisible('#printView') && /Club paddle/.test(await page.text('#printDoc h1'))
+      && await page.locator('#pMap .leaflet-tile').count() > 0 && await page.locator('#pMap .wp').count() === 3 && await page.locator('#printDoc table tr').count() >= 4
+      && /Tide · San Francisco/.test(await page.text('#printDoc dl')) && await page.locator('#printDoc canvas[data-kind]').count() === 2);
+    c('graphs drawn sharp for paper', await page.evaluate(() => [...document.querySelectorAll('#printDoc canvas')].every(c => c.width >= c.clientWidth * 3 - 1)));
+    await page.click('#pPrint');
+    c('Print button prints', await page.evaluate(() => window.__printed === 1));
+    await page.emulateMedia({ media: 'print' });
+    const pdf = await page.pdf({ format: 'Letter' });
+    c('trip sheet fits on one Letter page', (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 1);
+    await page.emulateMedia({ media: 'screen' });
+    await page.goBack(); await page.waitForTimeout(200);
+    c('back closes the print preview', await page.isHidden('#printView') && await page.evaluate(() => state.view === 1 && !pMap));
+    c('no page errors (share, print)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
+  { // Satellite layer and scale bar
+    const { ctx, page, errors } = await open(browser, url);
+    const tiles = []; page.on('request', r => { if (r.url().includes('USGSImageryOnly')) tiles.push(r.url()); });
+    await page.goto(url); await ready(page); await view(page, 2);
+    const names = [];
+    for (let i = 0; i < 4; i++){ names.push(await page.text('#layerBtn')); await page.click('#layerBtn'); await page.waitForTimeout(150); }
+    c('layer button cycles Chart, Street, Topo, Sat (satellite)', names.join() === 'Chart,Street,Topo,Sat' && (await page.text('#layerBtn')) === 'Chart', names.join());
+    await page.click('#layerBtn'); await page.click('#layerBtn'); await page.click('#layerBtn'); await page.waitForTimeout(500);
+    c('Satellite loads USGS imagery tiles and is remembered', (await page.text('#layerBtn')) === 'Sat' && tiles.length > 0 && /\/tile\/\d+\/\d+\/\d+$/.test(tiles[0])
+      && await page.evaluate(() => settings.layer === 'sat'), tiles[0]);
+    c('Satellite credited', /USGS The National Map: imagery/.test(await page.text('.leaflet-control-attribution')));
+    await page.screenshot({ path: path.join(OUT, 'feat-satellite.png') });
+    const scale = () => page.text('.leaflet-control-scale-line');
+    c('scale bar on the map in nautical miles or feet for a paddle', await page.isVisible('.leaflet-control-scale') && /^\d+ (nm|ft)$/.test(await scale()), await scale());
+    await page.evaluate(() => map.setZoom(9, { animate: false })); await page.waitForTimeout(200);
+    c('zoomed out the scale reads nm', /^\d+ nm$/.test(await scale()), await scale());
+    await page.evaluate(() => { settings.units.paddle = 'km'; changed(); }); await page.waitForTimeout(100);
+    c('scale follows the unit setting (km)', /^\d+ km$/.test(await scale()), await scale());
+    await page.evaluate(() => map.setZoom(17, { animate: false })); await page.waitForTimeout(200);
+    c('zoomed in it reads metres', /^\d+ m$/.test(await scale()), await scale());
+    // sea marks: ⚓ on paddle trips toggles OpenSeaMap over the base map, remembered
+    const sea = []; page.on('request', r => { if (r.url().includes('tiles.openseamap.org/seamark/')) sea.push(r.url()); });
+    await page.evaluate(() => map.setZoom(13, { animate: false }));
+    c('⚓ sea marks button on paddle trips, off at first', await page.isVisible('#seaBtn') && !(await page.evaluate(() => document.querySelector('#seaBtn').classList.contains('on'))));
+    await page.click('#seaBtn'); await page.waitForTimeout(400);
+    c('⚓ shows OpenSeaMap sea marks and is remembered', sea.length > 0 && await page.evaluate(() => settings.seamarks === true && map.hasLayer(seaLayer) && document.querySelector('#seaBtn').classList.contains('on'))
+      && /OpenSeaMap/.test(await page.text('.leaflet-control-attribution')), sea[0]);
+    await page.click('#layerBtn'); await page.waitForTimeout(200);
+    c('sea marks stay on when the base layer changes', await page.evaluate(() => map.hasLayer(seaLayer)));
+    await page.screenshot({ path: path.join(OUT, 'feat-seamarks.png') });
+    await page.click('#seaBtn'); await page.waitForTimeout(200);
+    c('⚓ again turns sea marks off', await page.evaluate(() => !settings.seamarks && !seaLayer));
+    await page.click('#seaBtn');
+    await page.click('#tabs [data-view="0"]'); await page.click('#newHike'); await page.waitForTimeout(500);
+    c('no sea marks on a hike', await page.isHidden('#seaBtn') && await page.evaluate(() => !seaLayer));
+    c('no page errors (satellite, scale)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // PDF maps from the map view: auto-placement from printed GPS labels, adjust, persistence, opacity
     const { ctx, page, errors } = await open(browser, url);

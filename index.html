@@ -114,6 +114,33 @@ table.acts td,table.acts th{padding:5px 3px}
 #status{margin:6px 0;font-size:13px;color:var(--muted)}
 #status.warn{color:var(--warn)}
 .help h3{font-size:15px;margin:12px 0 4px}
+#printView{position:fixed;inset:0;z-index:2600;background:#fff;overflow-y:auto;color:#000}
+#printView[hidden]{display:none}
+.pbar{position:sticky;top:0;z-index:5;display:flex;gap:8px;align-items:center;padding:calc(var(--top) + 8px) 16px 8px;background:var(--wash);border-bottom:1px solid var(--line)}
+#printDoc{width:7.6in;margin:0 auto;padding:12px 0 24px;font-size:12px;line-height:1.35}
+#printDoc h1{font-size:20px;margin:0}
+#printDoc h3{font-size:13px;margin:10px 0 4px;border-bottom:1.5px solid #000}
+#printDoc .sub{margin:2px 0 8px;font-size:13px}
+#pMap{height:3.4in;border:1.5px solid #000;margin:6px 0}
+#pMap .leaflet-control-attribution{font-size:8px}
+.pcols{display:grid;grid-template-columns:auto 1fr;gap:0 18px}
+#printDoc table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+#printDoc td,#printDoc th{border-bottom:1px solid #999;padding:2px 4px;text-align:left;font-size:11.5px;white-space:nowrap}
+#printDoc dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 8px}
+#printDoc dt{font-weight:700;max-width:1.25in} #printDoc dd{margin:0}
+#printDoc .pg{break-inside:avoid;min-width:0}
+#printDoc .pgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(3in,1fr));gap:0 14px}
+#printDoc canvas{width:100%;height:1.35in;display:block;border:1px solid #999}
+#printDoc .pfoot{margin-top:10px;font-size:10px;color:#333}
+@media print{
+  @page{size:letter portrait;margin:.35in}
+  html,body{height:auto!important;overflow:visible!important;background:#fff!important}
+  body>*:not(#printView){display:none!important}
+  #printView{position:static;overflow:visible}
+  .noprint{display:none!important}
+  #printDoc{padding:0;zoom:1!important;margin:0}
+  #printDoc canvas,#pMap{break-inside:avoid}
+}
 #helpPage{position:fixed;inset:0;z-index:2500;background:var(--wash);overflow-y:auto;-webkit-overflow-scrolling:touch}
 #helpPage[hidden]{display:none}
 #helpPage .help{margin-bottom:10px}
@@ -128,6 +155,8 @@ table.acts td,table.acts th{padding:5px 3px}
 #vMap{overflow:hidden}
 #map{position:absolute;inset:0;background:#cfe3ee}
 .leaflet-control-attribution{font-size:10px}
+.leaflet-control-scale{margin-left:8px!important;margin-bottom:24px!important}
+.leaflet-control-scale-line{background:rgba(255,255,255,.75);border-color:var(--ink);color:var(--ink);font-size:11px;line-height:1.3}
 .mhead{position:absolute;left:0;right:0;top:0;z-index:1000;display:flex;flex-direction:column;gap:6px;padding:calc(var(--top) + 8px) 8px 0;pointer-events:none}
 .mhead>*,.mtop>*{pointer-events:auto}
 .mtop{display:flex;gap:5px;align-items:center;pointer-events:none}
@@ -165,6 +194,8 @@ table.acts td,table.acts th{padding:5px 3px}
 #locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}
 #locBtn{position:relative}#locBtn::after{position:absolute;right:-3px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--me);border:1px solid var(--me);border-radius:8px;padding:0 3px;line-height:14px}
 #aisBtn{position:absolute;right:10px;bottom:24px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:13px;font-weight:800;padding:0}
+#seaBtn{position:absolute;right:10px;bottom:140px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:22px;padding:0}
+#seaBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #aisBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #aisBtn[data-n]::after{content:attr(data-n);position:absolute;right:-4px;top:-4px;min-width:18px;font-size:11px;line-height:18px;border-radius:9px;background:var(--paper);color:var(--ink);border:1px solid var(--ink);padding:0 3px}
 #aisBtn.warn{background:var(--warn);border-color:var(--warn)}
@@ -241,7 +272,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
       </details>
@@ -299,6 +330,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <p class="muted">Tracks from imported GPX files (e.g. from your watch).</p>
       </div>
 
+      <div class="row" style="flex-wrap:wrap;margin-bottom:8px"><button class="btn primary" id="sharePlan">Share plan</button><button class="btn primary" id="printPlan">Print</button></div>
       <div class="row"><button class="btn" id="exportGpx">Export GPX</button><button class="btn" id="exportJson">Export trip file</button><span class="grow"></span><button class="btn danger" id="deleteTrip">Delete trip</button></div>
     </div>
   </section>
@@ -325,10 +357,16 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     </div>
     <button id="aisBtn" class="pill" aria-label="Ships nearby (AIS)" title="Ships nearby (AIS)">AIS</button>
+    <button id="seaBtn" class="pill" hidden aria-label="Sea marks (OpenSeaMap)" title="Sea marks (OpenSeaMap)">⚓</button>
     <button id="curBtn" class="pill" aria-label="Tides and currents on the map" title="Tides and currents on the map">≈</button>
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="Overlay PDF map opacity"><span id="opVal">80%</span></div>
   </section>
 </main>
+<!-- Print: a printable trip sheet (map, waypoints, forecast, graphs), shown first as a preview -->
+<div id="printView" hidden role="dialog" aria-modal="true" aria-label="Print trip">
+  <div class="pbar noprint"><b class="grow">Print preview</b><button class="btn primary" id="pPrint">Print</button><button class="btn" id="pClose">Close</button></div>
+  <div id="printDoc"></div>
+</div>
 <!-- Help: its own page over the app, opened by the ? buttons -->
 <div id="helpPage" hidden role="dialog" aria-modal="true" aria-label="Help">
   <div class="page">
@@ -353,7 +391,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <p>Outback works offline once each trip has been prepared while you still have a connection.</p>
         <h3>Before you leave</h3>
         <ol>
-          <li>Open the trip, choose the map layer you'll use (Chart, Street or Topo), then tap <b>Get forecast</b>. Wait until the status says the map was saved offline.</li>
+          <li>Open the trip, choose the map layer you'll use (Chart, Street, Topo or Sat for satellite), then tap <b>Get forecast</b>. Wait until the status says the map was saved offline.</li>
           <li>Open the Map view once and zoom in to the detail you'll want.</li>
           <li>Add the app to your home screen. iPhones can clear saved data for websites that aren't installed and haven't been used for a while.</li>
         </ol>
@@ -443,6 +481,14 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li>For shipping lanes and depths, use the <b>Chart</b> layer on the map (NOAA charts).</li>
         </ul>
       </details>
+      <details class="card help" id="helpShare"><summary>Sharing and printing a trip</summary>
+        <ul>
+          <li><b>Share plan</b> (Trip tab, under Tracks) writes the trip out as plain text anyone can read: day and start time, route, every waypoint with coordinates, leg, bearing and estimated arrival, your markers and the day's forecast. <b>Copy text</b> to paste it into a club forum or email; <b>Share…</b> sends it with the GPX file where the phone allows; <b>GPX file</b> is for people with a GPS or map app.</li>
+          <li><b>Print</b> makes a one-page trip sheet: the map with the route and numbered waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Check the preview, then tap <b>Print</b>, or choose Save as PDF in the print dialog.</li>
+          <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) before tapping Print.</li>
+          <li>For a waterproof case: print in colour if you can, fold once, and carry a proper chart or map too.</li>
+        </ul>
+      </details>
   </div>
 </div>
 
@@ -467,7 +513,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10h';
+const APP_VERSION = '2026-10-10k';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -702,6 +748,15 @@ addEventListener('resize', () => { views.scrollLeft = Math.max(0, state.view) * 
 /* ---------- map ---------- */
 const view = LS.get('view', { c: [37.82, -122.38], z: 11 });
 const map = L.map('map', { zoomControl: false, attributionControl: true }).setView(view.c, view.z);
+// Scale bar in the trip's distance unit: nm (feet below 1 nm), mi (feet below 1 mi) or km (m below 1 km)
+const scaleCtl = new (L.Control.Scale.extend({
+  _updateScales(m){
+    const u = unitName(), el = this._mScale, put = (v, unit, max) => { const r = this._getRoundNum(max); this._updateScale(el, r + ' ' + unit, r / max); };
+    if (u === 'km') return this._updateMetric(m);
+    const big = u === 'nm' ? m / 1852 : m / 1609.344;
+    big >= 1 ? put(0, u, big) : put(0, 'ft', m * 3.2808399);
+  }
+}))({ position: 'bottomleft', metric: true, imperial: false, maxWidth: 110 }).addTo(map);
 // Smaller waypoints when zoomed out or crowded: by zoom level, and by the typical on-screen gap between them
 function wpSize(){
   const z = map.getZoom(), c = map.getContainer().classList, draw = state.drawing, r = trip?.route || [];
@@ -727,9 +782,19 @@ function ncdsTile(z, x, y){
 const LAYERS = {
   chart: { name: 'Chart', tile: ncdsTile, opt: { maxZoom: 18, maxNativeZoom: 17, minNativeZoom: 5, attribution: 'NOAA ENC charts · not for navigation' } },
   street: { name: 'Street', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt: { maxZoom: 19, attribution: '© OpenStreetMap contributors' }, polite: true },
-  topo: { name: 'Topo', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map' } }
+  topo: { name: 'Topo', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map' } },
+  sat: { name: 'Sat', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map: imagery' } }
 };
-const LAYER_ORDER = ['chart', 'street', 'topo'];
+const LAYER_ORDER = ['chart', 'street', 'topo', 'sat'];
+// OpenSeaMap sea marks: buoys, beacons, lights and harbours, see-through over any base layer (⚓ on paddle trips)
+const SEAMARKS = { url: 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', opt: { maxZoom: 18, maxNativeZoom: 18, minNativeZoom: 9, attribution: 'Sea marks © OpenSeaMap', zIndex: 5 }, polite: true };
+let seaLayer = null;
+function seaState(){
+  const b = $('#seaBtn'), avail = trip?.activity === 'paddle', on = avail && !!settings.seamarks;
+  b.hidden = !avail; b.classList.toggle('on', on); b.style.bottom = $('#curBtn').hidden ? '82px' : '140px';
+  if (on && !seaLayer) seaLayer = L.tileLayer(SEAMARKS.url, SEAMARKS.opt).addTo(map);
+  else if (!on && seaLayer){ map.removeLayer(seaLayer); seaLayer = null; }
+}
 let base, tileErr = 0, tileOk = 0;
 function setLayer(k){
   if (base) map.removeLayer(base);
@@ -741,6 +806,7 @@ function setLayer(k){
   $('#layerBtn').textContent = LAYERS[k].name;
 }
 setLayer(settings.layer in LAYERS ? settings.layer : 'chart');
+$('#seaBtn').onclick = () => { settings.seamarks = !settings.seamarks; saveSettings(); seaState(); toast(settings.seamarks ? 'Sea marks on (OpenSeaMap): buoys, beacons, lights and harbours.' : 'Sea marks off.'); };
 $('#layerBtn').onclick = () => setLayer(LAYER_ORDER[(LAYER_ORDER.indexOf(settings.layer) + 1) % LAYER_ORDER.length]);
 $('#tripChip').onclick = () => showView(1);
 $('#mini').onclick = () => showView(1);
@@ -1029,8 +1095,8 @@ $('#fcBtn').onclick = getForecast;
 /* ---------- offline tiles: Get forecast saves the map around the route ---------- */
 const lon2tile = (lng, n) => Math.floor((lng + 180) / 360 * n);
 const lat2tile = (lat, n) => { const r = toR(lat); return Math.floor((1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * n); };
-function tileUrls(layerKey, b, z0, z1, max){
-  const L0 = LAYERS[layerKey], urls = [];
+function tileUrls(L0, b, z0, z1, max){
+  const urls = [];
   for (let z = z0; z <= z1; z++){
     const n = 2 ** z, x0 = lon2tile(b.getWest(), n), x1 = lon2tile(b.getEast(), n), y0 = lat2tile(b.getNorth(), n), y1 = lat2tile(b.getSouth(), n);
     if (urls.length + (x1 - x0 + 1) * (y1 - y0 + 1) > max) break;
@@ -1066,8 +1132,13 @@ async function cacheTiles(){
   let b = L.latLngBounds(pts);
   b = L.latLngBounds([b.getSouth() - .03, b.getWest() - .04], [b.getNorth() + .03, b.getEast() + .04]);
   const polite = LAYERS[settings.layer].polite;
-  const urls = tileUrls(settings.layer, b, 10, polite ? 15 : 16, polite ? 600 : 1500);
-  return downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Map ${Math.round(d / urls.length * 100)}%`; } });
+  const urls = tileUrls(LAYERS[settings.layer], b, 10, polite ? 15 : 16, polite ? 600 : 1500);
+  const n = await downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Map ${Math.round(d / urls.length * 100)}%`; } });
+  if (seaLayer){ // sea marks too, gently: OpenSeaMap is a volunteer server
+    const sm = tileUrls(SEAMARKS, b, 10, 15, 600);
+    await downloadTiles(sm, { polite: true, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Sea marks ${Math.round(d / sm.length * 100)}%`; } });
+  }
+  return n;
 }
 
 /* ---------- interpolation ---------- */
@@ -1407,7 +1478,7 @@ function drawTcMap(){
 }
 function tcBtnState(){
   const m = tcMode(), b = $('#curBtn');
-  b.hidden = !tcAvail(); b.classList.toggle('on', m > 0); b.dataset.mode = m;
+  b.hidden = !tcAvail(); b.classList.toggle('on', m > 0); b.dataset.mode = m; seaState();
   b.setAttribute('aria-label', TC_MODES[m].label); b.title = TC_MODES[m].label;
 }
 function setTcMode(m){
@@ -1461,7 +1532,7 @@ function drawChart(sun){
   if (!$('#timeBar').hidden) drawDay(tcv, sun, 'tide', { tide: tcShows('tide'), cur: tcShows('current'), compact: true });
 }
 function drawDay(cv, sun, kind, o){
-  const dpr = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  const dpr = o.dpr || devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
   if (!W) return;
   cv.width = W * dpr; cv.height = H * dpr;
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
@@ -1686,7 +1757,7 @@ $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.tar
 /* ---------- save / load ---------- */
 let saveT, listT;
 function changed(){
-  trip.updated = Date.now();
+  trip.updated = Date.now(); scaleCtl._update();
   if (state.locMode === 1 && state.pos) state.nextWp = nextWaypoint(state.pos, trip.route); // highlight drawn below
   drawRoute(); drawMarks(); drawTracks(); drawStations(); render(); showToNext();
   clearTimeout(saveT); saveT = setTimeout(saveNow, 300);
@@ -1704,7 +1775,7 @@ async function openTrip(t){
     const n0 = trip.route.length; trip.route = simplifyTo(trip.route, MAX_WPS); trip.updated = Date.now(); idb.put('trips', trip).catch(() => {});
     setTimeout(() => toast(`This route had ${n0.toLocaleString()} points; simplified to ${trip.route.length} waypoints to keep the app fast.`, 5000), 300);
   }
-  setDrawing(false);
+  setDrawing(false); scaleCtl._update();
   state.tMin = todayIso() === trip.date ? Math.floor(nowMin() / 5) * 5 : Math.floor(trip.start / 5) * 5;
   state.nextWp = null; drawRoute(); drawMarks(); drawTracks(); drawStations(); render(); renderList(); showToNext();
   fitTrip();
@@ -2208,6 +2279,91 @@ function aisDemo(){
   ais.demoT = setInterval(() => fleet.forEach(f => { if (f.sog) f.p = fwd(f.p, f.cog, f.sog * 2 / 3600); send(f); }), 2000);
 }
 
+/* ---------- share plan + print ---------- */
+// For people without the app: a plain-text plan for a forum or email (plus the GPX), and a printable sheet.
+const legsOf = () => { const r = trip.route, start = dayStart() + trip.start * 6e4; let cum = 0;
+  return r.map((p, i) => { const d = i ? distNm(r[i-1], p) : 0; cum += d; return { p, i, d, brg: i ? magB(brgT(r[i-1], p)) : '', at: start + hoursFor(cum) * 36e5, cum }; }); };
+// The whole-day forecast as shown on the Trip tab: [label, [lines]] for each cell that applies to this trip
+function planForecast(){
+  if (!trip.data) return [];
+  return [...document.querySelectorAll('#vTrip .read .cell')].filter(c => getComputedStyle(c).display !== 'none').map(c => {
+    const k = c.querySelector('.k').textContent.trim(), lines = [];
+    const v = c.querySelector('.v'); if (v) lines.push(...v.innerHTML.split(/<br\s*\/?>/i).map(h => h.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim()));
+    const sEl = c.querySelector('.s'), tl = sEl?.querySelector('.tl');
+    if (tl){ const it = [...tl.children].map(e => e.textContent.trim()); for (let i = 0; i < it.length; i += 2) lines.push(`${it[i]} ${it[i+1] || ''}`.trim()); }
+    else if (sEl && sEl.textContent.trim()) lines.push(sEl.textContent.trim());
+    return [k, lines.filter(l => l && l !== '–')];
+  }).filter(([, l]) => l.length);
+}
+const startTime = () => hm(dayStart() + trip.start * 6e4);
+const envName = () => trip.envSet || trip.env ? env().name || '' : '';
+function planText(){
+  const L = [], r = trip.route, ll = p => `${p[0].toFixed(5)}, ${p[1].toFixed(5)}`;
+  L.push(trip.name, `${act().name}${envName() ? ' · ' + envName() : ''} · ${fmtDay(trip.date)} · start ${startTime()}`);
+  if (r.length > 1) L.push(`Route: ${$('#dist').textContent} · ${$('#dur').textContent} at ${$('#spd').textContent} · ${$('#legs').textContent}`);
+  if (r.length){
+    L.push('', `Start: ${r[0][2] ? r[0][2] + ' ' : ''}${ll(r[0])}  https://www.google.com/maps/search/?api=1&query=${r[0][0].toFixed(5)},${r[0][1].toFixed(5)}`);
+    if (r.length > 1){ L.push('', 'Waypoints (leg, bearing, est. arrival):');
+      for (const g of legsOf()) L.push(`${wpLabel(r, g.i)}  ${ll(g.p)}  ${g.i ? `${dU(g.d).toFixed(2)} ${unitName()}, ${g.brg}, ${hm(g.at)}` : `leave ${hm(g.at)}`}`); }
+  }
+  if (trip.marks.length){ L.push('', 'Points of interest:'); for (const k of trip.marks) L.push(`${k.name}  ${k.lat.toFixed(5)}, ${k.lng.toFixed(5)}`); }
+  const fc = planForecast();
+  if (fc.length){ L.push('', `Forecast for the day (as of ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}):`);
+    for (const [k, l] of fc) L.push(`${k}: ${l.join('; ')}`); }
+  L.push('', `Times are estimates at ${$('#spd').textContent}. Check official forecasts and conditions before you go.`, `Planned with Outback: ${appUrl()}`);
+  return L.join('\n');
+}
+function sharePlanSheet(){
+  openSheet(`<h2>Share trip plan</h2><p class="muted">For a club forum, email or chat: anyone can read it. The GPX file opens in most map and GPS apps.</p>
+    <textarea id="planTxt" class="f" readonly rows="12" style="width:100%;font:13px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap"></textarea>
+    <div class="row" style="flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="planCopy">Copy text</button><button class="btn" id="planShare">Share…</button><button class="btn" id="planGpx">GPX file</button><span class="grow"></span><button class="btn" data-close>Close</button></div>`);
+  $('#planTxt').value = planText();
+}
+$('#sharePlan').onclick = sharePlanSheet;
+async function copyText(t){ try{ await navigator.clipboard.writeText(t); return true; }catch{ const a = $('#planTxt'); a?.select(); try{ return document.execCommand('copy'); }catch{ return false; } } }
+
+let pMap = null;
+function closePrint(){ if (pMap){ pMap.remove(); pMap = null; } $('#printView').hidden = true; }
+async function openPrint(){
+  const r = trip.route, legs = legsOf(), fc = planForecast(), sun = sunTimes(trip.date, ...centroid());
+  const kinds = [isTidal() && 'tide', 'wind', hasElev() && r.length > 1 && 'elev'].filter(Boolean);
+  const names = { tide: hasCurrents() ? 'Tide and current' : 'Tide', wind: 'Wind and gusts', elev: 'Elevation' };
+  $('#printDoc').innerHTML = `<h1>${esc(trip.name)}</h1>
+    <p class="sub"><b>${act().name}${envName() ? ' · ' + esc(envName()) : ''}</b> · ${fmtDay(trip.date)} · start ${startTime()}${r.length > 1 ? ` · ${esc($('#dist').textContent)} · ${esc($('#dur').textContent)} at ${esc($('#spd').textContent)}` : ''}</p>
+    <div id="pMap"></div>
+    <div class="pcols"><div><h3>Waypoints</h3>${r.length > 1 ? `<table><tr><th>#</th><th>Lat, lon</th><th>Leg</th><th>Brg</th><th>Arrive</th></tr>${legs.map(g =>
+        `<tr><td>${esc(wpLabel(r, g.i))}</td><td>${g.p[0].toFixed(4)}, ${g.p[1].toFixed(4)}</td><td>${g.i ? dU(g.d).toFixed(2) : '–'}</td><td>${g.brg || '–'}</td><td>${hm(g.at)}</td></tr>`).join('')}</table>
+        <p>Legs in ${unitName()}; bearings magnetic (${settings.variation}° E); arrivals at ${esc($('#spd').textContent)}.</p>` : '<p>No route.</p>'}
+      ${trip.marks.length ? `<h3>Points of interest</h3><table>${trip.marks.map(k => `<tr><td>${esc(k.name)}</td><td>${k.lat.toFixed(4)}, ${k.lng.toFixed(4)}</td></tr>`).join('')}</table>` : ''}</div>
+      <div><h3>Forecast${trip.fetchedAt ? ` <span style="font-weight:400">(as of ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })})</span>` : ''}</h3>
+        ${fc.length ? `<dl>${fc.map(([k, l]) => `<dt>${esc(k)}</dt><dd>${esc(l[0])}${l.length > 1 ? '<br>' + l.slice(1).map(esc).join(' · ') : ''}</dd>`).join('')}</dl>` : '<p>No forecast yet: tap Get forecast first.</p>'}</div></div>
+    ${trip.data ? `<div class="pgs">${kinds.map(k => `<div class="pg"><h3>${names[k]}</h3><canvas data-kind="${k}"></canvas></div>`).join('')}</div>` : ''}
+    <p class="pfoot">Magenta line on the graphs: the planned start. Not for navigation; check official forecasts and local conditions. Planned with Outback, ${esc(appUrl())}</p>`;
+  if ($('#printView').hidden){ $('#printView').hidden = false; history.pushState({ print: 1 }, ''); }
+  $('#printView').scrollTop = 0;
+  // laid out at paper width; the on-screen preview is shrunk to fit (print resets it)
+  const doc = $('#printDoc'), fitW = () => { doc.style.zoom = Math.min(1, ($('#printView').clientWidth - 16) / doc.offsetWidth); };
+  doc.style.zoom = 1; fitW();
+  // graphs with the cursor at the planned start
+  const tMin = state.tMin; state.tMin = trip.start;
+  $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr: 3 }));
+  state.tMin = tMin;
+  // the map: the selected layer, the route with numbered waypoints, markers and sea marks
+  const L0 = LAYERS[settings.layer];
+  pMap = L.map('pMap', { zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false });
+  (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', L0.opt) : L.tileLayer(L0.url, L0.opt)).addTo(pMap);
+  if (seaLayer) L.tileLayer(SEAMARKS.url, SEAMARKS.opt).addTo(pMap);
+  new (L.Control.Scale.extend({ _updateScales: scaleCtl._updateScales }))({ position: 'bottomleft', metric: true, imperial: false, maxWidth: 110 }).addTo(pMap);
+  const pts = [...r.map(ll2), ...trip.marks.map(k => [k.lat, k.lng])];
+  if (r.length > 1) L.polyline(r.map(ll2), { color: '#C8167E', weight: 4, opacity: .95 }).addTo(pMap);
+  r.forEach((p, i) => L.marker(ll2(p), { icon: L.divIcon({ className: '', html: `<div class="wp">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(pMap));
+  for (const k of trip.marks) L.marker([k.lat, k.lng], { icon: MARK_ICON }).bindTooltip(esc(k.name), { permanent: true, direction: 'right', offset: [8, -9], className: 'mkname' }).addTo(pMap);
+  pts.length ? pMap.fitBounds(L.latLngBounds(pts), { padding: [24, 24], maxZoom: 15 }) : pMap.setView(map.getCenter(), map.getZoom());
+}
+$('#printPlan').onclick = openPrint;
+$('#pPrint').onclick = () => print();
+$('#pClose').onclick = () => history.state?.print ? history.back() : closePrint();
+
 /* ---------- help page ---------- */
 // Opens over the app; Close, Escape or the phone's back button return to where you were.
 function openHelp(id){
@@ -2216,10 +2372,10 @@ function openHelp(id){
   if (d){ d.open = true; setTimeout(() => d.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); } else hp.scrollTop = 0;
 }
 const closeHelp = () => { if (!$('#helpPage').hidden) history.state?.help ? history.back() : ($('#helpPage').hidden = true); };
-addEventListener('popstate', () => { $('#helpPage').hidden = true; });
+addEventListener('popstate', () => { $('#helpPage').hidden = true; closePrint(); });
 document.addEventListener('click', e => { if (e.target.closest('[data-help]')) openHelp(); });
 $('#helpClose').onclick = closeHelp;
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#helpPage').hidden) closeHelp(); });
+document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('#printView').hidden) $('#pClose').click(); else if (!$('#helpPage').hidden) closeHelp(); });
 
 /* ---------- sheet (PDF maps) ---------- */
 const sheet = $('#sheet');
@@ -2231,6 +2387,12 @@ sheet.addEventListener('click', async e => {
   const ds = b.dataset;
   if (b.id === 'addPdf'){ sheet.close(); return $('#pdfFile').click(); }
   if (b.id === 'copyGps') return copyGpsMaps();
+  if (b.id === 'planCopy') return toast(await copyText($('#planTxt').value) ? 'Trip plan copied. Paste it into the forum post.' : 'Could not copy; select the text and copy it.');
+  if (b.id === 'planShare'){ const text = $('#planTxt').value, gpx = trip.route.length ? new File([toGpx()], fileName('gpx'), { type: 'application/gpx+xml' }) : null;
+    try{ if (gpx && navigator.canShare?.({ files: [gpx], text })) return await navigator.share({ title: trip.name, text, files: [gpx] });
+      if (navigator.share) return await navigator.share({ title: trip.name, text }); }catch(e){ if (e.name === 'AbortError') return; }
+    return toast(await copyText(text) ? 'Trip plan copied.' : 'Sharing is not available here; copy the text instead.'); }
+  if (b.id === 'planGpx') return trip.route.length || trip.marks.length ? shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml') : toast('No route to export.');
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
   if (ds.pdfmap){ const m = await idb.get('trailMaps', ds.pdfmap), on = !shownMaps.has(ds.pdfmap); showPdfMap(m, on, on); if (on) sheet.close(); else mapsSheet(); return; }
   if (ds.builtin) return addBuiltin(ds.builtin);
