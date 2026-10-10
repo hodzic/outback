@@ -413,7 +413,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-09i';
+const APP_VERSION = '2026-10-09j';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -605,7 +605,7 @@ function sunTimes(dateIso, lat, lng){
 }
 
 /* ---------- state ---------- */
-const state = { legs: new Set(), tMin: 600, drawing: false, pos: null, watch: null,
+const state = { legs: new Set(), undo: [], tMin: 600, drawing: false, pos: null, watch: null,
   locating: false, locMode: 0, showStations: false, nextWp: null, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
@@ -716,6 +716,8 @@ function drawRoute(){
       // wide invisible line = easy tap target; tap toggles this leg's label
       const hit = L.polyline([ll2(a), ll2(p)], { color: '#000', weight: 22, opacity: 0 }).addTo(routeLayer);
       hit.on('click', e => { L.DomEvent.stop(e); state.legs.has(i) ? state.legs.delete(i) : state.legs.add(i); drawRoute(); });
+      // long-press (right-click on desktop) on a leg while editing inserts a waypoint on it
+      hit.on('contextmenu', e => { if (!state.drawing) return; L.DomEvent.stop(e); insertWp(i, e.latlng); });
       if (state.legs.has(i)){
         const d = distNm(a, p);
         L.tooltip({ permanent: true, direction: 'center', className: 'leg' }).setLatLng(mid)
@@ -724,11 +726,20 @@ function drawRoute(){
     }
     const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div data-n="${i+1}" class="wp${state.locMode === 1 && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
     if (p[2]) m.bindTooltip(esc(p[2]), { permanent: true, direction: 'right', offset: [12, 0], className: 'wpname' });
+    m.on('dragstart', editRoute);
     m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = p[2] ? [ll.lat, ll.lng, p[2]] : [ll.lat, ll.lng]; changed(); });
     m.bindPopup(() => `<b>Waypoint ${i+1}${p[2] ? ': ' + esc(p[2]) : ''}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
       <button class="btn" data-name="${i}">${p[2] ? 'Rename' : 'Name'}</button> <button class="btn" data-move="${i}">Move</button> <button class="btn" data-del="${i}">Delete</button>`);
   });
 }
+function insertWp(i, latlng){
+  const a = map.latLngToLayerPoint(ll2(trip.route[i-1])), b = map.latLngToLayerPoint(ll2(trip.route[i]));
+  const ll = map.layerPointToLatLng(L.LineUtil.closestPointOnSegment(map.latLngToLayerPoint(latlng), a, b));
+  editRoute(); trip.route.splice(i, 0, [+ll.lat.toFixed(6), +ll.lng.toFixed(6)]); state.legs.clear();
+  navigator.vibrate?.(20); changed(); toast(`Waypoint ${i + 1} inserted. Drag it into place.`);
+}
+// Undo in draw mode steps back through route edits
+function editRoute(){ state.undo.push(trip.route.map(p => [...p])); if (state.undo.length > 50) state.undo.shift(); }
 // Named markers: points of interest saved with the trip, separate from the route
 const MARK_ICON = L.divIcon({ className: '', html: '<div class="mk"></div>', iconSize: [18, 18], iconAnchor: [9, 18] });
 function drawMarks(){
@@ -760,18 +771,18 @@ function drawTracks(){
 map.on('click', e => {
   if (state.markMode){ state.markMode = false; $('#markBtn').classList.remove('on'); return addMark(e.latlng); }
   if (!state.drawing) return;
-  trip.route.push([+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6)]);
+  editRoute(); trip.route.push([+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6)]);
   changed();
 });
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-del],[data-use],[data-name],[data-move],[data-mkname],[data-mkdel]'); if (!t) return;
   if (t.dataset.move){ map.closePopup(); if (!state.drawing) setDrawing(true); toast(`Drag waypoint ${+t.dataset.move + 1} to its new spot, then tap Done.`, 4000); return; }
-  if (t.dataset.del){ trip.route.splice(+t.dataset.del, 1); map.closePopup(); changed(); }
+  if (t.dataset.del){ editRoute(); trip.route.splice(+t.dataset.del, 1); map.closePopup(); changed(); }
   if (t.dataset.name){
     const i = +t.dataset.name, p = trip.route[i]; map.closePopup();
     const n = prompt(`Name for waypoint ${i + 1} (empty to clear)`, p[2] || '');
     if (n === null) return;
-    trip.route[i] = n.trim() ? [p[0], p[1], n.trim()] : [p[0], p[1]]; changed();
+    editRoute(); trip.route[i] = n.trim() ? [p[0], p[1], n.trim()] : [p[0], p[1]]; changed();
   }
   if (t.dataset.mkname || t.dataset.mkdel){
     const k = trip.marks.find(m => m.id === (t.dataset.mkname || t.dataset.mkdel)); map.closePopup(); if (!k) return;
@@ -1241,7 +1252,7 @@ $('#trackList').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
   const k = trip.tracks.find(x => x.id === (b.dataset.showtrack || b.dataset.trackroute || b.dataset.rmtrack)); if (!k) return;
   if (b.dataset.showtrack){ showView(2); setTimeout(() => map.fitBounds(L.latLngBounds(k.pts.map(p => [p[0], p[1]])), { paddingTopLeft: [30, 110], paddingBottomRight: [30, 40] }), 350); }
-  if (b.dataset.trackroute){ trip.route = simplifyTo(k.pts.map(p => [p[0], p[1]]), 60); changed(); toast(`Route made from the track: ${trip.route.length} waypoints.`); }
+  if (b.dataset.trackroute){ editRoute(); trip.route = simplifyTo(k.pts.map(p => [p[0], p[1]]), 60); changed(); toast(`Route made from the track: ${trip.route.length} waypoints.`); }
   if (b.dataset.rmtrack && confirm('Delete this track?')){ trip.tracks = trip.tracks.filter(x => x !== k); changed(); }
 });
 
@@ -1551,7 +1562,7 @@ $('#envSel').addEventListener('click', e => {
 });
 $('#clearRoute').onclick = () => {
   if (!trip.route.length || !confirm(`Clear all ${trip.route.length} waypoints?`)) return;
-  trip.route = []; state.legs.clear(); changed(); toast('Waypoints cleared.');
+  editRoute(); trip.route = []; state.legs.clear(); changed(); toast('Waypoints cleared.');
 };
 $('#exportGpx').onclick = () => (trip.route.length || trip.tracks.length || trip.marks.length) ? shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml') : toast('No route or track to export.');
 $('#exportJson').onclick = () => shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json');
@@ -1648,7 +1659,7 @@ async function openTrip(t){
 /* ---------- drawing ---------- */
 function setDrawing(on){
   if (on) endMapBar();
-  state.drawing = on; $('#drawBar').hidden = !on; $('#drawBtn').classList.toggle('on', on); wpSize();
+  state.drawing = on; state.undo = []; $('#drawBar').hidden = !on; $('#drawBtn').classList.toggle('on', on); wpSize();
   map.getContainer().style.cursor = on ? 'crosshair' : '';
   state.markMode = false; $('#markBtn')?.classList.remove('on');
   if (trip){ drawRoute(); drawMarks(); }
@@ -1656,7 +1667,7 @@ function setDrawing(on){
 $('#drawBtn').onclick = () => setDrawing(!state.drawing);
 $('#doneBtn').onclick = () => setDrawing(false);
 $('#markBtn').onclick = () => { state.markMode = !state.markMode; $('#markBtn').classList.toggle('on', state.markMode); if (state.markMode) toast('Tap the map where the marker goes.'); };
-$('#undoBtn').onclick = () => { trip.route.pop(); changed(); };
+$('#undoBtn').onclick = () => { if (state.undo.length) trip.route = state.undo.pop(); else trip.route.pop(); state.legs.clear(); changed(); };
 
 /* ---------- location ---------- */
 function ensureWatch(){

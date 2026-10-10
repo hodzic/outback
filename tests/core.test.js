@@ -28,6 +28,14 @@ module.exports = async (browser, url, check) => {
   c('tapping the map adds waypoints', await page.locator('.wp').count() === 4);
   await page.click('#undoBtn');
   c('undo removes the last waypoint', await page.locator('.wp').count() === 3);
+  { const before = await page.evaluate(() => trip.route.map(p => p.slice(0, 2)));
+    await page.mouse.click(161, 282, { button: 'right' }); await page.waitForTimeout(200);
+    const r = await page.evaluate(() => trip.route), [a, b] = [before[0], before[1]];
+    const onLeg = Math.abs((r[1][0]-a[0])*(b[1]-a[1]) - (r[1][1]-a[1])*(b[0]-a[0])) < 1e-6;
+    c('long-press on a leg inserts a waypoint on it', r.length === 4 && onLeg && JSON.stringify(r[2]) === JSON.stringify(before[1]) && await page.locator('.wp').count() === 4, JSON.stringify(r));
+    c('long-press on a leg does not add a marker', await page.evaluate(() => trip.marks.length) === 0);
+    await page.click('#undoBtn');
+    c('undo removes the inserted waypoint', JSON.stringify(await page.evaluate(() => trip.route.map(p => p.slice(0, 2)))) === JSON.stringify(before)); }
   await page.screenshot({ path: path.join(OUT, 'core-drawing.png') });
   await page.click('#doneBtn');
   c('done leaves draw mode', !(await page.isVisible('#drawBar')));
