@@ -365,7 +365,7 @@ module.exports = async (browser, url, check) => {
     await page.goto(url); await ready(page); await view(page, 2);
     await page.evaluate(() => map.setView([37.87, -122.31], 13, { animate: false })); await page.waitForTimeout(300);
     c('🛶 launches button on paddle trips', await page.isVisible('#lnBtn'));
-    await page.click('#lnBtn'); await page.waitForFunction(() => document.querySelectorAll('.poi.ln').length > 1, null, { timeout: 5000 }).catch(() => {});
+    await page.click('#lnBtn'); await page.waitForFunction(() => document.querySelectorAll('.poi.ln:not(.wt)').length > 0, null, { timeout: 5000 }).catch(() => {});
     const n = await page.evaluate(() => ({ wt: document.querySelectorAll('.poi.ln.wt').length, osm: document.querySelectorAll('.poi.ln:not(.wt)').length, all: waterTrail.sites?.length }));
     c('🛶 shows Water Trail sites (48 shipped) and OSM put-ins, without duplicating a Water Trail site', n.all === 48 && n.wt >= 2 && n.osm === 1, JSON.stringify(n));
     await page.evaluate(() => POI.launch.layer.getLayers().find(m => Math.abs(m.getLatLng().lat - waterTrail.sites.find(s => s.id === 'wt-albany-beach').lat) < 1e-6).openPopup()); await page.waitForTimeout(300);
