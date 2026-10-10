@@ -474,7 +474,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li>The first PDF import downloads the PDF reader (about 10 MB). Big PDFs can take a while.</li>
           <li>One page is used: the one with map data or GPS labels, otherwise the first page.</li>
-          <li><b>Built-in maps</b> (in the PDF list) come already placed: tap <b>Add</b> once while online. Now: Tomales Bay boat-in camping (National Park Service), Del Valle Regional Park (East Bay Regional Park District) and Sacramento–San Joaquin Delta boating (California Coastal Commission, 2005: marinas, pump-outs and fuel docks may have changed).</li>
+          <li><b>Built-in maps</b> (in the PDF list) come already placed: tap <b>Add</b> once while online. Now: Tomales Bay boat-in camping (National Park Service), Del Valle Regional Park (East Bay Regional Park District) Sacramento–San Joaquin Delta boating (California Coastal Commission, 2005: marinas, pump-outs and fuel docks may have changed), and the five SF Bay Area Water Trail maps (North Central, South Central and South Bay, North San Pablo Bay, Suisun Marsh; 2017). The Water Trail maps' tables and zoomed insets sit over parts of the map, at their own scale.</li>
           <li>Overlay PDF maps you saved in the GPS Map app can be copied in from the PDF list.</li>
           <li>Overlay PDF maps are included in <b>Back up</b>.</li>
         </ul>
@@ -530,7 +530,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10o';
+const APP_VERSION = '2026-10-10p';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1995,6 +1995,46 @@ const BUILTIN_MAPS = [{
     { px: 1033.01, py: 641.52, lat: 38.0509539, lon: -121.3023784, name: 'Right edge' },
     { px: 561.42, py: 1180.39, lat: 37.826552, lon: -121.5457132, name: 'Bottom edge' },
     { px: 89.83, py: 641.52, lat: 38.049262, lon: -121.8032048, name: 'Left edge' }]
+}, {
+  id: 'builtin-wt-north-central', name: 'SF Bay Water Trail: North Central Bay', src: 'maps/wt-north-central.jpg', thumb: 'maps/wt-north-central-thumb.jpg', size: 569854, by: 'SF Bay Area Water Trail, 2017',
+  imageWidth: 1664, imageHeight: 1486,
+  topLeft: [38.1603958, -122.572725], topRight: [38.1595509, -122.1107515], bottomLeft: [37.8335421, -122.5739957],
+  controlPoints: [{ px: 832, py: 118.9, lat: 38.1338251, lon: -122.3418399, name: 'Top edge' },
+    { px: 1530.9, py: 743, lat: 37.9961917, lon: -122.1483448, name: 'Right edge' },
+    { px: 832, py: 1367.1, lat: 37.859268, lon: -122.3429073, name: 'Bottom edge' },
+    { px: 133.1, py: 743, lat: 37.9969014, lon: -122.5364025, name: 'Left edge' }]
+}, {
+  id: 'builtin-wt-south-central', name: 'SF Bay Water Trail: South Central Bay', src: 'maps/wt-south-central.jpg', thumb: 'maps/wt-south-central-thumb.jpg', size: 495833, by: 'SF Bay Area Water Trail, 2017',
+  imageWidth: 1670, imageHeight: 1420,
+  topLeft: [37.9209989, -122.5656523], topRight: [37.9197804, -122.1098837], bottomLeft: [37.6162095, -122.5782487],
+  controlPoints: [{ px: 835, py: 113.6, lat: 37.8960065, lon: -122.3387757, name: 'Top edge' },
+    { px: 1536.4, py: 710, lat: 37.7674832, lon: -122.1526434, name: 'Right edge' },
+    { px: 835, py: 1306.4, lat: 37.6399834, lon: -122.3493567, name: 'Bottom edge' },
+    { px: 133.6, py: 710, lat: 37.7685067, lon: -122.535489, name: 'Left edge' }]
+}, {
+  id: 'builtin-wt-south', name: 'SF Bay Water Trail: South Bay', src: 'maps/wt-south.jpg', thumb: 'maps/wt-south-thumb.jpg', size: 519014, by: 'SF Bay Area Water Trail, 2017',
+  imageWidth: 1670, imageHeight: 1420,
+  topLeft: [37.7147491, -122.4211348], topRight: [37.7117974, -121.9605287], bottomLeft: [37.4026412, -122.426566],
+  controlPoints: [{ px: 835, py: 113.6, lat: 37.6883046, lon: -122.1912662, name: 'Top edge' },
+    { px: 1536.4, py: 710, lat: 37.5559796, lon: -122.0000928, name: 'Right edge' },
+    { px: 835, py: 1306.4, lat: 37.426134, lon: -122.1958285, name: 'Bottom edge' },
+    { px: 133.6, py: 710, lat: 37.558459, lon: -122.3870019, name: 'Left edge' }]
+}, {
+  id: 'builtin-wt-north-san-pablo', name: 'SF Bay Water Trail: North San Pablo Bay (Petaluma, Napa)', src: 'maps/wt-north-san-pablo.jpg', thumb: 'maps/wt-north-san-pablo-thumb.jpg', size: 530288, by: 'SF Bay Area Water Trail, 2017',
+  imageWidth: 1670, imageHeight: 1420,
+  topLeft: [38.3364915, -122.6478734], topRight: [38.3344846, -122.1814509], bottomLeft: [38.023195, -122.6501511],
+  controlPoints: [{ px: 835, py: 113.6, lat: 38.3104244, lon: -122.4148444, name: 'Top edge' },
+    { px: 1536.4, py: 710, lat: 38.1779969, lon: -122.2199035, name: 'Right edge' },
+    { px: 835, py: 1306.4, lat: 38.0472553, lon: -122.4167576, name: 'Bottom edge' },
+    { px: 133.6, py: 710, lat: 38.1796827, lon: -122.6116985, name: 'Left edge' }]
+}, {
+  id: 'builtin-wt-suisun', name: 'SF Bay Water Trail: Suisun Marsh', src: 'maps/wt-suisun.jpg', thumb: 'maps/wt-suisun-thumb.jpg', size: 468694, by: 'SF Bay Area Water Trail, 2017',
+  imageWidth: 1670, imageHeight: 1420,
+  topLeft: [38.2486878, -122.2530217], topRight: [38.2452238, -121.7945123], bottomLeft: [37.939542, -122.2567362],
+  controlPoints: [{ px: 835, py: 113.6, lat: 38.2222242, lon: -122.0240642, name: 'Top edge' },
+    { px: 1536.4, py: 710, lat: 38.0909281, lon: -121.8330503, name: 'Right edge' },
+    { px: 835, py: 1306.4, lat: 37.9625417, lon: -122.0271844, name: 'Bottom edge' },
+    { px: 133.6, py: 710, lat: 38.0938378, lon: -122.2181982, name: 'Left edge' }]
 }];
 async function addBuiltin(id){
   const b = BUILTIN_MAPS.find(x => x.id === id);

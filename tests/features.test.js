@@ -501,7 +501,10 @@ module.exports = async (browser, url, check) => {
     await page.click('#sheet [data-rmpdf]'); await page.waitForSelector('#sheet [data-builtin="builtin-tomales-bay"]');
     c('deleting it offers it again', await page.evaluate(async () => !(await idb.get('trailMaps', 'builtin-tomales-bay')) && shownMaps.size === 0));
     // Del Valle and the Delta: each image loads and lands where it belongs
-    for (const [id, lat, lon, name] of [['builtin-del-valle', 37.59, -121.71, 'Del Valle Regional Park'], ['builtin-delta', 38.05, -121.55, 'Sacramento–San Joaquin Delta boating']]){
+    for (const [id, lat, lon, name] of [['builtin-del-valle', 37.59, -121.71, 'Del Valle Regional Park'], ['builtin-delta', 38.05, -121.55, 'Sacramento–San Joaquin Delta boating'],
+      ['builtin-wt-north-central', 37.92, -122.386, 'SF Bay Water Trail: North Central Bay'], ['builtin-wt-south-central', 37.8087, -122.409, 'SF Bay Water Trail: South Central Bay'],
+      ['builtin-wt-south', 37.5025, -122.2148, 'SF Bay Water Trail: South Bay'], ['builtin-wt-north-san-pablo', 38.2315, -122.6147, 'SF Bay Water Trail: North San Pablo Bay (Petaluma, Napa)'],
+      ['builtin-wt-suisun', 38.0578, -122.1746, 'SF Bay Water Trail: Suisun Marsh']]){
       c(`built-in offered: ${name}`, (await page.text('#sheet')).includes(name));
       await page.click(`#sheet [data-builtin="${id}"]`); await page.waitForFunction(id => shownMaps.has(id), id, { timeout: 15000 });
       const ok = await page.evaluate(async ([id, lat, lon]) => { const m = await idb.get('trailMaps', id), b = BUILTIN_MAPS.find(x => x.id === id);

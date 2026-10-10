@@ -91,8 +91,10 @@ Three views; swipe between them or use the tabs at the bottom.
   Opacity slider on the right. Overlay PDF maps saved in GPS Map (same origin) can be copied in.
   **Built-in maps** ship already placed (`maps/`, listed in `BUILTIN_MAPS`): *Add* in the PDF list copies one into the
   phone's maps, where it works like an imported one. Now: NPS Tomales Bay boat-in camping (public domain),
-  Del Valle Regional Park (EBRPD, GeoPDF placement refined by Auto-align: shoreline median 8 m) and the
-  Sacramento–San Joaquin Delta boating map (California Coastal Commission, 2005; placed from its GeoPDF data).
+  Del Valle Regional Park (EBRPD, GeoPDF placement refined by Auto-align: shoreline median 8 m) the
+  Sacramento–San Joaquin Delta boating map (California Coastal Commission, 2005; placed from its GeoPDF data), and the five
+  SF Bay Area Water Trail maps (2017; cropped to the map, placed from their Water Trail launch icons, typically within
+  100–200 m).
 - **Tomales Bay and San Francisco Bay** in Help (the ? button) links the official info: NPS boat-in camping, map and
   kayaking pages for Tomales Bay; the SF Bay Water Trail, its web map and conditions page, and the Dolphin Club's Bay guide.
 
