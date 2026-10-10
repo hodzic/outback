@@ -75,6 +75,12 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Print** (Trip tab): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
   numbered waypoints, the waypoint table, the day's forecast, and the tide/current and wind graphs with the planned
   start marked. Shows a preview first; *Print* opens the phone's print dialog (or save as PDF).
+- **Parking** (Trip tab, under the route): where you'll leave the car, saved with the trip. *Find nearby* lists the
+  closest public OpenStreetMap lots to the route start (walk distance, fee, spaces); or *Park here* from a P or Water
+  Trail popup, or *Set on map*. *Drive there* opens Google Maps navigation (Apple Maps on iPhone/iPad). Shown on the
+  map with a dashed line to the start, and in Share plan (with a driving link) and Print.
+- **Stops**: tap a waypoint, *Stop here*, and enter minutes (lunch, a rest). Stops add to the duration and push back
+  every later arrival; the waypoint table shows the leave time. Saved as the waypoint's 4th value, in minutes.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
   **Markers** are named points saved with the trip (long-press the map, or *Marker* while editing the route);
   the Trip view lists them under the route. GPX export and import keep both (`<wpt>` for markers).

@@ -199,6 +199,9 @@ table.acts td,table.acts th{padding:5px 3px}
 .poi{width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid #1F6FB2;font-size:13px;line-height:20px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .poi.pk{border-radius:5px;background:#1F6FB2;color:#fff;font-weight:800;font-size:14px}
 .poi.closed{border-color:#999;opacity:.7} .poi.pk.closed{background:#8a9aa8}
+.poi.pk.mine{width:28px;height:28px;line-height:24px;font-size:16px;background:#C8167E;border-color:#fff}
+#parkBox .track:last-child{border-bottom:0} #parkBox a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+#parkBox .pkset{border-bottom:0;padding-bottom:2px} #parkBox .pkbtns{gap:6px;padding-bottom:8px}
 #lnBtn{position:absolute;left:10px;bottom:156px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:20px;padding:0}
 #lnBtn.on{background:var(--ink);border-color:var(--ink)}
 .poi.ln{border-color:#2E8B57} .poi.wt{width:28px;height:28px;line-height:24px;font-size:15px;border-width:3px;border-color:#C8167E}
@@ -283,7 +286,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
       </details>
@@ -306,6 +309,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <details id="wpDetails"><summary>Waypoints</summary><div id="routeTable"></div></details>
         <details id="mkDetails"><summary id="mkSum">Markers</summary><div id="markList"></div>
           <p class="muted">Long-press the map, or tap Route then Marker, to add a named point.</p></details>
+        <div id="parkBox"></div>
       </div>
 
       <div class="card">
@@ -498,6 +502,14 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li>For shipping lanes and depths, use the <b>Chart</b> layer on the map (NOAA charts).</li>
         </ul>
       </details>
+      <details class="card help" id="helpPark"><summary>Parking and stops</summary>
+        <ul>
+          <li><b>Parking</b> (Trip tab, under the route) is where you'll leave the car. <b>Find nearby</b> lists the closest public lots to the route's start from OpenStreetMap, with the walk to the start, fees and spaces; tap <b>Use</b>. Or tap <b>Park here</b> in a <b>P</b> or 🛶 Water Trail popup on the map, or <b>Set on map</b> and tap the spot (a pullout, a friend's driveway).</li>
+          <li><b>Drive there</b> opens navigation in Google Maps (Apple Maps on iPhone and iPad). The parking shows on the map as a pink P with a dashed line to the start; drag it while editing the route.</li>
+          <li>Share plan and Print include the parking with a driving-directions link, so your group knows where to meet.</li>
+          <li><b>Stops</b>: tap a waypoint, then <b>Stop here</b>, and enter the minutes (e.g. 45 for lunch). The stop is added to the trip's duration and every later arrival time; the waypoint table shows when you leave again. 0 removes it.</li>
+        </ul>
+      </details>
       <details class="card help" id="helpShare"><summary>Sharing and printing a trip</summary>
         <ul>
           <li><b>Share plan</b> (Trip tab, under Tracks) writes the trip out as plain text anyone can read: day and start time, route, every waypoint with coordinates, leg, bearing and estimated arrival, your markers and the day's forecast. <b>Copy text</b> to paste it into a club forum or email; <b>Share…</b> sends it with the GPX file where the phone allows; <b>GPX file</b> is for people with a GPS or map app.</li>
@@ -531,7 +543,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10q';
+const APP_VERSION = '2026-10-10s';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -635,6 +647,10 @@ function dayTemps(){
 const gust = () => settings.gustKt[trip?.activity || 'paddle'] || 15;  // knots, like the wind data
 const elv = f => u().metric ? Math.round(f / 3.28084).toLocaleString() + ' m' : Math.round(f).toLocaleString() + ' ft';  // f in feet
 const hoursFor = (nm, climbFt = 0) => nm / speedKt() + (act().climb ? climbFt / act().climb : 0);
+// Stops (lunch, a rest) are minutes saved on a waypoint, p[3]; they push back every later arrival.
+const pauseMin = p => +p?.[3] || 0;
+const stopsH = (r, i = r.length - 1) => r.slice(0, Math.max(0, i)).reduce((s, p) => s + pauseMin(p), 0) / 60; // stops before waypoint i
+const mkWp = (lat, lng, name = '', pause = 0) => pause > 0 ? [lat, lng, name, pause] : name ? [lat, lng, name] : [lat, lng];
 
 /* ---------- geo + time helpers ---------- */
 const toR = d => d * Math.PI / 180, toD = r => r * 180 / Math.PI;
@@ -763,7 +779,7 @@ const state = { legs: new Set(), undo: [], tMin: 600, drawing: false, pos: null,
   locating: false, locMode: 0, showStations: false, nextWp: null, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
-  return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), start: settings.start ?? START, route: [], tracks: [], marks: [],
+  return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), start: settings.start ?? START, route: [], tracks: [], marks: [], parking: null,
     tide: null, current: null, data: null, fetchedAt: null, updated: Date.now() };
 }
 const START = 9 * 60; // planned start, minutes after midnight; new trips take the last one set
@@ -776,6 +792,7 @@ function normTrip(t){
   delete t.water; delete t.waterSet;
   t.tracks = t.tracks || [];
   t.marks = t.marks || [];
+  t.parking = t.parking || null;
   for (const k of t.tracks) if (!k.end) k.end = k.pts.length ? k.pts[k.pts.length - 1][2] : k.start; // recording cut off by a reload (older versions)
   return t;
 }
@@ -873,6 +890,7 @@ const stationLayer = L.layerGroup().addTo(map);
 const meLayer = L.layerGroup().addTo(map);
 const toLine = L.layerGroup().addTo(map);
 const markLayer = L.layerGroup().addTo(map);
+const parkLayer = L.layerGroup().addTo(map);
 let curArrow = null;
 // The trip's map view: saved by Get forecast, restored when the trip opens. Nothing else changes it.
 function fitTrip(refit){
@@ -900,11 +918,12 @@ function drawRoute(){
       }
     }
     const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div data-n="${i+1}" class="wp${state.locMode === 1 && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
-    if (p[2]) m.bindTooltip(esc(p[2]), { permanent: true, direction: 'right', offset: [12, 0], className: 'wpname' });
+    const tip = [p[2], pauseMin(p) && `⏸ ${fmtDur(pauseMin(p) / 60)}`].filter(Boolean).join(' · ');
+    if (tip) m.bindTooltip(esc(tip), { permanent: true, direction: 'right', offset: [12, 0], className: 'wpname' });
     m.on('dragstart', editRoute);
-    m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = p[2] ? [ll.lat, ll.lng, p[2]] : [ll.lat, ll.lng]; changed(); });
+    m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = mkWp(ll.lat, ll.lng, p[2], pauseMin(p)); changed(); });
     m.bindPopup(() => `<b>Waypoint ${i+1}${p[2] ? ': ' + esc(p[2]) : ''}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
-      <button class="btn" data-name="${i}">${p[2] ? 'Rename' : 'Name'}</button> <button class="btn" data-move="${i}">Move</button> <button class="btn" data-del="${i}">Delete</button>`);
+      <button class="btn" data-name="${i}">${p[2] ? 'Rename' : 'Name'}</button> <button class="btn" data-move="${i}">Move</button> <button class="btn" data-pause="${i}">${pauseMin(p) ? 'Stop ' + pauseMin(p) + ' min' : 'Stop here'}</button> <button class="btn" data-del="${i}">Delete</button>`);
   });
 }
 function insertWp(i, latlng){
@@ -944,20 +963,30 @@ function drawTracks(){
   }
 }
 map.on('click', e => {
+  if (state.parkMode){ state.parkMode = false; return setPark(e.latlng.lat, e.latlng.lng, (prompt('Name for the parking spot', 'Parking') || 'Parking').trim()); }
   if (state.markMode){ state.markMode = false; $('#markBtn').classList.remove('on'); return addMark(e.latlng); }
   if (!state.drawing) return;
   editRoute(); trip.route.push([+e.latlng.lat.toFixed(6), +e.latlng.lng.toFixed(6)]);
   changed();
 });
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-del],[data-use],[data-name],[data-move],[data-mkname],[data-mkdel]'); if (!t) return;
+  const t = e.target.closest('[data-del],[data-use],[data-name],[data-move],[data-pause],[data-mkname],[data-mkdel]'); if (!t) return;
+  if (t.dataset.pause){
+    const i = +t.dataset.pause, p = trip.route[i]; map.closePopup();
+    const n = prompt(`Stop at waypoint ${i + 1} for how many minutes? (e.g. 45 for lunch; 0 to remove)`, pauseMin(p) || 30);
+    if (n === null || !(+n >= 0)) return;
+    let name = p[2] || '';
+    if (+n > 0 && !name){ const q = prompt(`Name the stop (optional, e.g. Lunch)`, 'Lunch'); if (q) name = q.trim(); }
+    editRoute(); trip.route[i] = mkWp(p[0], p[1], name, Math.round(+n)); changed();
+    toast(+n > 0 ? `Stop of ${fmtDur(+n / 60)} at waypoint ${i + 1}: later arrival times include it.` : 'Stop removed.'); return;
+  }
   if (t.dataset.move){ map.closePopup(); if (!state.drawing) setDrawing(true); toast(`Drag waypoint ${+t.dataset.move + 1} to its new spot, then tap Done.`, 4000); return; }
   if (t.dataset.del){ editRoute(); trip.route.splice(+t.dataset.del, 1); map.closePopup(); changed(); }
   if (t.dataset.name){
     const i = +t.dataset.name, p = trip.route[i]; map.closePopup();
     const n = prompt(`Name for waypoint ${i + 1} (empty to clear)`, p[2] || '');
     if (n === null) return;
-    editRoute(); trip.route[i] = n.trim() ? [p[0], p[1], n.trim()] : [p[0], p[1]]; changed();
+    editRoute(); trip.route[i] = mkWp(p[0], p[1], n.trim(), pauseMin(p)); changed();
   }
   if (t.dataset.mkname || t.dataset.mkdel){
     const k = trip.marks.find(m => m.id === (t.dataset.mkname || t.dataset.mkdel)); map.closePopup(); if (!k) return;
@@ -1292,10 +1321,11 @@ function render(){
     act().envs.map(k => `<button data-env="${k}" class="${trip.envSet && trip.env === k ? 'on' : ''}">${ENV[k].name}</button>`).join('');
   // route
   $('#dist').textContent = fmtD(nm);
-  $('#dur').textContent = legs ? fmtDur(hoursFor(nm, es?.up)) : '–';
+  const stops = trip.route.slice(0, -1).filter(pauseMin).length, sH = stopsH(trip.route);
+  $('#dur').textContent = legs ? fmtDur(hoursFor(nm, es?.up) + sH) : '–';
   $('#spd').textContent = `${speed()} ${u().spd}`;
   $('#routeMore').hidden = !legs;
-  $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''}${es ? ` · climb +${ft(es.up)}` : ''}` : '';
+  $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''}${stops ? ` · ${stops} stop${stops > 1 ? 's' : ''} ${fmtDur(sH)}` : ''}${es ? ` · climb +${ft(es.up)}` : ''}` : '';
   $('#dist').textContent = legs ? fmtD(nm) : 'none yet: draw it on the map';
   $('#clearRoute').disabled = !trip.route.length;
   if ($('#wpDetails').open) routeTable();
@@ -1406,7 +1436,7 @@ function render(){
   tcBtnState(); $('#timeBar').hidden = !tcMode();
   if (tcMode() && tcMap.loadedFor !== trip.date) tcLoad();
   drawTcMap();
-  renderTracks(); renderMarks();
+  renderTracks(); renderMarks(); renderPark();
   drawChart(sun);
 }
 $('#wpDetails').addEventListener('toggle', () => { if ($('#wpDetails').open) routeTable(); });
@@ -1414,11 +1444,12 @@ function routeTable(){
   const r = trip.route;
   if (r.length < 2){ $('#routeTable').innerHTML = '<p class="muted">No route yet.</p>'; return; }
   let cum = 0; const start = dayStart() + trip.start * 6e4;
-  $('#routeTable').innerHTML = `<p class="muted">Leaving at ${hm(start)} (the planned start) at ${speed()} ${u().spd}${hasElev() ? ', on the flat' : ', without current'}.</p>
+  $('#routeTable').innerHTML = `<p class="muted">Leaving at ${hm(start)} (the planned start) at ${speed()} ${u().spd}${hasElev() ? ', on the flat' : ', without current'}${stopsH(r) ? ', with the stops' : ''}.</p>
     <table><tr><th>Waypoint</th><th>Leg ${unitName()}</th><th>Bearing</th><th>Total</th><th>Arrive</th></tr>${r.map((p, i) => {
-      if (!i) return `<tr><td>${esc(wpLabel(r, 0))}</td><td>–</td><td>–</td><td>0.00</td><td>${hm(start)}</td></tr>`;
-      const d = distNm(r[i-1], p); cum += d;
-      return `<tr><td>${esc(wpLabel(r, i))}</td><td>${dU(d).toFixed(2)}</td><td>${magB(brgT(r[i-1], p))}</td><td>${dU(cum).toFixed(2)}</td><td>${hm(start + hoursFor(cum) * 36e5)}</td></tr>`;
+      const st = pauseMin(p) && i < r.length - 1 ? `<br><small>⏸ ${fmtDur(pauseMin(p) / 60)}</small>` : '';
+      if (!i) return `<tr><td>${esc(wpLabel(r, 0))}${st}</td><td>–</td><td>–</td><td>0.00</td><td>${hm(start)}${st && `<br><small>leave ${hm(start + pauseMin(p) * 6e4)}</small>`}</td></tr>`;
+      const d = distNm(r[i-1], p); cum += d; const at = start + (hoursFor(cum) + stopsH(r, i)) * 36e5;
+      return `<tr><td>${esc(wpLabel(r, i))}${st}</td><td>${dU(d).toFixed(2)}</td><td>${magB(brgT(r[i-1], p))}</td><td>${dU(cum).toFixed(2)}</td><td>${hm(at)}${st && `<br><small>leave ${hm(at + pauseMin(p) * 6e4)}</small>`}</td></tr>`;
     }).join('')}</table>`;
 }
 function renderMarks(){
@@ -1825,7 +1856,7 @@ let saveT, listT;
 function changed(){
   trip.updated = Date.now(); scaleCtl._update();
   if (state.locMode === 1 && state.pos) state.nextWp = nextWaypoint(state.pos, trip.route); // highlight drawn below
-  drawRoute(); drawMarks(); drawTracks(); drawStations(); render(); showToNext();
+  drawRoute(); drawMarks(); drawPark(); drawTracks(); drawStations(); render(); showToNext();
   clearTimeout(saveT); saveT = setTimeout(saveNow, 300);
 }
 function saveNow(){
@@ -1843,7 +1874,7 @@ async function openTrip(t){
   }
   setDrawing(false); scaleCtl._update();
   state.tMin = todayIso() === trip.date ? Math.floor(nowMin() / 5) * 5 : Math.floor(trip.start / 5) * 5;
-  state.nextWp = null; drawRoute(); drawMarks(); drawTracks(); drawStations(); render(); renderList(); showToNext();
+  state.nextWp = null; drawRoute(); drawMarks(); drawPark(); drawTracks(); drawStations(); render(); renderList(); showToNext();
   fitTrip();
 }
 
@@ -1853,7 +1884,8 @@ function setDrawing(on){
   state.drawing = on; state.undo = []; $('#drawBar').hidden = !on; $('#drawBtn').classList.toggle('on', on); wpSize();
   map.getContainer().style.cursor = on ? 'crosshair' : '';
   state.markMode = false; $('#markBtn')?.classList.remove('on');
-  if (trip){ drawRoute(); drawMarks(); }
+  state.parkMode = false;
+  if (trip){ drawRoute(); drawMarks(); drawPark(); }
 }
 $('#drawBtn').onclick = () => setDrawing(!state.drawing);
 $('#doneBtn').onclick = () => setDrawing(false);
@@ -2449,7 +2481,7 @@ function wtPopup(w){
   return `<div class="wtp"><b>${esc(w.name)}</b>${w.sub ? ` <span class="muted">${esc(w.sub)}</span>` : ''}<br><small>${esc([w.manager, w.county && w.county + ' County'].filter(Boolean).join(' · '))}</small>
     ${w.about ? `<p>${esc(w.about)}</p>` : ''}${w.launch ? `<p><b>Launch:</b> ${esc(w.launch)}</p>` : ''}${w.facilities ? `<p><b>Facilities:</b> ${esc(w.facilities)}</p>` : ''}
     ${more.map(([k, v]) => `<details><summary>${k}</summary><p>${para(v)}</p></details>`).join('')}
-    <p><a href="${esc(w.link)}" target="_blank" rel="noopener">Water Trail page</a> · <a href="https://www.google.com/maps/dir/?api=1&destination=${w.lat},${w.lon}" target="_blank" rel="noopener">Directions</a> · <a href="#" data-wtstart="${esc(w.id)}">Start route here</a></p>
+    <p><a href="${esc(w.link)}" target="_blank" rel="noopener">Water Trail page</a> · <a href="https://www.google.com/maps/dir/?api=1&destination=${w.lat},${w.lon}" target="_blank" rel="noopener">Directions</a> · <a href="#" data-wtstart="${esc(w.id)}">Start route here</a> · <a href="#" data-park="${parkCand(w.lat, w.lon, { name: w.name })}">Park here</a></p>
     <small>SF Bay Area Water Trail${waterTrail.at ? `, as of ${waterTrail.at}` : ''}; check the page for changes.</small></div>`;
 }
 const POI_CELL = .05, POI_DAYS = 30;
@@ -2477,7 +2509,7 @@ function poiMarkers(P, b, group){
     const dim = t.access === 'private' || t.access === 'no' || t.access === 'customers';
     L.marker([lat, lon], { icon: poiIcon(P, dim), keyboard: false }).bindPopup(() => { const info = P.info(t).filter(Boolean);
       return `<b>${esc(t.name || P.title)}</b>${t.operator ? `<br><small>${esc(t.operator)}</small>` : ''}${info.length ? `<br>${info.map(esc).join(' · ')}` : ''}${t.description ? `<br><small>${esc(t.description)}</small>` : ''}
-      <br><a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" rel="noopener">Directions</a> · <small>OpenStreetMap; may be out of date</small>`; }).addTo(group);
+      <br><a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" rel="noopener">Directions</a>${P.key === 'parking' && trip ? ` · <a href="#" data-park="${parkCand(lat, lon, t)}">Park here</a>` : ''} · <small>OpenStreetMap; may be out of date</small>`; }).addTo(group);
   }
 }
 async function poiRefresh(P){
@@ -2500,10 +2532,74 @@ for (const P of Object.values(POI)){
 window.poiReady = true;
 map.on('moveend', () => { for (const P of Object.values(POI)) if (settings[P.key]){ clearTimeout(P.t); P.t = setTimeout(() => poiRefresh(P), 700); } });
 
+/* ---------- trip parking ---------- */
+// Where you'll leave the car: picked from nearby OpenStreetMap lots, a P or Water Trail popup, or set by hand.
+// Drive there hands off to the phone's navigation app.
+const isApple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+const gDrive = p => `https://www.google.com/maps/dir/?api=1&destination=${p.lat.toFixed(6)},${p.lng.toFixed(6)}&travelmode=driving`;
+const driveUrl = p => isApple ? `https://maps.apple.com/?daddr=${p.lat.toFixed(6)},${p.lng.toFixed(6)}&dirflg=d` : gDrive(p);
+const walkD = nm => { const m = nm * 1852; return u().metric ? (m < 1000 ? Math.round(m / 10) * 10 + ' m' : (m / 1000).toFixed(1) + ' km') : (m < 400 ? Math.round(m * 3.28084 / 10) * 10 + ' ft' : (m / 1609.34).toFixed(1) + ' mi'); };
+const parkBase = () => trip.route[0] || centroid();
+const parkToStart = () => trip.parking && trip.route.length ? `${walkD(distNm([trip.parking.lat, trip.parking.lng], trip.route[0]))} to the start` : '';
+const lotName = t => t.name || (t.operator ? `${t.operator} parking` : 'Parking lot');
+const lotNote = t => [feeTxt(t), hoursTxt(t), t.maxstay && `Max stay ${t.maxstay}`].filter(Boolean).join(' · ');
+// popups hand their lot to the Park here link through this table
+const parkCands = new Map();
+function parkCand(lat, lon, t){ const k = `${lat},${lon}`; parkCands.set(k, { name: t.name ? lotName(t) : t.operator ? lotName(t) : 'Parking', note: lotNote(t) }); return k; }
+function setPark(lat, lng, name, note = ''){
+  trip.parking = { lat: +(+lat).toFixed(6), lng: +(+lng).toFixed(6), name: name || 'Parking', ...(note ? { note } : {}) };
+  state.parkLots = null; changed(); toast(`Parking set: ${trip.parking.name}. Drive there is on the Trip tab.`);
+}
+function renderPark(){
+  const k = trip.parking, lots = state.parkLots;
+  $('#parkBox').innerHTML = (k ? `<div class="track pkset"><div class="grow"><b>Parking: ${esc(k.name)}</b><small>${esc([k.note, parkToStart()].filter(Boolean).join(' · ') || `${k.lat.toFixed(5)}, ${k.lng.toFixed(5)}`)}</small></div></div>
+      <div class="row pkbtns"><a class="btn primary" id="driveBtn" href="${driveUrl(k)}" target="_blank" rel="noopener">Drive there</a><span class="grow"></span><button class="btn" data-pk="map">Map</button><button class="btn" data-pk="find">Change</button><button class="btn" data-pk="rm" aria-label="Remove parking">✕</button></div>`
+    : `<div class="track"><div class="grow"><b>Parking</b><small>Where you'll leave the car</small></div><button class="btn" data-pk="find">Find nearby</button><button class="btn" data-pk="set">Set on map</button></div>`) +
+    (lots ? `<div id="parkList">${lots.length ? lots.map((l, i) => `<div class="track"><div class="grow"><b>${esc(l.name)}</b><small>${esc([walkD(l.d) + (trip.route.length ? ' from the start' : ' away'), l.note, l.cap && `${l.cap} spaces`].filter(Boolean).join(' · '))}</small></div>
+        <button class="btn" data-pkshow="${i}">Map</button><button class="btn" data-pkuse="${i}">Use</button></div>`).join('') : '<p class="muted">No public parking lots in OpenStreetMap within 2 km.</p>'}
+      <div class="row" style="margin:6px 0 8px"><span class="muted grow"><small>OpenStreetMap; may be out of date</small></span><button class="btn" data-pk="set">Set on map</button><button class="btn" data-pk="close">Close</button></div></div>` : '');
+}
+async function findParking(){
+  const c = parkBase(), b = L.latLng(c[0], c[1]).toBounds(4000);
+  $('#parkBox').querySelector('[data-pk="find"]')?.setAttribute('disabled', '');
+  try{ await poiFetch(POI.parking, b); }
+  catch{ toast('Parking could not be loaded (OpenStreetMap). Try again, or set it on the map.'); renderPark(); return; }
+  const lots = [];
+  for (const [i, j] of cellsFor(b)) for (const [lat, lon, t] of POI.parking.cells[cellKey(i, j)]?.pts || []){
+    if (/private|no|customers/.test(t.access || '')) continue;
+    const d = distNm(c, [lat, lon]); if (d * 1852 <= 2000) lots.push({ lat, lng: lon, d, name: lotName(t), note: lotNote(t), cap: /^\d+$/.test(t.capacity || '') ? t.capacity : null });
+  }
+  state.parkLots = lots.sort((a, b) => a.d - b.d).slice(0, 5); renderPark();
+}
+function drawPark(){
+  parkLayer.clearLayers(); const k = trip.parking; if (!k) return;
+  if (trip.route.length && distNm([k.lat, k.lng], trip.route[0]) < 3) L.polyline([[k.lat, k.lng], ll2(trip.route[0])], { color: '#C8167E', weight: 2, opacity: .8, dashArray: '4 6', interactive: false }).addTo(parkLayer);
+  L.marker([k.lat, k.lng], { draggable: state.drawing, keyboard: false, zIndexOffset: 500, icon: L.divIcon({ className: '', html: '<div class="poi pk mine">P</div>', iconSize: [28, 28], iconAnchor: [14, 14] }) })
+    .bindTooltip(esc(k.name), { direction: 'right', offset: [12, 0], className: 'mkname' })
+    .bindPopup(() => `<b>Parking: ${esc(k.name)}</b>${k.note ? `<br>${esc(k.note)}` : ''}<br><small>${k.lat.toFixed(5)}, ${k.lng.toFixed(5)}${parkToStart() ? ' · ' + parkToStart() : ''}</small><br>
+      <a href="${driveUrl(k)}" target="_blank" rel="noopener">Drive there</a> · <a href="#" data-pk="rm">Remove</a>`)
+    .on('dragend', e => { const ll = e.target.getLatLng(); k.lat = +ll.lat.toFixed(6); k.lng = +ll.lng.toFixed(6); changed(); })
+    .addTo(parkLayer);
+}
+const showOnMap = (lat, lng) => { showView(2); setTimeout(() => map.setView([lat, lng], Math.max(map.getZoom(), 16)), 350); };
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-park],[data-pk],[data-pkuse],[data-pkshow]'); if (!a || !trip) return;
+  if (a.getAttribute('href') === '#') e.preventDefault();
+  const d = a.dataset, lots = state.parkLots || [];
+  if (d.park){ const [lat, lng] = d.park.split(',').map(Number), c = parkCands.get(d.park) || {}; map.closePopup(); setPark(lat, lng, c.name, c.note); }
+  if (d.pkuse){ const l = lots[+d.pkuse]; if (l) setPark(l.lat, l.lng, l.name, l.note); }
+  if (d.pkshow){ const l = lots[+d.pkshow]; if (l) showOnMap(l.lat, l.lng); }
+  if (d.pk === 'find') findParking();
+  if (d.pk === 'close'){ state.parkLots = null; renderPark(); }
+  if (d.pk === 'map' && trip.parking) showOnMap(trip.parking.lat, trip.parking.lng);
+  if (d.pk === 'set'){ state.parkMode = true; state.parkLots = null; renderPark(); showView(2); toast('Tap the map where you\'ll park.', 4000); }
+  if (d.pk === 'rm'){ map.closePopup(); trip.parking = null; changed(); toast('Parking removed.'); }
+});
+
 /* ---------- share plan + print ---------- */
 // For people without the app: a plain-text plan for a forum or email (plus the GPX), and a printable sheet.
 const legsOf = () => { const r = trip.route, start = dayStart() + trip.start * 6e4; let cum = 0;
-  return r.map((p, i) => { const d = i ? distNm(r[i-1], p) : 0; cum += d; return { p, i, d, brg: i ? magB(brgT(r[i-1], p)) : '', at: start + hoursFor(cum) * 36e5, cum }; }); };
+  return r.map((p, i) => { const d = i ? distNm(r[i-1], p) : 0; cum += d; const at = start + (hoursFor(cum) + stopsH(r, i)) * 36e5; return { p, i, d, brg: i ? magB(brgT(r[i-1], p)) : '', at, cum, stop: i < r.length - 1 ? pauseMin(p) : 0 }; }); };
 // The whole-day forecast as shown on the Trip tab: [label, [lines]] for each cell that applies to this trip
 function planForecast(){
   if (!trip.data) return [];
@@ -2525,8 +2621,10 @@ function planText(){
   if (r.length){
     L.push('', `Start: ${r[0][2] ? r[0][2] + ' ' : ''}${ll(r[0])}  https://www.google.com/maps/search/?api=1&query=${r[0][0].toFixed(5)},${r[0][1].toFixed(5)}`);
     if (r.length > 1){ L.push('', 'Waypoints (leg, bearing, est. arrival):');
-      for (const g of legsOf()) L.push(`${wpLabel(r, g.i)}  ${ll(g.p)}  ${g.i ? `${dU(g.d).toFixed(2)} ${unitName()}, ${g.brg}, ${hm(g.at)}` : `leave ${hm(g.at)}`}`); }
+      for (const g of legsOf()) L.push(`${wpLabel(r, g.i)}  ${ll(g.p)}  ${g.i ? `${dU(g.d).toFixed(2)} ${unitName()}, ${g.brg}, ${hm(g.at)}` : `leave ${hm(g.at)}`}${g.stop ? `, stop ${fmtDur(g.stop / 60)}${g.i ? ` (leave ${hm(g.at + g.stop * 6e4)})` : ''}` : ''}`); }
   }
+  const pk = trip.parking;
+  if (pk) L.push('', `Parking: ${pk.name}${pk.note ? ' (' + pk.note + ')' : ''}  ${pk.lat.toFixed(5)}, ${pk.lng.toFixed(5)}${parkToStart() ? ', ' + parkToStart() : ''}`, `Driving directions: ${gDrive(pk)}`);
   if (trip.marks.length){ L.push('', 'Points of interest:'); for (const k of trip.marks) L.push(`${k.name}  ${k.lat.toFixed(5)}, ${k.lng.toFixed(5)}`); }
   const fc = planForecast();
   if (fc.length){ L.push('', `Forecast for the day (as of ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}):`);
@@ -2551,10 +2649,11 @@ async function openPrint(){
   const names = { tide: hasCurrents() ? 'Tide and current' : 'Tide', wind: 'Wind and gusts', elev: 'Elevation' };
   $('#printDoc').innerHTML = `<h1>${esc(trip.name)}</h1>
     <p class="sub"><b>${act().name}${envName() ? ' · ' + esc(envName()) : ''}</b> · ${fmtDay(trip.date)} · start ${startTime()}${r.length > 1 ? ` · ${esc($('#dist').textContent)} · ${esc($('#dur').textContent)} at ${esc($('#spd').textContent)}` : ''}</p>
+    ${trip.parking ? `<p class="sub">Parking: <b>${esc(trip.parking.name)}</b>${trip.parking.note ? ' · ' + esc(trip.parking.note) : ''} · ${trip.parking.lat.toFixed(5)}, ${trip.parking.lng.toFixed(5)}${parkToStart() ? ' · ' + parkToStart() : ''}</p>` : ''}
     <div id="pMap"></div>
     <div class="pcols"><div><h3>Waypoints</h3>${r.length > 1 ? `<table><tr><th>#</th><th>Lat, lon</th><th>Leg</th><th>Brg</th><th>Arrive</th></tr>${legs.map(g =>
-        `<tr><td>${esc(wpLabel(r, g.i))}</td><td>${g.p[0].toFixed(4)}, ${g.p[1].toFixed(4)}</td><td>${g.i ? dU(g.d).toFixed(2) : '–'}</td><td>${g.brg || '–'}</td><td>${hm(g.at)}</td></tr>`).join('')}</table>
-        <p>Legs in ${unitName()}; bearings magnetic (${settings.variation}° E); arrivals at ${esc($('#spd').textContent)}.</p>` : '<p>No route.</p>'}
+        `<tr><td>${esc(wpLabel(r, g.i))}</td><td>${g.p[0].toFixed(4)}, ${g.p[1].toFixed(4)}</td><td>${g.i ? dU(g.d).toFixed(2) : '–'}</td><td>${g.brg || '–'}</td><td>${hm(g.at)}${g.stop ? ` ⏸${g.stop}′` : ''}</td></tr>`).join('')}</table>
+        <p>Legs in ${unitName()}; bearings magnetic (${settings.variation}° E); arrivals at ${esc($('#spd').textContent)}${legs.some(g => g.stop) ? '; ⏸ stop in minutes, included in later arrivals' : ''}.</p>` : '<p>No route.</p>'}
       ${trip.marks.length ? `<h3>Points of interest</h3><table>${trip.marks.map(k => `<tr><td>${esc(k.name)}</td><td>${k.lat.toFixed(4)}, ${k.lng.toFixed(4)}</td></tr>`).join('')}</table>` : ''}</div>
       <div><h3>Forecast${trip.fetchedAt ? ` <span style="font-weight:400">(as of ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })})</span>` : ''}</h3>
         ${fc.length ? `<dl>${fc.map(([k, l]) => `<dt>${esc(k)}</dt><dd>${l.map(esc).join(' · ')}</dd>`).join('')}</dl>` : '<p>No forecast yet: tap Get forecast first.</p>'}</div></div>
@@ -2575,7 +2674,8 @@ async function openPrint(){
   (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', L0.opt) : L.tileLayer(L0.url, L0.opt)).addTo(pMap);
   if (seaLayer) L.tileLayer(SEAMARKS.url, SEAMARKS.opt).addTo(pMap);
   new (L.Control.Scale.extend({ _updateScales: scaleCtl._updateScales }))({ position: 'bottomleft', metric: true, imperial: false, maxWidth: 110 }).addTo(pMap);
-  const pts = [...r.map(ll2), ...trip.marks.map(k => [k.lat, k.lng])];
+  const pk = trip.parking, pts = [...r.map(ll2), ...trip.marks.map(k => [k.lat, k.lng]), ...(pk ? [[pk.lat, pk.lng]] : [])];
+  if (pk) L.marker([pk.lat, pk.lng], { icon: L.divIcon({ className: '', html: '<div class="poi pk mine">P</div>', iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(pMap);
   if (r.length > 1) L.polyline(r.map(ll2), { color: '#C8167E', weight: 4, opacity: .95 }).addTo(pMap);
   r.forEach((p, i) => L.marker(ll2(p), { icon: L.divIcon({ className: '', html: `<div class="wp">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(pMap));
   for (const k of trip.marks) L.marker([k.lat, k.lng], { icon: MARK_ICON }).bindTooltip(esc(k.name), { permanent: true, direction: 'right', offset: [8, -9], className: 'mkname' }).addTo(pMap);
