@@ -50,9 +50,11 @@ Three views; swipe between them or use the tabs at the bottom.
   Hold the button to turn location off; the next tap brings back the mode you had.
 - **Sea marks ⚓** (paddle trips, above ≈ at the bottom right of the map): OpenSeaMap's buoys, beacons, lights and
   harbours drawn see-through over any layer; remembered, and saved with the map by *Get forecast* when on.
-- **Restrooms 🚻** (bottom left of the map, any trip): OpenStreetMap restrooms in view, with name, free or fee,
-  flush or vault, hours, wheelchair access and a *Directions* link. Kept for 30 days per area, so they show offline;
-  *Get forecast* fetches the route's area while it's on, and the printed trip sheet shows them.
+- **Restrooms 🚻 and parking P** (bottom left of the map, any trip): OpenStreetMap restrooms and parking lots in
+  view. Tap one for its name, free or fee (with the charge when known), hours, access (customers only), and a
+  *Directions* link to Google Maps; restrooms also show flush or vault and wheelchair access, parking shows spaces,
+  time limits and trailers. Private and street-side parking are left out. Kept for 30 days per area, so they show
+  offline; *Get forecast* fetches the route's area for whichever is on, and the printed trip sheet shows them.
 - **AIS ships** (button at the bottom right of the map): live vessels around the map view from
   [aisstream.io](https://aisstream.io) (free API key, stored only on the device; Settings, or the first tap).
   Ships are coloured by type (cargo green, tanker red, passenger blue, tug/pilot teal, high-speed orange)

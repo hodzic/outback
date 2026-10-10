@@ -320,15 +320,15 @@ module.exports = async (browser, url, check) => {
     const { ctx, page, errors } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 2);
     await page.evaluate(() => map.setView([37.82, -122.45], 13, { animate: false })); await page.waitForTimeout(300);
-    c('🚻 button on the map, off at first', await page.isVisible('#wcBtn') && !(await page.evaluate(() => settings.toilets)) && await page.locator('.wc').count() === 0);
-    await page.click('#wcBtn'); await page.waitForFunction(() => document.querySelectorAll('.wc').length === 2, null, { timeout: 5000 }).catch(() => {});
-    c('🚻 shows restrooms from OpenStreetMap (nodes and areas)', await page.locator('.wc').count() === 2 && ctx.toiletHits === 1, ctx.toiletHits);
-    await page.locator('.wc').first().click(); await page.waitForTimeout(300);
+    c('🚻 button on the map, off at first', await page.isVisible('#wcBtn') && !(await page.evaluate(() => settings.toilets)) && await page.locator('.poi.wc').count() === 0);
+    await page.click('#wcBtn'); await page.waitForFunction(() => document.querySelectorAll('.poi.wc').length === 2, null, { timeout: 5000 }).catch(() => {});
+    c('🚻 shows restrooms from OpenStreetMap (nodes and areas)', await page.locator('.poi.wc').count() === 2 && ctx.toiletHits === 1, ctx.toiletHits);
+    await page.locator('.poi.wc').first().click(); await page.waitForTimeout(300);
     const pop = await page.text('.leaflet-popup-content');
     c('restroom details: name, free, flush, hours, wheelchair, directions', /Horseshoe Cove restroom/.test(pop) && /Free/.test(pop) && /Flush/.test(pop) && /Open 24\/7/.test(pop) && /Wheelchair accessible/.test(pop)
       && await page.locator('.leaflet-popup-content a[href^="https://www.google.com/maps/dir/?api=1&destination=37.8326,-122.4766"]').count() === 1, pop);
     await page.evaluate(() => map.closePopup());
-    await page.locator('.wc').nth(1).click(); await page.waitForTimeout(300);
+    await page.locator('.poi.wc').nth(1).click(); await page.waitForTimeout(300);
     c('customers-only vault toilet labelled', /Customers only/.test(await page.text('.leaflet-popup-content')) && /Vault or pit toilet/.test(await page.text('.leaflet-popup-content')));
     await page.evaluate(() => { map.closePopup(); map.panBy([40, 0], { animate: false }); }); await page.waitForTimeout(1200);
     c('panning within fetched cells does not ask again', ctx.toiletHits === 1, ctx.toiletHits);
@@ -337,12 +337,27 @@ module.exports = async (browser, url, check) => {
     await page.route(/overpass/, r => r.abort()); const hits = ctx.toiletHits;
     await page.reload(); await ready(page); await view(page, 2);
     await page.evaluate(() => map.setView([37.82, -122.45], 13, { animate: false })); await page.waitForTimeout(1800);
-    c('restrooms remembered and shown without OpenStreetMap', await page.locator('.wc').count() === 2 && await page.evaluate(() => settings.toilets) && ctx.toiletHits === hits);
+    c('restrooms remembered and shown without OpenStreetMap', await page.locator('.poi.wc').count() === 2 && await page.evaluate(() => settings.toilets) && ctx.toiletHits === hits);
     await page.unroute(/overpass/);
     await page.evaluate(() => map.setView([37.5, -122.0], 8, { animate: false })); await page.waitForTimeout(1200);
     c('zoomed far out: asks to zoom in instead of fetching a huge area', /Zoom in to see restrooms/.test(await page.text('#toast')) && ctx.toiletHits === 1, await page.text('#toast'));
+    // parking: P shows lots with fees, hours, capacity and directions
+    await page.evaluate(() => map.setView([37.82, -122.45], 13, { animate: false })); await page.waitForTimeout(300);
+    c('P button on the map, off at first', await page.isVisible('#pkBtn') && await page.locator('.poi.pk').count() === 0);
+    await page.click('#pkBtn'); await page.waitForFunction(() => document.querySelectorAll('.poi.pk').length === 2, null, { timeout: 5000 }).catch(() => {});
+    c('P shows parking from OpenStreetMap', await page.locator('.poi.pk').count() === 2 && ctx.parkingHits === 1 && /Parking © OpenStreetMap/.test(await page.text('.leaflet-control-attribution')));
+    const openPk = i => page.evaluate(i => POI.parking.layer.getLayers().find(m => m.getLatLng().lat === [37.8331, 37.8065][i]).openPopup(), i);
+    await openPk(0); await page.waitForTimeout(300);
+    let pp = await page.text('.leaflet-popup-content');
+    c('parking details: name, operator, fee with charge, hours, spaces, directions', /Horseshoe Cove lot/.test(pp) && /National Park Service/.test(pp) && /Fee: \$5\/day/.test(pp) && /Hours: 05:00-22:00/.test(pp) && /40 spaces/.test(pp)
+      && await page.locator('.leaflet-popup-content a[href*="destination=37.8331,-122.4772"]').count() === 1, pp);
+    await page.evaluate(() => map.closePopup()); await openPk(1); await page.waitForTimeout(300); pp = await page.text('.leaflet-popup-content');
+    c('free customers-only parking with a time limit, greyed', /Free/.test(pp) && /Customers only/.test(pp) && /Max stay 2 hours/.test(pp) && await page.locator('.poi.pk.closed').count() === 1, pp);
+    await page.evaluate(() => map.closePopup());
+    await page.click('#pkBtn'); await page.waitForTimeout(200);
+    c('P again hides parking', await page.locator('.poi.pk').count() === 0 && !(await page.evaluate(() => settings.parking)));
     await page.click('#wcBtn'); await page.waitForTimeout(200);
-    c('🚻 again hides restrooms', await page.locator('.wc').count() === 0 && !(await page.evaluate(() => settings.toilets)));
+    c('🚻 again hides restrooms', await page.locator('.poi.wc').count() === 0 && !(await page.evaluate(() => settings.toilets)));
     c('no page errors (restrooms)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // Satellite layer and scale bar
