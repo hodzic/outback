@@ -322,6 +322,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li>The first PDF import downloads the PDF reader (about 10 MB). Big PDFs can take a while.</li>
           <li>One page is used: the one with map data or GPS labels, otherwise the first page.</li>
+          <li><b>Built-in maps</b> (in the PDF list) come already placed: tap <b>Add</b> once while online. Now: the National Park Service's Tomales Bay boat-in camping map.</li>
           <li>Overlay PDF maps you saved in the GPS Map app can be copied in from the PDF list.</li>
           <li>Overlay PDF maps are included in <b>Back up</b>.</li>
         </ul>
@@ -456,7 +457,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10d';
+const APP_VERSION = '2026-10-10e';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1869,6 +1870,23 @@ async function copyGpsMaps(){
   toast(n ? `Copied ${n} overlay PDF map${n > 1 ? 's' : ''} from GPS Map.` : 'All GPS Map overlay PDF maps are already here.');
   mapsSheet();
 }
+// Built-in overlays: already placed, shipped with the app (maps/), copied into the phone's maps on Add
+const BUILTIN_MAPS = [{
+  id: 'builtin-tomales-bay', name: 'Tomales Bay boat-in camping (NPS)', src: 'maps/tomales-bay.jpg', thumb: 'maps/tomales-bay-thumb.jpg', size: 559295, by: 'National Park Service',
+  imageWidth: 1760, imageHeight: 2000,
+  topLeft: [38.272239342692764, -123.03868994904514], topRight: [38.269332715122296, -122.84062165577662], bottomLeft: [38.09717527716336, -123.03861289823361],
+  controlPoints: [{ px: 880, py: 160, lat: 38.256773416008166, lon: -122.93965772156557, name: 'Top edge' }, { px: 1619.2, py: 1000, lat: 38.18204070022022, lon: -122.8564205106129, name: 'Right edge' },
+    { px: 880, py: 1840, lat: 38.10971960096352, lon: -122.93959299888384, name: 'Bottom edge' }, { px: 140.8, py: 1000, lat: 38.184482267379444, lon: -123.02279787695835, name: 'Left edge' }]
+}];
+async function addBuiltin(id){
+  const b = BUILTIN_MAPS.find(x => x.id === id);
+  toast(`Getting ${b.name}…`, 30000);
+  try{
+    const r = await fetch(b.src); if (!r.ok) throw new Error(r.status);
+    const { src, thumb, size, by, ...meta } = b, m = { ...meta, imageBlob: await r.blob(), method: `built-in, ${by}`, detectedLabels: [], createdAt: Date.now() };
+    await idb.put('trailMaps', m); sheet.close(); showPdfMap(m, true, true); toast(`${b.name} added. It's saved on this phone.`);
+  }catch{ toast('Could not get the map. Check the connection and try again.', 4000); }
+}
 async function mapsSheet(){
   const [maps, gm] = await Promise.all([idb.all('trailMaps'), gpsMapDb()]);
   gm?.close(); maps.sort((a, b) => b.createdAt - a.createdAt);
@@ -1877,6 +1895,8 @@ async function mapsSheet(){
     <div>${maps.map(m => { const u = URL.createObjectURL(m.imageBlob); urls.push(u); const on = shownMaps.has(m.id);
       return `<div class="item"><img src="${u}" alt=""><div class="grow"><b>${esc(m.name)}</b><small>${fmtSize(m.imageBlob.size)} · ${esc(m.method || '')}</small></div>
       <button class="btn${on ? ' primary' : ''}" data-pdfmap="${esc(m.id)}">${on ? 'Hide' : 'Use'}</button><button class="btn" data-adjust="${esc(m.id)}">Adjust</button><button class="btn" data-rmpdf="${esc(m.id)}" aria-label="Delete ${esc(m.name)}">✕</button></div>`; }).join('') || '<p class="muted">None yet.</p>'}</div>
+    ${(() => { const have = new Set(maps.map(m => m.id)), todo = BUILTIN_MAPS.filter(b => !have.has(b.id));
+      return todo.length ? `<h3>Built-in maps</h3><p class="muted">Already placed; one tap to add.</p>${todo.map(b => `<div class="item"><img src="${b.thumb}" alt=""><div class="grow"><b>${esc(b.name)}</b><small>${fmtSize(b.size)} · ${esc(b.by)}</small></div><button class="btn" data-builtin="${b.id}">Add</button></div>`).join('')}` : ''; })()}
     <button class="btn primary add" id="addPdf">Add an overlay PDF map…</button>
     ${gm ? '<button class="btn add" id="copyGps">Copy overlay PDF maps from GPS Map</button>' : ''}
     <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" data-close>Close</button></div>`);
@@ -2172,6 +2192,7 @@ sheet.addEventListener('click', async e => {
   if (b.id === 'copyGps') return copyGpsMaps();
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
   if (ds.pdfmap){ const m = await idb.get('trailMaps', ds.pdfmap), on = !shownMaps.has(ds.pdfmap); showPdfMap(m, on, on); if (on) sheet.close(); else mapsSheet(); return; }
+  if (ds.builtin) return addBuiltin(ds.builtin);
   if (ds.adjust) return startNudge(await idb.get('trailMaps', ds.adjust), false);
   if (ds.rmpdf){ if (!confirm('Delete this overlay PDF map?')) return; showPdfMap({ id: ds.rmpdf }, false); await idb.del('trailMaps', ds.rmpdf); return mapsSheet(); }
 });

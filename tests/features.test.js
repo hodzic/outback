@@ -317,6 +317,24 @@ module.exports = async (browser, url, check) => {
     c('delete PDF map', await page.evaluate(async () => (await idb.all('trailMaps')).length) === 0);
     c('no page errors (pdf)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
+  { // Built-in overlay maps: Tomales Bay (NPS), already placed
+    const { ctx, page, errors } = await open(browser, url);
+    await page.goto(url); await ready(page); await view(page, 2);
+    await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-builtin]');
+    c('PDF list offers the built-in Tomales Bay map', /Built-in maps/.test(await page.text('#sheet')) && /Tomales Bay boat-in camping \(NPS\)/.test(await page.text('#sheet'))
+      && await page.evaluate(() => document.querySelector('#sheet .item img').naturalWidth > 0));
+    await page.click('#sheet [data-builtin="builtin-tomales-bay"]');
+    await page.waitForFunction(() => shownMaps.has('builtin-tomales-bay'), null, { timeout: 15000 });
+    const m = await page.evaluate(async () => { const m = await idb.get('trailMaps', 'builtin-tomales-bay'); return { ...m, size: m.imageBlob.size, imageBlob: null }; });
+    c('Add copies it to the phone, placed over Tomales Bay', m.size === 559295 && m.method === 'built-in, National Park Service' && Math.abs(m.topLeft[0] - 38.27) < 0.01 && Math.abs(m.topLeft[1] + 123.04) < 0.01, JSON.stringify(m.topLeft));
+    c('built-in map shown and the map zooms to it', await page.locator('img.leaflet-image-layer').count() === 1 && await page.evaluate(() => map.getBounds().contains([38.18, -122.94])));
+    await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-rmpdf]');
+    c('added built-in moves to your maps, no longer offered', !(await page.locator('#sheet [data-builtin]').count()) && /Tomales Bay boat-in camping/.test(await page.text('#sheet')));
+    await page.click('#sheet [data-rmpdf]'); await page.waitForSelector('#sheet [data-builtin]');
+    c('deleting it offers it again', await page.evaluate(async () => !(await idb.get('trailMaps', 'builtin-tomales-bay')) && shownMaps.size === 0));
+    await page.click('#sheet [data-close]');
+    c('no page errors (built-in maps)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
   { // Auto-align: match the lake drawn on the PDF to OpenStreetMap water
     const { LAKE, lakeGeo } = require('./make-pdf');
     const ring = [...LAKE, LAKE[0]].map(([x, y]) => { const [lat, lon] = lakeGeo(x, y); return { lat, lon }; });
