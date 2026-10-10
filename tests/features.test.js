@@ -365,7 +365,7 @@ module.exports = async (browser, url, check) => {
     await page.goto(url); await ready(page); await view(page, 2);
     await page.evaluate(() => map.setView([37.87, -122.31], 13, { animate: false })); await page.waitForTimeout(300);
     c('🛶 launches button on paddle trips', await page.isVisible('#lnBtn'));
-    await page.click('#lnBtn'); await page.waitForFunction(() => document.querySelectorAll('.poi.ln').length > 1, null, { timeout: 5000 }).catch(() => {});
+    await page.click('#lnBtn'); await page.waitForFunction(() => document.querySelectorAll('.poi.ln:not(.wt)').length > 0, null, { timeout: 5000 }).catch(() => {});
     const n = await page.evaluate(() => ({ wt: document.querySelectorAll('.poi.ln.wt').length, osm: document.querySelectorAll('.poi.ln:not(.wt)').length, all: waterTrail.sites?.length }));
     c('🛶 shows Water Trail sites (48 shipped) and OSM put-ins, without duplicating a Water Trail site', n.all === 48 && n.wt >= 2 && n.osm === 1, JSON.stringify(n));
     await page.evaluate(() => POI.launch.layer.getLayers().find(m => Math.abs(m.getLatLng().lat - waterTrail.sites.find(s => s.id === 'wt-albany-beach').lat) < 1e-6).openPopup()); await page.waitForTimeout(300);
@@ -474,6 +474,15 @@ module.exports = async (browser, url, check) => {
     await page.click('#sheet [data-pdfmap]'); await page.waitForTimeout(300);
     c('Hide removes the overlay', await page.locator('img.leaflet-image-layer').count() === 0 && await page.isHidden('#opBar'));
     await page.click('#sheet [data-close]');
+    // a printed scale sizes the map: 612 pt wide at 1:24,000 is 5,182 m
+    page.promptAnswer = 'Scaled';
+    await page.setInputFiles('#pdfFile', path.join(OUT, 'scaled.pdf'));
+    await page.waitForSelector('#nSave', { timeout: 60000 });
+    const wM = await page.evaluate(() => state.nudge.layer._topLeft.distanceTo(state.nudge.layer._topRight));
+    c('printed scale sizes a PDF with no position data', /Sized from the map's printed scale \(1:24,000\)/.test(await page.text('#toast')) && Math.abs(wM - 5182) < 60, `${wM.toFixed(0)} m; ${await page.text('#toast')}`);
+    c('printed scale parsing: ratios and inch-equals forms', await page.evaluate(async () => { const { printedScale: p } = await import('./pdfmap.js');
+      return p('Scale 1:63,360')?.ratio === 63360 && p('1 : 24000')?.ratio === 24000 && p('1 inch = 2,000 feet')?.ratio === 24000 && p('1 in = 1 mile')?.ratio === 63360 && p('Call 1:30 pm') === null && p('no scale here') === null; }));
+    await page.click('#nCancel');
     page.promptAnswer = 'Plain';
     await page.setInputFiles('#pdfFile', path.join(OUT, 'plain.pdf'));
     await page.waitForSelector('#nSave', { timeout: 60000 });
@@ -501,7 +510,10 @@ module.exports = async (browser, url, check) => {
     await page.click('#sheet [data-rmpdf]'); await page.waitForSelector('#sheet [data-builtin="builtin-tomales-bay"]');
     c('deleting it offers it again', await page.evaluate(async () => !(await idb.get('trailMaps', 'builtin-tomales-bay')) && shownMaps.size === 0));
     // Del Valle and the Delta: each image loads and lands where it belongs
-    for (const [id, lat, lon, name] of [['builtin-del-valle', 37.59, -121.71, 'Del Valle Regional Park'], ['builtin-delta', 38.05, -121.55, 'Sacramento–San Joaquin Delta boating']]){
+    for (const [id, lat, lon, name] of [['builtin-del-valle', 37.59, -121.71, 'Del Valle Regional Park'], ['builtin-delta', 38.05, -121.55, 'Sacramento–San Joaquin Delta boating'],
+      ['builtin-wt-north-central', 37.92, -122.386, 'SF Bay Water Trail: North Central Bay'], ['builtin-wt-south-central', 37.8087, -122.409, 'SF Bay Water Trail: South Central Bay'],
+      ['builtin-wt-south', 37.5025, -122.2148, 'SF Bay Water Trail: South Bay'], ['builtin-wt-north-san-pablo', 38.2315, -122.6147, 'SF Bay Water Trail: North San Pablo Bay (Petaluma, Napa)'],
+      ['builtin-wt-suisun', 38.0578, -122.1746, 'SF Bay Water Trail: Suisun Marsh']]){
       c(`built-in offered: ${name}`, (await page.text('#sheet')).includes(name));
       await page.click(`#sheet [data-builtin="${id}"]`); await page.waitForFunction(id => shownMaps.has(id), id, { timeout: 15000 });
       const ok = await page.evaluate(async ([id, lat, lon]) => { const m = await idb.get('trailMaps', id), b = BUILTIN_MAPS.find(x => x.id === id);

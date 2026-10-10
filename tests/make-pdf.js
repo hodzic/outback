@@ -38,6 +38,7 @@ module.exports = dir => {
   fs.writeFileSync(dir + '/lake.pdf', pdf([lakePage, lakeList]));
   fs.writeFileSync(dir + '/brochure.pdf', pdf([mapPage, listPage]));
   fs.writeFileSync(dir + '/plain.pdf', pdf([text(200, 400, 'Just a picture', 24)]));
+  fs.writeFileSync(dir + '/scaled.pdf', pdf([text(200, 400, 'Trail map', 24) + '\n' + text(72, 60, 'Scale 1:24,000', 10)]));
 };
 module.exports.LAKE = LAKE; module.exports.lakeGeo = lakeGeo;
 if (require.main === module) module.exports(process.argv[2] || '.');

@@ -15,7 +15,7 @@ Three views; swipe between them or use the tabs at the bottom.
 2. **Trip**: everything about the selected trip:
    - name, date (with the weekday) and planned start time (tap it for hour, minute and AM/PM rollers; 9:00 by default; new trips take the last one set; the graph opens there and the waypoint table times from it), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
    - route: one line with length, duration, speed and legs; the waypoint table and the markers fold out below it. Draw, undo and clear the route on the map; while editing, long-press a leg to insert a waypoint on it, and Undo steps back through each edit.
-   - forecast: first the whole day, which stays put as the time changes: low and high temperature (large, at the top) with daylight sky and rain, tide range with every high and low, and every max flood, max ebb and slack, one per line in time order, wind and gusts for morning and afternoon, pressure over daylight, the day's thunder chance, sun, elevation for hikes. At the bottom: the picked time with *Now*, a fixed-size box with everything at that time (tide, current, wind and gusts, temperature and sky, pressure, lightning), then the tide/wind graph with every high and low tide and every max flood and ebb labelled, and the strongest wind and gust in daylight (plus the night's when stronger); tap or drag it to pick a time. The Tide / Wind / Elevation buttons sit right under the graph; on the elevation graph, tap or drag for the elevation, distance and time from the start at that spot.
+   - forecast: first the whole day, which stays put as the time changes: low and high temperature (large, at the top) with daylight sky and rain, tide range with every high and low, and every max flood, max ebb and slack, one per line in time order, wind and gusts for morning and afternoon, pressure over daylight, the day's thunder chance, sun, moon (rise and set, phase and % lit, spring or neap tides on tidal water, computed on the phone), elevation for hikes. At the bottom: the picked time with *Now*, a fixed-size box with everything at that time (tide, current, wind and gusts, temperature and sky, pressure, lightning), then the tide/wind graph with every high and low tide and every max flood and ebb labelled, and the strongest wind and gust in daylight (plus the night's when stronger); tap or drag it to pick a time. The Tide / Wind / Elevation buttons sit right under the graph; on the elevation graph, tap or drag for the elevation, distance and time from the start at that spot.
      *Get forecast* also saves the map around the route for offline use.
    - tracks from imported GPX files (show on map, use as route, delete), export GPX or trip file, delete trip
 3. **Map**: the route, and a top bar with the map layer (Chart / Street / Topo / Sat: USGS satellite imagery) and a scale bar in the trip's unit, *Route* (edit the route), **PDF** map overlays
@@ -81,7 +81,7 @@ Three views; swipe between them or use the tabs at the bottom.
 - **GPX import**: route points become the trip's route (simplified to at most 100 waypoints, keeping the shape
   within a few metres); a timed track is kept as a recorded track.
 - **Overlay PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or
-  printed "GPS Coordinates" labels when present, then you drag 4 points (or the centre) to line it up; *⟳ 90°* turns a sideways brochure in place.
+  printed "GPS Coordinates" labels when present, a PDF with neither but with a printed scale ("1:24,000", "1 inch = 2,000 feet") comes in at true size, north up, over the area you're viewing; then you drag 4 points (or the centre) to line it up; *⟳ 90°* turns a sideways brochure in place.
   **Auto-align** refines a rough placement from the water drawn on the map: it finds the map's light-blue water,
   gets OpenStreetMap water for the area (Overpass API; kept with the map, so re-aligning works offline) and fits a
   shift, turn and scale that lays one shoreline on the other (`align.js`, all on the phone). The OSM water shows as a
@@ -91,8 +91,10 @@ Three views; swipe between them or use the tabs at the bottom.
   Opacity slider on the right. Overlay PDF maps saved in GPS Map (same origin) can be copied in.
   **Built-in maps** ship already placed (`maps/`, listed in `BUILTIN_MAPS`): *Add* in the PDF list copies one into the
   phone's maps, where it works like an imported one. Now: NPS Tomales Bay boat-in camping (public domain),
-  Del Valle Regional Park (EBRPD, GeoPDF placement refined by Auto-align: shoreline median 8 m) and the
-  Sacramento–San Joaquin Delta boating map (California Coastal Commission, 2005; placed from its GeoPDF data).
+  Del Valle Regional Park (EBRPD, GeoPDF placement refined by Auto-align: shoreline median 8 m) the
+  Sacramento–San Joaquin Delta boating map (California Coastal Commission, 2005; placed from its GeoPDF data), and the five
+  SF Bay Area Water Trail maps (2017; cropped to the map, placed from their Water Trail launch icons, typically within
+  100–200 m).
 - **Tomales Bay and San Francisco Bay** in Help (the ? button) links the official info: NPS boat-in camping, map and
   kayaking pages for Tomales Bay; the SF Bay Water Trail, its web map and conditions page, and the Dolphin Club's Bay guide.
 

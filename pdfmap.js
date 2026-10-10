@@ -90,6 +90,19 @@ async function autoDetect(doc){
   };
 }
 
+// Printed map scale from the page text: a ratio ("1:24,000", "1 : 63360") or "1 inch = 2,000 feet / 1 mile".
+// Returns { ratio, text } with ratio = ground distance per paper distance, or null.
+export function printedScale(text){
+  const t = text.replace(/\s+/g, ' ');
+  let m = t.match(/\b1\s?:\s?(\d{1,3}(?:[,\s]\d{3})+|\d{4,7})\b/);
+  if (m){ const r = +m[1].replace(/[,\s]/g, ''); if (r >= 1000 && r <= 2e6) return { ratio: r, text: `1:${r.toLocaleString('en-US')}` }; }
+  m = t.match(/\b1\s?(?:inch|in\.?|")\s?(?:=|equals|to)\s?([\d.,]+)\s?(feet|foot|ft|miles?|mi|yards?|yd|meters?|metres?|m|kilometers?|kilometres?|km)\b/i);
+  if (m){ const v = +m[1].replace(/,/g, ''), u = m[2].toLowerCase();
+    const per = /^f/.test(u) ? 12 : /^mi/.test(u) ? 63360 : /^y/.test(u) ? 36 : /^k/.test(u) ? 39370.08 : 39.37008; // inches per unit
+    const r = v * per; if (r >= 1000 && r <= 2e6) return { ratio: Math.round(r), text: m[0] }; }
+  return null;
+}
+
 export async function parseGeoPdf(file){
   await load();
   const doc = mupdf.Document.openDocument(new Uint8Array(await file.arrayBuffer()), 'application/pdf');
@@ -106,6 +119,12 @@ export async function parseGeoPdf(file){
   }
   const auto = await autoDetect(doc);
   if (auto) return auto;
-  const { canvas } = await renderFullPage(doc.loadPage(0), 2000);
-  return { imageBlob: await jpeg(canvas), imageWidth: canvas.width, imageHeight: canvas.height, topLeft: null, topRight: null, bottomLeft: null, method: 'manual placement', labels: [] };
+  const page = doc.loadPage(0), { canvas, mediaBox: mb } = await renderFullPage(page, 2000);
+  // No position, but a printed scale ("1:24,000", "1 inch = 2,000 feet") still gives the size: metres per picture pixel
+  let mPerPx = null, scaleText = null;
+  try{
+    const sc = printedScale(page.toStructuredText().asText());
+    if (sc){ mPerPx = sc.ratio * 0.0254 / 72 * Math.max(mb[2] - mb[0], mb[3] - mb[1]) / Math.max(canvas.width, canvas.height); scaleText = sc.text; }
+  }catch{}
+  return { imageBlob: await jpeg(canvas), imageWidth: canvas.width, imageHeight: canvas.height, topLeft: null, topRight: null, bottomLeft: null, method: 'manual placement', labels: [], mPerPx, scaleText };
 }
