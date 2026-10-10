@@ -95,6 +95,7 @@ table.acts td,table.acts th{padding:5px 3px}
 .cell .k{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .cell .v{font-size:clamp(17px,5.2vw,20px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere}
 .cell .s{font-size:13px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
+.when{flex-wrap:nowrap;margin-bottom:10px} .when input.f{min-width:0;padding:0 6px} #date{flex:1.35} #start{flex:1}
 .rt{padding-bottom:4px} .rline{font-size:16px;font-variant-numeric:tabular-nums} .rline b{margin-right:4px}
 #windV,#sunV{font-size:clamp(15px,4.6vw,18px);white-space:nowrap}
 .v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
@@ -308,7 +309,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div class="page">
       <input class="f" id="tripName" aria-label="Trip name" autocomplete="off">
       <div class="card">
-        <div class="row" style="margin-bottom:10px"><span id="dow" class="dow"></span><input class="f" id="date" type="date" aria-label="Trip date" style="width:auto"></div>
+        <div class="row when"><span id="dow" class="dow"></span><input class="f" id="date" type="date" aria-label="Trip date"><input class="f" id="start" type="time" step="300" aria-label="Start time" title="Planned start"></div>
         <div class="seg" id="actSel" role="group" aria-label="Activity"><button data-act="paddle">Paddle</button><button data-act="hike">Hike</button><button data-act="bike">Bike</button></div>
         <label class="f" id="envLabel">Water</label>
         <div class="chips" id="envSel"></div>
@@ -410,7 +411,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-09d';
+const APP_VERSION = '2026-10-09e';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -606,12 +607,15 @@ const state = { legs: new Set(), tMin: 600, drawing: false, pos: null, watch: nu
   locating: false, locMode: 0, showStations: false, nextWp: null, view: -1 };
 let trip;
 function newTrip(activity = 'paddle'){
-  return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), route: [], tracks: [], marks: [],
+  return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), start: settings.start ?? START, route: [], tracks: [], marks: [],
     tide: null, current: null, data: null, fetchedAt: null, updated: Date.now() };
 }
+const START = 9 * 60; // planned start, minutes after midnight; new trips take the last one set
+const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 // Bring trips saved by older versions (Paddle) up to the current shape.
 function normTrip(t){
   t.activity = t.activity || 'paddle';
+  if (!Number.isFinite(t.start)) t.start = START;
   if (t.env === undefined){ t.env = t.water === 'tidal' ? 'bay' : t.water === 'lake' ? 'lake' : null; t.envSet = !!t.waterSet; }
   delete t.water; delete t.waterSet;
   t.tracks = t.tracks || [];
@@ -1084,7 +1088,8 @@ function render(){
   if (document.activeElement !== $('#tripName')) $('#tripName').value = trip.name;
   $('#tabTrip').textContent = trip.name; $('#tripChip').textContent = trip.name;
   $('#date').value = trip.date;
-  $('#dow').textContent = new Date(trip.date + 'T12:00').toLocaleDateString('en-US', { weekday: 'long' }) + ',';
+  if (document.activeElement !== $('#start')) $('#start').value = hhmm(trip.start);
+  $('#dow').textContent = new Date(trip.date + 'T12:00').toLocaleDateString('en-US', { weekday: 'short' }) + ',';
   document.querySelectorAll('#actSel button').forEach(b => b.classList.toggle('on', b.dataset.act === trip.activity));
   $('#envLabel').textContent = act().envLabel;
   // ships matter on the water only
@@ -1204,8 +1209,8 @@ $('#wpDetails').addEventListener('toggle', () => { if ($('#wpDetails').open) rou
 function routeTable(){
   const r = trip.route;
   if (r.length < 2){ $('#routeTable').innerHTML = '<p class="muted">No route yet.</p>'; return; }
-  let cum = 0; const start = tAt();
-  $('#routeTable').innerHTML = `<p class="muted">Leaving at ${hm(start)} (the forecast time) at ${speed()} ${u().spd}${hasElev() ? ', on the flat' : ', without current'}.</p>
+  let cum = 0; const start = dayStart() + trip.start * 6e4;
+  $('#routeTable').innerHTML = `<p class="muted">Leaving at ${hm(start)} (the planned start) at ${speed()} ${u().spd}${hasElev() ? ', on the flat' : ', without current'}.</p>
     <table><tr><th>Waypoint</th><th>Leg ${unitName()}</th><th>Bearing</th><th>Total</th><th>Arrive</th></tr>${r.map((p, i) => {
       if (!i) return `<tr><td>${esc(wpLabel(r, 0))}</td><td>–</td><td>–</td><td>0.00</td><td>${hm(start)}</td></tr>`;
       const d = distNm(r[i-1], p); cum += d;
@@ -1492,6 +1497,12 @@ $('#date').onchange = e => {
   trip.date = e.target.value; trip.data = null; trip.fetchedAt = null; changed();
   toast('Date changed. Tap Get forecast for the new day.');
 };
+$('#start').onchange = e => {
+  const [h, m] = (e.target.value || '').split(':').map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)){ e.target.value = hhmm(trip.start); return; }
+  trip.start = h * 60 + m; settings.start = trip.start; saveSettings();
+  state.tMin = Math.floor(trip.start / 5) * 5; changed();
+};
 $('#actSel').addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || b.dataset.act === trip.activity) return;
   trip.activity = b.dataset.act; trip.env = null; trip.envSet = false; trip.data = null; trip.fetchedAt = null;
@@ -1598,6 +1609,7 @@ async function openTrip(t){
     setTimeout(() => toast(`This route had ${n0.toLocaleString()} points; simplified to ${trip.route.length} waypoints to keep the app fast.`, 5000), 300);
   }
   setDrawing(false);
+  state.tMin = todayIso() === trip.date ? Math.floor(nowMin() / 5) * 5 : Math.floor(trip.start / 5) * 5;
   state.nextWp = null; drawRoute(); drawMarks(); drawTracks(); drawStations(); render(); renderList(); showToNext();
   fitTrip();
 }

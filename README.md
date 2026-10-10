@@ -13,7 +13,7 @@ Three views; swipe between them or use the tabs at the bottom.
    backup and restore of everything in one file,
    settings (distance unit, speed and gust warning per activity; magnetic variation), install and offline help, and about.
 2. **Trip**: everything about the selected trip:
-   - name, date (with the weekday), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
+   - name, date (with the weekday) and planned start time (9:00 by default; new trips take the last one set; the graph opens there and the waypoint table times from it), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
    - route: one line with length, duration, speed and legs; the waypoint table folds out. Draw, undo and clear the route on the map.
    - forecast for the day: low and high temperature (large, at the top), tide/wind graph with every high and low tide and every max flood and ebb of the day labelled, and the strongest wind and gust in daylight (plus the night's when stronger) (tap or drag it to pick a time; *Now* jumps to now). Right above the graph, in a fixed-size box, everything at the picked time: tide, current, wind and gusts, temperature and sky, pressure, lightning. Below that, the whole day, which stays put as the time changes: tide range with every high and low, and every max flood, max ebb and slack, one per line in time order, wind and gusts for morning and afternoon, daylight sky and rain, pressure over daylight, the day's thunder chance, sun, elevation for hikes.
      *Get forecast* also saves the map around the route for offline use.

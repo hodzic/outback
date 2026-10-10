@@ -40,6 +40,13 @@ module.exports = async (browser, url, check) => {
   c('route length in nm', / nm$/.test(await page.text('#dist')) && parseFloat(await page.text('#dist')) > 0, await page.text('#dist'));
   c('duration shown', /min|h/.test(await page.text('#dur')), await page.text('#dur'));
   c('legs summary', (await page.text('#legs')).startsWith('2 legs'), await page.text('#legs'));
+  c('start time next to the date, 9:00 by default', await page.inputValue('#start') === '09:00' && await page.evaluate(() => document.querySelector('#date').parentElement.contains(document.querySelector('#start'))));
+  await page.fill('#start', '07:30'); await page.dispatchEvent('#start', 'change');
+  c('start time is saved and moves the graph time', await page.evaluate(() => trip.start === 450 && state.tMin === 450 && settings.start === 450) && /^7:30/.test(await page.text('#timeOut')), await page.text('#timeOut'));
+  await page.click('#wpDetails summary'); await page.waitForTimeout(150);
+  c('waypoint times leave at the planned start', /Leaving at 7:30 AM \(the planned start\)/.test(await page.text('#routeTable')), await page.text('#routeTable'));
+  await page.click('#wpDetails summary');
+  c('new trips take the last start; old trips get 9:00', await page.evaluate(() => newTrip().start === 450 && normTrip({ route: [], tracks: [], marks: [] }).start === 540));
   c('route on one line', /^Route \d+\.\d nm · .+ at 3 kt · 2 legs$/.test(await page.text('.rline')), await page.text('.rline'));
   await page.click('#fcBtn'); await waitForecast(page); await page.waitForTimeout(200);
   c('forecast saved toast', /Forecast saved/.test(await page.text('#toast')), await page.text('#toast'));
@@ -176,7 +183,7 @@ module.exports = async (browser, url, check) => {
   await view(page, 1);
   await page.fill('#date', '2026-12-10'); await page.dispatchEvent('#date', 'change');
   c('date change clears forecast', /no forecast/i.test(await page.text('#status')));
-  c('weekday shown before the date', (await page.text('#dow')) === 'Thursday,', await page.text('#dow'));
+  c('weekday shown before the date', (await page.text('#dow')) === 'Thu,', await page.text('#dow'));
   c('date sits above the activity buttons', await page.evaluate(() => document.querySelector('#date').getBoundingClientRect().bottom <= document.querySelector('#actSel').getBoundingClientRect().top));
   const n0 = await page.evaluate(async () => (await idb.all('trips')).length);
   await page.click('#deleteTrip'); await page.waitForTimeout(500);
