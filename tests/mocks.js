@@ -70,5 +70,8 @@ async function install(ctx, opts = {}){
     for (let i = 0; i < 40; i++) values.push({ validTime: new Date(start + i*3*36e5).toISOString().replace('.000', '') + '/PT3H', value: i % 5 === 0 ? 30 : 0 });
     json(r, { properties: { probabilityOfThunder: { values } } });
   });
+  // OpenStreetMap water (Overpass), for PDF map Auto-align: none unless the test supplies opts.overpass (elements)
+  for (const h of ['overpass-api.de', 'overpass.kumi.systems'])
+    await ctx.route(`https://${h}/**`, r => { (ctx.overpassHits = (ctx.overpassHits || 0) + 1); json(r, { elements: opts.overpass || [] }); });
 }
 module.exports = { install };

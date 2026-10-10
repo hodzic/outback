@@ -61,9 +61,15 @@ Three views; swipe between them or use the tabs at the bottom.
   the Trip view lists them under the route. GPX export and import keep both (`<wpt>` for markers).
 - **GPX import**: route points become the trip's route (simplified to at most 100 waypoints, keeping the shape
   within a few metres); a timed track is kept as a recorded track.
-- **PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or
+- **Overlay PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or
   printed "GPS Coordinates" labels when present, then you drag 4 points (or the centre) to line it up.
-  Opacity slider on the right. PDF maps saved in GPS Map (same origin) can be copied in.
+  **Auto-align** refines a rough placement from the water drawn on the map: it finds the map's light-blue water,
+  gets OpenStreetMap water for the area (Overpass API; kept with the map, so re-aligning works offline) and fits a
+  shift, turn and scale that lays one shoreline on the other (`align.js`, all on the phone). The OSM water shows as a
+  dashed blue line, the toast gives the mismatch before and after, and *Undo align* puts the points back. It needs
+  the map placed within a few hundred metres first; maps without water say so. *Help: overlay PDF maps* on the Trips tab
+  (linked from the PDF list) explains placing and Auto-align.
+  Opacity slider on the right. Overlay PDF maps saved in GPS Map (same origin) can be copied in.
 
 **Not for navigation or safety decisions.** Forecasts, tides, currents, maps, elevation, ship positions and time
 estimates come from free public services and simple calculations; they can be wrong, late, incomplete or missing,
@@ -83,13 +89,13 @@ Then open Outback from its home screen icon: it runs full screen and keeps its o
 
 ## Backup
 
-Trips, tracks, PDF maps and settings are stored only in the browser on your phone. Clearing the browser's site data
+Trips, tracks, overlay PDF maps and settings are stored only in the browser on your phone. Clearing the browser's site data
 (on Android, Chrome's *Clear browsing data → Cookies and site data*) or deleting the app erases them.
 Outback asks the browser for persistent storage, so it isn't cleared automatically when space runs low,
 but that doesn't stop a manual clear.
 
 *Trips → Backup → Back up everything* saves one file with all of it; keep it in Files, iCloud Drive or Google Drive.
-*Restore backup…* (or *Import trip or GPX…*) merges a backup back in: missing trips and PDF maps are added,
+*Restore backup…* (or *Import trip or GPX…*) merges a backup back in: missing trips and overlay PDF maps are added,
 and a trip that is newer in the backup replaces the older copy on the phone. On a phone with no trips, the backup's
 settings come back too. If trips have changed and there has been no backup for 2 weeks, the Trips view reminds you.
 
@@ -100,7 +106,7 @@ The app works offline once each trip has been prepared while you still have a co
 **Works offline**
 
 - **The app itself.** Once you have opened it online, it opens with no connection.
-- **Your trips.** Routes, settings, recorded tracks and PDF maps are stored on the phone.
+- **Your trips.** Routes, settings, recorded tracks and overlay PDF maps are stored on the phone.
 - **The forecast you already fetched.** *Get forecast* saves tides, currents, wind, pressure, lightning and
   elevation with the trip. Offline you see that saved copy; it can't refresh, and the status line says when
   it was fetched.
@@ -114,8 +120,8 @@ The app works offline once each trip has been prepared while you still have a co
 - Getting or refreshing a forecast, or changing tide stations.
 - Map areas you haven't saved or viewed.
 - Map layers you didn't save: *Get forecast* only saves the layer selected at the time (Chart, Street or Topo).
-- Importing your first PDF map, because the 10 MB PDF reader downloads on first use.
-  PDF maps you have already imported show fine offline.
+- Importing your first overlay PDF map, because the 10 MB PDF reader downloads on first use.
+  Overlay PDF maps you have already imported show fine offline.
 
 **Before you leave**
 

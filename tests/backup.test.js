@@ -33,7 +33,7 @@ module.exports = async (browser, url, check) => {
     c('file holds settings but not view state', j.settings?.speedsKt?.paddle === 3.5 && j.settings.aisKey === 'k123' && !('view' in j.settings) && !('lastBackup' in j.settings));
     c('backup date shown', /Last backup: /.test(await page.text('#backupInfo')), await page.text('#backupInfo'));
     c('storage status shown', /may clear/.test(await page.text('#backupInfo')), await page.text('#backupInfo'));
-    c('toast counts what was saved', /Backed up 2 trips and 1 PDF map/.test(await page.text('#toast')), await page.text('#toast'));
+    c('toast counts what was saved', /Backed up 2 trips and 1 overlay PDF map/.test(await page.text('#toast')), await page.text('#toast'));
     c('no page errors (backup)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // restore on a wiped phone
@@ -41,7 +41,7 @@ module.exports = async (browser, url, check) => {
     await page.goto(url); await ready(page);
     await view(page, 0); await page.click('#backupCard summary');
     await page.setInputFiles('#file', file); await page.waitForTimeout(800);
-    c('restore toast', /Restored: 2 trips added, 1 PDF map added/.test(await page.text('#toast')), await page.text('#toast'));
+    c('restore toast', /Restored: 2 trips added, 1 overlay PDF map added/.test(await page.text('#toast')), await page.text('#toast'));
     c('trips listed', await page.locator('#tripList .trip', { hasText: 'Bay loop' }).count() === 1 && await page.locator('#tripList .trip', { hasText: 'Mt Diablo' }).count() === 1);
     c('PDF map image restored', await page.evaluate(async () => { const m = await idb.get('trailMaps', 'm1'); const b = new Uint8Array(await m.imageBlob.arrayBuffer());
       return m.imageBlob.type === 'image/png' && b.length === 8 && b[7] === 250; }));
