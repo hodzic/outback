@@ -360,6 +360,25 @@ module.exports = async (browser, url, check) => {
     c('🚻 again hides restrooms', await page.locator('.poi.wc').count() === 0 && !(await page.evaluate(() => settings.toilets)));
     c('no page errors (restrooms)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
+  { // Boat launches: SF Bay Area Water Trail sites (shipped) plus OSM ramps and put-ins
+    const { ctx, page, errors } = await open(browser, url);
+    await page.goto(url); await ready(page); await view(page, 2);
+    await page.evaluate(() => map.setView([37.87, -122.31], 13, { animate: false })); await page.waitForTimeout(300);
+    c('🛶 launches button on paddle trips', await page.isVisible('#lnBtn'));
+    await page.click('#lnBtn'); await page.waitForFunction(() => document.querySelectorAll('.poi.ln').length > 1, null, { timeout: 5000 }).catch(() => {});
+    const n = await page.evaluate(() => ({ wt: document.querySelectorAll('.poi.ln.wt').length, osm: document.querySelectorAll('.poi.ln:not(.wt)').length, all: waterTrail.sites?.length }));
+    c('🛶 shows Water Trail sites (48 shipped) and OSM put-ins, without duplicating a Water Trail site', n.all === 48 && n.wt >= 2 && n.osm === 1, JSON.stringify(n));
+    await page.evaluate(() => POI.launch.layer.getLayers().find(m => Math.abs(m.getLatLng().lat - waterTrail.sites.find(s => s.id === 'wt-albany-beach').lat) < 1e-6).openPopup()); await page.waitForTimeout(300);
+    const pop = await page.text('.leaflet-popup-content');
+    c('Water Trail popup: name, manager, launch, facilities, parking and links', /Albany Beach/.test(pop) && /Launch:/.test(pop) && /Facilities:/.test(pop) && /Parking/.test(pop)
+      && await page.locator('.leaflet-popup-content a[href^="https://sfbaywatertrail.org/trailhead/"]').count() === 1 && await page.locator('.leaflet-popup-content a[href*="google.com/maps/dir"]').count() === 1, pop.slice(0, 200));
+    await page.click('.leaflet-popup-content [data-wtstart]'); await page.waitForTimeout(200);
+    c('Start route here puts the launch at the start of the route', await page.evaluate(() => trip.route.length === 1 && trip.route[0][2] === 'Albany Beach'));
+    await page.screenshot({ path: path.join(OUT, 'feat-launches.png') });
+    await page.click('#tabs [data-view="0"]'); await page.click('#newHike'); await page.waitForTimeout(500);
+    c('no launches on a hike', await page.isHidden('#lnBtn') && await page.evaluate(() => !map.hasLayer(POI.launch.layer)));
+    c('no page errors (launches)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
   { // Satellite layer and scale bar
     const { ctx, page, errors } = await open(browser, url);
     const tiles = []; page.on('request', r => { if (r.url().includes('USGSImageryOnly')) tiles.push(r.url()); });

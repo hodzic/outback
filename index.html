@@ -199,6 +199,10 @@ table.acts td,table.acts th{padding:5px 3px}
 .poi{width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid #1F6FB2;font-size:13px;line-height:20px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .poi.pk{border-radius:5px;background:#1F6FB2;color:#fff;font-weight:800;font-size:14px}
 .poi.closed{border-color:#999;opacity:.7} .poi.pk.closed{background:#8a9aa8}
+#lnBtn{position:absolute;left:10px;bottom:156px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:20px;padding:0}
+#lnBtn.on{background:var(--ink);border-color:var(--ink)}
+.poi.ln{border-color:#2E8B57} .poi.wt{width:28px;height:28px;line-height:24px;font-size:15px;border-width:3px;border-color:#C8167E}
+.wtp p{margin:4px 0} .wtp details{margin:3px 0} .wtp summary{font-weight:700;cursor:pointer}
 #pkBtn{position:absolute;left:10px;bottom:104px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:18px;font-weight:800;padding:0;color:#1F6FB2}
 #pkBtn.on{background:#1F6FB2;color:#fff;border-color:#1F6FB2}
 #seaBtn{position:absolute;right:10px;bottom:140px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:22px;padding:0}
@@ -279,7 +283,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms and parking, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
       </details>
@@ -364,6 +368,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     </div>
     <button id="aisBtn" class="pill" aria-label="Ships nearby (AIS)" title="Ships nearby (AIS)">AIS</button>
+    <button id="lnBtn" class="pill" hidden aria-label="Boat launches" title="Boat launches">🛶</button>
     <button id="pkBtn" class="pill" aria-label="Parking (OpenStreetMap)" title="Parking (OpenStreetMap)">P</button>
     <button id="wcBtn" class="pill" aria-label="Restrooms (OpenStreetMap)" title="Restrooms (OpenStreetMap)">🚻</button>
     <button id="seaBtn" class="pill" hidden aria-label="Sea marks (OpenSeaMap)" title="Sea marks (OpenSeaMap)">⚓</button>
@@ -411,7 +416,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>The forecast you already fetched</b>: tides, currents, wind, pressure, lightning and elevation. It can't refresh; the status line says when it was fetched.</li>
           <li><b>GPS</b>: your location on the map (◎) uses satellites, not data.</li>
           <li><b>Map tiles</b> that Get forecast saved around the route, and areas you've already looked at.</li>
-          <li><b>Restrooms (🚻) and parking (P)</b> in areas you've looked at with them on, and around the route if they were on during Get forecast.</li>
+          <li><b>SF Bay Water Trail launch sites (🛶)</b>, always. <b>Restrooms (🚻), parking (P) and other launches</b> in areas you've looked at with them on, and around the route if they were on during Get forecast.</li>
         </ul>
         <h3>Needs a connection</h3>
         <ul>
@@ -524,7 +529,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10m';
+const APP_VERSION = '2026-10-10n';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -803,6 +808,7 @@ let seaLayer = null;
 function seaState(){
   const b = $('#seaBtn'), avail = trip?.activity === 'paddle', on = avail && !!settings.seamarks;
   b.hidden = !avail; b.classList.toggle('on', on); b.style.bottom = $('#curBtn').hidden ? '82px' : '140px';
+  if (window.poiReady && POI.launch.shown !== avail){ POI.launch.shown = avail; poiState(POI.launch); poiRefresh(POI.launch); }
   if (on && !seaLayer) seaLayer = L.tileLayer(SEAMARKS.url, SEAMARKS.opt).addTo(map);
   else if (!on && seaLayer){ map.removeLayer(seaLayer); seaLayer = null; }
 }
@@ -2319,8 +2325,25 @@ const POI = {
     info: t => [accessTxt(t), feeTxt(t), t['fee:conditional'] && `Fee ${t['fee:conditional']}`, hoursTxt(t), t.maxstay && `Max stay ${t.maxstay}`,
       t.capacity && `${t.capacity} spaces`, t['capacity:disabled'] && /^\d+$/.test(t['capacity:disabled']) && `${t['capacity:disabled']} accessible`,
       t.parking === 'multi-storey' ? 'Garage' : t.parking === 'underground' ? 'Underground' : null, t.surface && t.surface !== 'asphalt' && t.surface !== 'paved' && `Surface: ${t.surface}`,
-      yesT(t.trailer) && 'Trailers OK', t.supervised === 'yes' && 'Attended'] }
+      yesT(t.trailer) && 'Trailers OK', t.supervised === 'yes' && 'Attended'] },
+  // boat launches: the SF Bay Area Water Trail's sites (shipped with the app) plus OSM ramps and put-ins anywhere
+  launch: { name: 'Launches', btn: '#lnBtn', cls: 'ln', icon: '🛶', title: 'Boat launch', paddleOnly: true, toastOn: 'Launches on: SF Bay Water Trail sites and OpenStreetMap ramps and put-ins.',
+    query: b => `nwr["leisure"="slipway"](${b});nwr["canoe"="put_in"](${b});`,
+    info: t => [t.canoe === 'put_in' ? 'Kayak / canoe put-in' : 'Boat ramp', accessTxt(t), feeTxt(t), hoursTxt(t), t.surface && `Surface: ${t.surface}`, yesT(t.trailer) && 'Trailers OK'],
+    extra: () => waterTrail.sites || [] }
 };
+// Water Trail launch sites: data/watertrail.json (tools/watertrail.js), loaded the first time 🛶 is on
+const waterTrail = { sites: null, loading: null };
+const loadWaterTrail = () => waterTrail.loading ||= fetch('data/watertrail.json').then(r => r.json()).then(d => { waterTrail.sites = d.sites; waterTrail.at = d.at; }).catch(() => { waterTrail.loading = null; });
+const para = t => esc(t).replace(/\n/g, '<br>');
+function wtPopup(w){
+  const more = [['Boat facilities', w.boat], ['Parking', w.parking], ['Restrooms', w.restrooms], ['Hours', w.hours], ['Safety', w.safety]].filter(([, v]) => v);
+  return `<div class="wtp"><b>${esc(w.name)}</b>${w.sub ? ` <span class="muted">${esc(w.sub)}</span>` : ''}<br><small>${esc([w.manager, w.county && w.county + ' County'].filter(Boolean).join(' · '))}</small>
+    ${w.about ? `<p>${esc(w.about)}</p>` : ''}${w.launch ? `<p><b>Launch:</b> ${esc(w.launch)}</p>` : ''}${w.facilities ? `<p><b>Facilities:</b> ${esc(w.facilities)}</p>` : ''}
+    ${more.map(([k, v]) => `<details><summary>${k}</summary><p>${para(v)}</p></details>`).join('')}
+    <p><a href="${esc(w.link)}" target="_blank" rel="noopener">Water Trail page</a> · <a href="https://www.google.com/maps/dir/?api=1&destination=${w.lat},${w.lon}" target="_blank" rel="noopener">Directions</a> · <a href="#" data-wtstart="${esc(w.id)}">Start route here</a></p>
+    <small>SF Bay Area Water Trail${waterTrail.at ? `, as of ${waterTrail.at}` : ''}; check the page for changes.</small></div>`;
+}
 const POI_CELL = .05, POI_DAYS = 30;
 for (const [k, P] of Object.entries(POI)) Object.assign(P, { key: k, layer: L.layerGroup(), cells: LS.get('poi.' + k, {}), busy: false, t: null });
 const cellKey = (i, j) => `${i},${j}`;
@@ -2338,7 +2361,11 @@ async function poiFetch(P, b){
 }
 const poiIcon = (P, dim) => L.divIcon({ className: '', html: `<div class="poi ${P.cls}${dim ? ' closed' : ''}">${P.icon}</div>`, iconSize: [24, 24], iconAnchor: [12, 12] });
 function poiMarkers(P, b, group){
+  const ex = (P.extra?.() || []).filter(w => b.pad(.2).contains([w.lat, w.lon]));
+  for (const w of ex) L.marker([w.lat, w.lon], { icon: L.divIcon({ className: '', html: `<div class="poi ${P.cls} wt">${P.icon}</div>`, iconSize: [28, 28], iconAnchor: [14, 14] }), keyboard: false })
+    .bindPopup(() => wtPopup(w), { maxWidth: 300, maxHeight: 340 }).addTo(group);
   for (const [i, j] of cellsFor(b.pad(.2))) for (const [lat, lon, t] of P.cells[cellKey(i, j)]?.pts || []){
+    if (ex.some(w => Math.abs(w.lat - lat) < .0015 && Math.abs(w.lon - lon) < .002)) continue; // the Water Trail site covers it
     const dim = t.access === 'private' || t.access === 'no' || t.access === 'customers';
     L.marker([lat, lon], { icon: poiIcon(P, dim), keyboard: false }).bindPopup(() => { const info = P.info(t).filter(Boolean);
       return `<b>${esc(t.name || P.title)}</b>${t.operator ? `<br><small>${esc(t.operator)}</small>` : ''}${info.length ? `<br>${info.map(esc).join(' · ')}` : ''}${t.description ? `<br><small>${esc(t.description)}</small>` : ''}
@@ -2346,7 +2373,8 @@ function poiMarkers(P, b, group){
   }
 }
 async function poiRefresh(P){
-  P.layer.clearLayers(); if (!settings[P.key]) return;
+  P.layer.clearLayers(); if (!settings[P.key] || !poiAvail(P)) return;
+  if (P.extra && P.key === 'launch' && !waterTrail.sites){ await loadWaterTrail(); P.layer.clearLayers(); }
   const b = map.getBounds(); poiMarkers(P, b, P.layer);
   if (P.busy || !navigator.onLine) return;
   P.busy = true;
@@ -2354,12 +2382,14 @@ async function poiRefresh(P){
   catch{ toast(`${P.name} could not be loaded (OpenStreetMap).`); }
   finally{ P.busy = false; }
 }
-function poiState(P){ const on = !!settings[P.key]; $(P.btn).classList.toggle('on', on); if (on) P.layer.addTo(map); else map.removeLayer(P.layer);
-  map.attributionControl[on ? 'addAttribution' : 'removeAttribution'](`${P.name} © OpenStreetMap`); }
+const poiAvail = P => !P.paddleOnly || trip?.activity === 'paddle';
+function poiState(P){ const on = !!settings[P.key] && poiAvail(P); $(P.btn).hidden = !poiAvail(P); $(P.btn).classList.toggle('on', on); if (on) P.layer.addTo(map); else map.removeLayer(P.layer);
+  map.attributionControl[on ? 'addAttribution' : 'removeAttribution'](P.key === 'launch' ? 'Launches: SF Bay Water Trail, OSM' : `${P.name} © OpenStreetMap`); }
 for (const P of Object.values(POI)){
   $(P.btn).onclick = () => { settings[P.key] = !settings[P.key]; saveSettings(); poiState(P); poiRefresh(P); toast(settings[P.key] ? P.toastOn : `${P.name} off.`); };
   poiState(P); if (settings[P.key]) setTimeout(() => poiRefresh(P), 1500);
 }
+window.poiReady = true;
 map.on('moveend', () => { for (const P of Object.values(POI)) if (settings[P.key]){ clearTimeout(P.t); P.t = setTimeout(() => poiRefresh(P), 700); } });
 
 /* ---------- share plan + print ---------- */
@@ -2458,6 +2488,12 @@ function openHelp(id){
 const closeHelp = () => { if (!$('#helpPage').hidden) history.state?.help ? history.back() : ($('#helpPage').hidden = true); };
 addEventListener('popstate', () => { $('#helpPage').hidden = true; closePrint(); });
 document.addEventListener('click', e => { if (e.target.closest('[data-help]')) openHelp(); });
+document.addEventListener('click', e => {
+  const a = e.target.closest('[data-wtstart]'); if (!a) return; e.preventDefault();
+  const w = waterTrail.sites?.find(x => x.id === a.dataset.wtstart); if (!w) return;
+  trip.route.unshift([w.lat, w.lon, w.name]); map.closePopup(); changed();
+  toast(`${w.name} is now the start of the route${trip.route.length === 1 ? '. Tap Route to add the rest' : ''}.`);
+});
 $('#helpClose').onclick = closeHelp;
 document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (!$('#printView').hidden) $('#pClose').click(); else if (!$('#helpPage').hidden) closeHelp(); });
 
