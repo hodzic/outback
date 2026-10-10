@@ -28,6 +28,13 @@ module.exports = async (browser, url, check) => {
     c('no tide cells on a trail', !(await page.isVisible('#tideV')) && !(await page.isVisible('#curV')));
     c('elevation gain shown', /^\+[\d,]+ ft/.test(await page.text('#elevV')), await page.text('#elevV'));
     c('climb included in duration', /climb \+[\d,]+ ft/.test(await page.text('#legs')), await page.text('#legs'));
+    { await page.evaluate(() => { settings.graph = 'elev'; render(); });
+      const got = await page.evaluate(() => { const P = CanvasRenderingContext2D.prototype, f = P.fillText, out = [];
+        P.fillText = function(t, ...a){ if (this.canvas === cv) out.push(t); return f.call(this, t, ...a); };
+        try{ const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width / 2, clientY: r.top + 30, pointerId: 1, bubbles: true })); } finally{ P.fillText = f; }
+        return { f: state.elevF, out }; });
+      c('elevation graph reads elevation, distance and time at the picked spot', Math.abs(got.f - .5) < .02 && got.out.some(t => /^[\d,]+ ft · \d+\.\d mi · \d/.test(t)), got.out.join(' | '));
+      c('elevation hint says to drag along the route', /elevation along the route/.test(await page.text('#chartHint'))); }
     c('graph offers Elevation and Wind', (await page.locator('#graphSel button').allInnerTexts()).join() === 'Elevation,Wind');
     c('wind shown in mph', (await page.text('#windK')) === 'Wind · mph' && /mph/.test(await page.text('#atWind')), await page.text('#windK'));
     await page.screenshot({ path: path.join(OUT, 'feat-hike.png') });

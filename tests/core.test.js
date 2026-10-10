@@ -40,9 +40,13 @@ module.exports = async (browser, url, check) => {
   c('route length in nm', / nm$/.test(await page.text('#dist')) && parseFloat(await page.text('#dist')) > 0, await page.text('#dist'));
   c('duration shown', /min|h/.test(await page.text('#dur')), await page.text('#dur'));
   c('legs summary', (await page.text('#legs')).startsWith('2 legs'), await page.text('#legs'));
-  c('start time next to the date, 9:00 by default', await page.inputValue('#start') === '09:00' && await page.evaluate(() => { const i = document.querySelector('#start'); return i.type === 'time' && i.required; }) && await page.evaluate(() => document.querySelector('#date').parentElement.contains(document.querySelector('#start'))));
-  await page.fill('#start', '07:30'); await page.dispatchEvent('#start', 'change');
-  c('start time is saved and moves the graph time', await page.evaluate(() => trip.start === 450 && state.tMin === 450 && settings.start === 450) && /^7:30/.test(await page.text('#timeOut')), await page.text('#timeOut'));
+  c('start time next to the date, 9:00 by default', (await page.text('#start')) === '9:00 AM' && await page.evaluate(() => document.querySelector('#date').parentElement.contains(document.querySelector('#start'))));
+  await page.click('#start');
+  c('start picker: hour and minute grids with OK', await page.locator('#tpH button').count() === 24 && await page.locator('#tpM button').count() === 12 && await page.isVisible('#tpOk'));
+  await page.click('#tpH [data-h="7"]'); await page.click('#tpM [data-m="30"]');
+  c('picker shows the picked time', (await page.text('#tpNow')) === '7:30 AM' && await page.evaluate(() => trip.start) === 540, await page.text('#tpNow'));
+  await page.click('#tpOk');
+  c('start time is saved and moves the graph time', await page.evaluate(() => trip.start === 450 && state.tMin === 450 && settings.start === 450) && /^7:30/.test(await page.text('#timeOut')) && (await page.text('#start')) === '7:30 AM' && !(await page.evaluate(() => sheet.open)), await page.text('#timeOut'));
   await page.click('#wpDetails summary'); await page.waitForTimeout(150);
   c('waypoint times leave at the planned start', /Leaving at 7:30 AM \(the planned start\)/.test(await page.text('#routeTable')), await page.text('#routeTable'));
   await page.click('#wpDetails summary');
