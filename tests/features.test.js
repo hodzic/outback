@@ -312,6 +312,60 @@ module.exports = async (browser, url, check) => {
     c('delete PDF map', await page.evaluate(async () => (await idb.all('trailMaps')).length) === 0);
     c('no page errors (pdf)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
+  { // Auto-align: match the lake drawn on the PDF to OpenStreetMap water
+    const { LAKE, lakeGeo } = require('./make-pdf');
+    const ring = [...LAKE, LAKE[0]].map(([x, y]) => { const [lat, lon] = lakeGeo(x, y); return { lat, lon }; });
+    const { ctx, page, errors } = await open(browser, url, {}, { overpass: [{ type: 'way', id: 1, geometry: ring }] });
+    page.promptAnswer = 'Lake park';
+    await page.goto(url); await ready(page); await view(page, 2);
+    await page.setInputFiles('#pdfFile', path.join(OUT, 'lake.pdf'));
+    await page.waitForSelector('#nAlign', { timeout: 60000 });
+    c('Auto-align button in the placing bar', await page.isVisible('#nAlign') && (await page.text('#nAlign')) === 'Auto-align');
+    // knock it off by dragging the centre, as a rough hand placement would be
+    const h = await page.locator('.nudge-c').boundingBox();
+    await page.mouse.move(h.x + 17, h.y + 17); await page.mouse.down(); await page.mouse.move(h.x + 29, h.y + 7, { steps: 5 }); await page.mouse.up();
+    // true top-left corner: image (0,0) is page point (0, 792)
+    const [tLat, tLon] = lakeGeo(0, 792), M = 111000, err = p => Math.hypot((p.lat - tLat) * M, (p.lng - tLon) * M * Math.cos(tLat * Math.PI / 180));
+    const corner = () => page.evaluate(() => state.nudge.layer._topLeft);
+    const e0 = err(await corner());
+    const t0 = Date.now(); await page.click('#nAlign');
+    await page.waitForFunction(() => /Lined up|failed|No water|not near|Could not/.test(document.querySelector('#toast').textContent), null, { timeout: 30000 });
+    const ms = Date.now() - t0, toast = await page.text('#toast'), e1 = err(await corner());
+    c('Auto-align lines the lake up with OSM water', /Lined up with OpenStreetMap water/.test(toast) && e1 < 15 && e0 > 100, `${e0.toFixed(0)} m -> ${e1.toFixed(0)} m; ${toast}`);
+    c('Auto-align reports the shoreline mismatch before and after', /off by \d+ ft → \d+ ft/.test(toast), toast);
+    c('Auto-align takes under 5 s', ms < 5000, ms + ' ms');
+    c('OSM water drawn while placing', await page.locator('path.leaflet-interactive, path').count() > 0 && await page.evaluate(() => { let n = 0; map.eachLayer(l => { if (l instanceof L.Polyline && l.options.dashArray === '4 4') n++; }); return n === 1; }));
+    await page.screenshot({ path: path.join(OUT, 'feat-pdf-align.png') });
+    c('Undo align offered', (await page.text('#nAlign')) === 'Undo align');
+    await page.click('#nAlign'); await page.waitForTimeout(200);
+    c('Undo align puts the placement back', Math.abs(err(await corner()) - e0) < 1 && (await page.text('#nAlign')) === 'Auto-align');
+    await page.click('#nAlign');
+    await page.waitForFunction(() => document.querySelector('#nAlign').textContent === 'Undo align', null, { timeout: 30000 });
+    await page.click('#nSave'); await page.waitForTimeout(300);
+    const m = await page.evaluate(async () => (await idb.all('trailMaps'))[0]);
+    c('aligned placement saved', err({ lat: m.topLeft[0], lng: m.topLeft[1] }) < 15, JSON.stringify(m.topLeft));
+    c('OSM water kept with the map', m.water?.lines?.length === 1 && m.water.bbox.length === 4);
+    // offline later: re-align from the saved water, no new lookup
+    const hits = ctx.overpassHits;
+    await ctx.setOffline(true);
+    await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-adjust]');
+    await page.click('#sheet [data-adjust]'); await page.waitForSelector('#nAlign');
+    const h2 = await page.locator('.nudge-c').boundingBox();
+    await page.mouse.move(h2.x + 17, h2.y + 17); await page.mouse.down(); await page.mouse.move(h2.x + 5, h2.y + 28, { steps: 5 }); await page.mouse.up();
+    await page.click('#nAlign');
+    await page.waitForFunction(() => /Lined up|failed|No water|not near|Could not|connection/.test(document.querySelector('#toast').textContent), null, { timeout: 30000 });
+    c('Auto-align works offline from the saved water', /Lined up/.test(await page.text('#toast')) && err(await corner()) < 15 && ctx.overpassHits === hits, await page.text('#toast'));
+    await page.click('#nCancel'); await ctx.setOffline(false);
+    // a map with no water says so
+    page.promptAnswer = 'No water';
+    await page.setInputFiles('#pdfFile', path.join(OUT, 'brochure.pdf'));
+    await page.waitForSelector('#nAlign', { timeout: 60000 });
+    await page.click('#nAlign');
+    await page.waitForFunction(() => /No water found/.test(document.querySelector('#toast').textContent), null, { timeout: 30000 }).catch(() => {});
+    c('map without water: Auto-align says no water found', /No water found on this map/.test(await page.text('#toast')), await page.text('#toast'));
+    await page.click('#nCancel');
+    c('no page errors (align)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
   { // copy PDF maps from the GPS Map app on the same origin
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 2);

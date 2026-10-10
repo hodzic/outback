@@ -273,6 +273,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li>Tides and currents on the map (≈) for stations and days you haven't looked at yet. Ones you've seen are kept.</li>
           <li>Map areas you haven't saved or viewed, and map layers you didn't save (Get forecast saves only the layer selected at the time).</li>
           <li>Importing your first PDF map (the PDF reader downloads on first use). PDF maps you've imported show fine offline.</li>
+          <li>The first Auto-align of a PDF map (it gets OpenStreetMap water for the area once, then keeps it with the map).</li>
           <li>AIS ships: they are live only and need a data connection.</li>
         </ul>
       </details>
@@ -303,7 +304,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo, and your own PDF maps. Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo, and your own PDF maps. Auto-align of PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
       </details>
@@ -413,7 +414,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-09j';
+const APP_VERSION = '2026-10-10a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1775,6 +1776,20 @@ function trackLabel(k){
 const shownMaps = new Map(); // id -> { layer, url }
 let affine;
 const loadPdfMod = async () => affine || (affine = await import('./pdfmap.js'));
+let aligner;
+const loadAlign = async () => aligner || (aligner = await import('./align.js'));
+const shortM = m => unitName() === 'km' ? Math.round(m) + ' m' : Math.round(m * 3.2808) + ' ft';
+const inBox = (o, i) => o && o[0] <= i[0] && o[1] <= i[1] && o[2] >= i[2] && o[3] >= i[3]; // [s, w, n, e]
+// OSM water for the map's area, kept with the map so aligning works offline later
+async function osmWater(m, cps){
+  const A = await loadAlign();
+  if (inBox(m.water?.bbox, A.footprint(cps, m.imageWidth, m.imageHeight, 500))) return m.water.lines;
+  try{
+    const bbox = A.footprint(cps, m.imageWidth, m.imageHeight, 2000);
+    m.water = { bbox, lines: await A.fetchOsmWater(bbox), at: Date.now() };
+    return m.water.lines;
+  }catch(e){ if (m.water) return m.water.lines; throw e; }
+}
 function opBarState(){ $('#opBar').hidden = !(shownMaps.size || state.nudge); $('#mapsBtn').classList.toggle('on', shownMaps.size > 0); }
 $('#opacity').addEventListener('input', e => {
   const op = +e.target.value; $('#opVal').textContent = Math.round(op * 100) + '%';
@@ -1867,14 +1882,39 @@ async function startNudge(m, isNew){
     pts.forEach((p, i) => { p.lat += dLat; p.lon += dLon; marks[i].setLatLng([p.lat, p.lon]); }); fit(); });
   const end = () => { map.removeLayer(handles); map.removeLayer(layer); URL.revokeObjectURL(url); state.nudge = null; opBarState(); };
   state.nudge = { layer };
-  showMapBar(`<span class="txt">Drag the 4 points onto matching spots, or ✥ to move it all.</span><button class="btn" id="nCancel">Cancel</button><button class="btn" id="nSave">Save</button>`, end);
+  showMapBar(`<span class="txt" style="flex-basis:100%">Drag the 4 points onto matching spots, or ✥ to move it all. Auto-align matches the map's water to OpenStreetMap.</span><button class="btn" id="nAlign" style="margin-right:auto">Auto-align</button><button class="btn" id="nCancel">Cancel</button><button class="btn" id="nSave">Save</button>`, end);
   opBarState();
+  // Auto-align: match the water drawn on the map to OpenStreetMap water. Undo puts the points back.
+  let water, undo = null, osmLine = null;
+  const setPts = cps => { cps.forEach((c, i) => { pts[i].lat = c.lat; pts[i].lon = c.lon; marks[i].setLatLng([c.lat, c.lon]); }); prev = centre(); cm.setLatLng(prev); fit(); };
+  const alignBtn = $('#nAlign'), noUndo = () => { undo = null; alignBtn.textContent = 'Auto-align'; };
+  marks.forEach(mk => mk.on('dragstart', noUndo)); cm.on('dragstart', noUndo);
+  alignBtn.onclick = async () => {
+    if (undo){ setPts(undo); noUndo(); return toast('Placement put back.'); }
+    alignBtn.disabled = true; toast('Matching the water to OpenStreetMap…', 60000);
+    try{
+      const A = await loadAlign();
+      water ??= await A.analyseImage(m.imageBlob, W, H) || false;
+      if (!water) return toast('No water found on this map. Auto-align works from lakes, rivers and bays.', 5000);
+      const lines = await osmWater(m, pts);
+      if (!isNew && m.water) idb.put('trailMaps', m).catch(() => {}); // only the water cache is new; placement is saved by Save
+      if (osmLine) handles.removeLayer(osmLine);
+      osmLine = L.polyline(lines, { color: '#1a73e8', weight: 2, dashArray: '4 4', opacity: .9, interactive: false }).addTo(handles);
+      const r = A.align(pts, W, H, water, lines);
+      if (!r.ok) return toast(r.reason, 5000);
+      undo = pts.map(p => ({ ...p })); setPts(r.cps); alignBtn.textContent = 'Undo align';
+      toast(`Lined up with OpenStreetMap water (dashed blue): shoreline off by ${shortM(r.before.median)} → ${shortM(r.after.median)}. Save to keep it.`, 6000);
+    }catch(err){ toast(navigator.onLine ? 'Auto-align failed: ' + err.message : 'Auto-align needs a connection the first time, to get OpenStreetMap water for this area.', 5000); }
+    finally{ alignBtn.disabled = false; }
+  };
   $('#nCancel').onclick = () => { endMapBar(); if (!isNew) showPdfMap(m, true); };
   $('#nSave').onclick = async () => {
     const r = fit();
     Object.assign(m, { topLeft: r.topLeft, topRight: r.topRight, bottomLeft: r.bottomLeft, controlPoints: pts.map(p => ({ ...p })) });
     if (!isNew && !/adjusted/.test(m.method)) m.method += ', adjusted';
     endMapBar(); await idb.put('trailMaps', m); showPdfMap(m, true); toast('PDF map saved.');
+    // keep OSM water for this area so Auto-align works offline later
+    if (navigator.onLine) osmWater(m, m.controlPoints).then(() => idb.put('trailMaps', m)).catch(() => {});
   };
   map.fitBounds(layer.getBounds(), { maxZoom: 18, padding: [40, 40] });
 }
