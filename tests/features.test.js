@@ -300,6 +300,21 @@ module.exports = async (browser, url, check) => {
     c('scale follows the unit setting (km)', /^\d+ km$/.test(await scale()), await scale());
     await page.evaluate(() => map.setZoom(17, { animate: false })); await page.waitForTimeout(200);
     c('zoomed in it reads metres', /^\d+ m$/.test(await scale()), await scale());
+    // sea marks: ⚓ on paddle trips toggles OpenSeaMap over the base map, remembered
+    const sea = []; page.on('request', r => { if (r.url().includes('tiles.openseamap.org/seamark/')) sea.push(r.url()); });
+    await page.evaluate(() => map.setZoom(13, { animate: false }));
+    c('⚓ sea marks button on paddle trips, off at first', await page.isVisible('#seaBtn') && !(await page.evaluate(() => document.querySelector('#seaBtn').classList.contains('on'))));
+    await page.click('#seaBtn'); await page.waitForTimeout(400);
+    c('⚓ shows OpenSeaMap sea marks and is remembered', sea.length > 0 && await page.evaluate(() => settings.seamarks === true && map.hasLayer(seaLayer) && document.querySelector('#seaBtn').classList.contains('on'))
+      && /OpenSeaMap/.test(await page.text('.leaflet-control-attribution')), sea[0]);
+    await page.click('#layerBtn'); await page.waitForTimeout(200);
+    c('sea marks stay on when the base layer changes', await page.evaluate(() => map.hasLayer(seaLayer)));
+    await page.screenshot({ path: path.join(OUT, 'feat-seamarks.png') });
+    await page.click('#seaBtn'); await page.waitForTimeout(200);
+    c('⚓ again turns sea marks off', await page.evaluate(() => !settings.seamarks && !seaLayer));
+    await page.click('#seaBtn');
+    await page.click('#tabs [data-view="0"]'); await page.click('#newHike'); await page.waitForTimeout(500);
+    c('no sea marks on a hike', await page.isHidden('#seaBtn') && await page.evaluate(() => !seaLayer));
     c('no page errors (satellite, scale)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // PDF maps from the map view: auto-placement from printed GPS labels, adjust, persistence, opacity

@@ -128,7 +128,7 @@ table.acts td,table.acts th{padding:5px 3px}
 #vMap{overflow:hidden}
 #map{position:absolute;inset:0;background:#cfe3ee}
 .leaflet-control-attribution{font-size:10px}
-.leaflet-control-scale{margin-left:8px!important;margin-bottom:6px!important}
+.leaflet-control-scale{margin-left:8px!important;margin-bottom:24px!important}
 .leaflet-control-scale-line{background:rgba(255,255,255,.75);border-color:var(--ink);color:var(--ink);font-size:11px;line-height:1.3}
 .mhead{position:absolute;left:0;right:0;top:0;z-index:1000;display:flex;flex-direction:column;gap:6px;padding:calc(var(--top) + 8px) 8px 0;pointer-events:none}
 .mhead>*,.mtop>*{pointer-events:auto}
@@ -167,6 +167,8 @@ table.acts td,table.acts th{padding:5px 3px}
 #locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}
 #locBtn{position:relative}#locBtn::after{position:absolute;right:-3px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--me);border:1px solid var(--me);border-radius:8px;padding:0 3px;line-height:14px}
 #aisBtn{position:absolute;right:10px;bottom:24px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:13px;font-weight:800;padding:0}
+#seaBtn{position:absolute;right:10px;bottom:140px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:22px;padding:0}
+#seaBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #aisBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #aisBtn[data-n]::after{content:attr(data-n);position:absolute;right:-4px;top:-4px;min-width:18px;font-size:11px;line-height:18px;border-radius:9px;background:var(--paper);color:var(--ink);border:1px solid var(--ink);padding:0 3px}
 #aisBtn.warn{background:var(--warn);border-color:var(--warn)}
@@ -243,7 +245,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
       </details>
@@ -327,6 +329,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     </div>
     <button id="aisBtn" class="pill" aria-label="Ships nearby (AIS)" title="Ships nearby (AIS)">AIS</button>
+    <button id="seaBtn" class="pill" hidden aria-label="Sea marks (OpenSeaMap)" title="Sea marks (OpenSeaMap)">⚓</button>
     <button id="curBtn" class="pill" aria-label="Tides and currents on the map" title="Tides and currents on the map">≈</button>
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="Overlay PDF map opacity"><span id="opVal">80%</span></div>
   </section>
@@ -469,7 +472,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10i';
+const APP_VERSION = '2026-10-10j';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -742,6 +745,15 @@ const LAYERS = {
   sat: { name: 'Sat', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map: imagery' } }
 };
 const LAYER_ORDER = ['chart', 'street', 'topo', 'sat'];
+// OpenSeaMap sea marks: buoys, beacons, lights and harbours, see-through over any base layer (⚓ on paddle trips)
+const SEAMARKS = { url: 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', opt: { maxZoom: 18, maxNativeZoom: 18, minNativeZoom: 9, attribution: 'Sea marks © OpenSeaMap', zIndex: 5 }, polite: true };
+let seaLayer = null;
+function seaState(){
+  const b = $('#seaBtn'), avail = trip?.activity === 'paddle', on = avail && !!settings.seamarks;
+  b.hidden = !avail; b.classList.toggle('on', on); b.style.bottom = $('#curBtn').hidden ? '82px' : '140px';
+  if (on && !seaLayer) seaLayer = L.tileLayer(SEAMARKS.url, SEAMARKS.opt).addTo(map);
+  else if (!on && seaLayer){ map.removeLayer(seaLayer); seaLayer = null; }
+}
 let base, tileErr = 0, tileOk = 0;
 function setLayer(k){
   if (base) map.removeLayer(base);
@@ -753,6 +765,7 @@ function setLayer(k){
   $('#layerBtn').textContent = LAYERS[k].name;
 }
 setLayer(settings.layer in LAYERS ? settings.layer : 'chart');
+$('#seaBtn').onclick = () => { settings.seamarks = !settings.seamarks; saveSettings(); seaState(); toast(settings.seamarks ? 'Sea marks on (OpenSeaMap): buoys, beacons, lights and harbours.' : 'Sea marks off.'); };
 $('#layerBtn').onclick = () => setLayer(LAYER_ORDER[(LAYER_ORDER.indexOf(settings.layer) + 1) % LAYER_ORDER.length]);
 $('#tripChip').onclick = () => showView(1);
 $('#mini').onclick = () => showView(1);
@@ -1041,8 +1054,8 @@ $('#fcBtn').onclick = getForecast;
 /* ---------- offline tiles: Get forecast saves the map around the route ---------- */
 const lon2tile = (lng, n) => Math.floor((lng + 180) / 360 * n);
 const lat2tile = (lat, n) => { const r = toR(lat); return Math.floor((1 - Math.log(Math.tan(r) + 1/Math.cos(r)) / Math.PI) / 2 * n); };
-function tileUrls(layerKey, b, z0, z1, max){
-  const L0 = LAYERS[layerKey], urls = [];
+function tileUrls(L0, b, z0, z1, max){
+  const urls = [];
   for (let z = z0; z <= z1; z++){
     const n = 2 ** z, x0 = lon2tile(b.getWest(), n), x1 = lon2tile(b.getEast(), n), y0 = lat2tile(b.getNorth(), n), y1 = lat2tile(b.getSouth(), n);
     if (urls.length + (x1 - x0 + 1) * (y1 - y0 + 1) > max) break;
@@ -1078,8 +1091,13 @@ async function cacheTiles(){
   let b = L.latLngBounds(pts);
   b = L.latLngBounds([b.getSouth() - .03, b.getWest() - .04], [b.getNorth() + .03, b.getEast() + .04]);
   const polite = LAYERS[settings.layer].polite;
-  const urls = tileUrls(settings.layer, b, 10, polite ? 15 : 16, polite ? 600 : 1500);
-  return downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Map ${Math.round(d / urls.length * 100)}%`; } });
+  const urls = tileUrls(LAYERS[settings.layer], b, 10, polite ? 15 : 16, polite ? 600 : 1500);
+  const n = await downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Map ${Math.round(d / urls.length * 100)}%`; } });
+  if (seaLayer){ // sea marks too, gently: OpenSeaMap is a volunteer server
+    const sm = tileUrls(SEAMARKS, b, 10, 15, 600);
+    await downloadTiles(sm, { polite: true, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Sea marks ${Math.round(d / sm.length * 100)}%`; } });
+  }
+  return n;
 }
 
 /* ---------- interpolation ---------- */
@@ -1419,7 +1437,7 @@ function drawTcMap(){
 }
 function tcBtnState(){
   const m = tcMode(), b = $('#curBtn');
-  b.hidden = !tcAvail(); b.classList.toggle('on', m > 0); b.dataset.mode = m;
+  b.hidden = !tcAvail(); b.classList.toggle('on', m > 0); b.dataset.mode = m; seaState();
   b.setAttribute('aria-label', TC_MODES[m].label); b.title = TC_MODES[m].label;
 }
 function setTcMode(m){

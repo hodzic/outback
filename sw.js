@@ -1,7 +1,7 @@
 // Outback service worker: app shell + offline map tiles.
 // hodzic.github.io hosts several apps on one origin and they share Cache Storage,
 // so only ever delete caches this app owns (old Paddle/Outback shell versions).
-const SHELL = 'outback-shell-2026-10-10i';
+const SHELL = 'outback-shell-2026-10-10j';
 const TILES = 'paddle-tiles'; // name kept so tiles saved before the rename stay usable
 const OWN = k => /^(paddle|outback)-shell-/.test(k);
 const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './pdfmap.js', './align.js', './vendor/Leaflet.ImageOverlay.Rotated.js'];
@@ -9,7 +9,7 @@ const REMOTE = [
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
   'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'
 ];
-const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org', 'basemap.nationalmap.gov'];
+const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org', 'basemap.nationalmap.gov', 'tiles.openseamap.org'];
 const STATIC_HOSTS = ['cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {
