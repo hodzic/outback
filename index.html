@@ -194,6 +194,13 @@ table.acts td,table.acts th{padding:5px 3px}
 #locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}
 #locBtn{position:relative}#locBtn::after{position:absolute;right:-3px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--me);border:1px solid var(--me);border-radius:8px;padding:0 3px;line-height:14px}
 #aisBtn{position:absolute;right:10px;bottom:24px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:13px;font-weight:800;padding:0}
+#wcBtn{position:absolute;left:10px;bottom:52px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:20px;padding:0}
+#wcBtn.on{background:var(--ink);border-color:var(--ink)}
+.poi{width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid #1F6FB2;font-size:13px;line-height:20px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.poi.pk{border-radius:5px;background:#1F6FB2;color:#fff;font-weight:800;font-size:14px}
+.poi.closed{border-color:#999;opacity:.7} .poi.pk.closed{background:#8a9aa8}
+#pkBtn{position:absolute;left:10px;bottom:104px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:18px;font-weight:800;padding:0;color:#1F6FB2}
+#pkBtn.on{background:#1F6FB2;color:#fff;border-color:#1F6FB2}
 #seaBtn{position:absolute;right:10px;bottom:140px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:22px;padding:0}
 #seaBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #aisBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
@@ -272,7 +279,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms and parking, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
       </details>
@@ -357,6 +364,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     </div>
     <button id="aisBtn" class="pill" aria-label="Ships nearby (AIS)" title="Ships nearby (AIS)">AIS</button>
+    <button id="pkBtn" class="pill" aria-label="Parking (OpenStreetMap)" title="Parking (OpenStreetMap)">P</button>
+    <button id="wcBtn" class="pill" aria-label="Restrooms (OpenStreetMap)" title="Restrooms (OpenStreetMap)">🚻</button>
     <button id="seaBtn" class="pill" hidden aria-label="Sea marks (OpenSeaMap)" title="Sea marks (OpenSeaMap)">⚓</button>
     <button id="curBtn" class="pill" aria-label="Tides and currents on the map" title="Tides and currents on the map">≈</button>
     <div id="opBar" hidden><span>PDF</span><input id="opacity" type="range" min="0.1" max="1" step="0.05" value="0.8" aria-label="Overlay PDF map opacity"><span id="opVal">80%</span></div>
@@ -402,6 +411,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>The forecast you already fetched</b>: tides, currents, wind, pressure, lightning and elevation. It can't refresh; the status line says when it was fetched.</li>
           <li><b>GPS</b>: your location on the map (◎) uses satellites, not data.</li>
           <li><b>Map tiles</b> that Get forecast saved around the route, and areas you've already looked at.</li>
+          <li><b>Restrooms (🚻) and parking (P)</b> in areas you've looked at with them on, and around the route if they were on during Get forecast.</li>
         </ul>
         <h3>Needs a connection</h3>
         <ul>
@@ -486,6 +496,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>Share plan</b> (Trip tab, under Tracks) writes the trip out as plain text anyone can read: day and start time, route, every waypoint with coordinates, leg, bearing and estimated arrival, your markers and the day's forecast. <b>Copy text</b> to paste it into a club forum or email; <b>Share…</b> sends it with the GPX file where the phone allows; <b>GPX file</b> is for people with a GPS or map app.</li>
           <li><b>Print</b> makes a one-page trip sheet: the map with the route and numbered waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Check the preview, then tap <b>Print</b>, or choose Save as PDF in the print dialog.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) before tapping Print.</li>
+          <li>Turn on <b>🚻</b> and <b>P</b> on the map first to have restrooms and parking on the printed map.</li>
           <li>For a waterproof case: print in colour if you can, fold once, and carry a proper chart or map too.</li>
         </ul>
       </details>
@@ -513,7 +524,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10k';
+const APP_VERSION = '2026-10-10m';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1087,6 +1098,7 @@ async function getForecast(){
     changed();
     btn.textContent = 'Saving map…';
     trip.mapTiles = await cacheTiles(); changed();
+    if (trip.route.length) for (const P of Object.values(POI)) if (settings[P.key]) poiFetch(P, L.latLngBounds(trip.route.map(ll2)).pad(.3)).then(() => poiRefresh(P)).catch(() => {});
     toast(envMsg + (errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${trip.mapTiles ? trip.mapTiles + ' map tiles stored for offline.' : 'The map could not be saved for offline.'}`), envMsg ? 6000 : 4500);
   }finally{ btn.disabled = false; btn.textContent = 'Get forecast'; }
 }
@@ -2279,6 +2291,77 @@ function aisDemo(){
   ais.demoT = setInterval(() => fleet.forEach(f => { if (f.sog) f.p = fwd(f.p, f.cog, f.sog * 2 / 3600); send(f); }), 2000);
 }
 
+/* ---------- restrooms and parking (OpenStreetMap) ---------- */
+// 🚻 and P on the map: OSM restrooms and parking lots in view, via Overpass, kept per ~5 km cell for 30 days so
+// they show offline. Get forecast fetches the cells around the route for whichever is on.
+const OVERPASS_URLS = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
+async function overpass(q){
+  let err;
+  for (const url of OVERPASS_URLS){
+    try{ const r = await fetch(url, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'content-type': 'application/x-www-form-urlencoded' } });
+      if (!r.ok) throw new Error(r.status); return await r.json(); }catch(e){ err = e; }
+  }
+  throw err;
+}
+const yesT = v => v === 'yes';
+const feeTxt = t => !t.fee ? null : yesT(t.fee) || /^\d/.test(t.fee) ? 'Fee' + (t.charge ? `: ${t.charge}` : /^\d/.test(t.fee) ? `: ${t.fee}` : '') : t.fee === 'no' ? 'Free' : `Fee: ${t.fee}`;
+const accessTxt = t => !t.access || t.access === 'yes' || t.access === 'public' ? null : t.access === 'customers' ? 'Customers only' : t.access === 'private' ? 'Private' : t.access === 'permissive' ? null : `Access: ${t.access}`;
+const hoursTxt = t => t.opening_hours ? (t.opening_hours === '24/7' ? 'Open 24/7' : `Hours: ${t.opening_hours}`) : null;
+const POI = {
+  toilets: { name: 'Restrooms', btn: '#wcBtn', cls: 'wc', icon: '🚻', title: 'Restroom', toastOn: 'Restrooms on, from OpenStreetMap. Tap one for details.',
+    query: b => `nwr["amenity"="toilets"](${b});`,
+    info: t => { const d = t['toilets:disposal'];
+      return [accessTxt(t), feeTxt(t), d && (d === 'flush' ? 'Flush' : /pitlatrine|chemical|bucket/.test(d) ? 'Vault or pit toilet' : d), hoursTxt(t), yesT(t.wheelchair) && 'Wheelchair accessible',
+        yesT(t.changing_table) && 'Changing table', yesT(t.drinking_water) && 'Drinking water', yesT(t.shower) && 'Shower']; } },
+  parking: { name: 'Parking', btn: '#pkBtn', cls: 'pk', icon: 'P', title: 'Parking', toastOn: 'Parking on, from OpenStreetMap: tap one for fees, hours and directions.',
+    // lots and garages; street-side and private parking would swamp the map
+    query: b => `nwr["amenity"="parking"]["access"!~"private|no"]["parking"!~"street_side|lane|on_kerb|half_on_kerb"](${b});`,
+    info: t => [accessTxt(t), feeTxt(t), t['fee:conditional'] && `Fee ${t['fee:conditional']}`, hoursTxt(t), t.maxstay && `Max stay ${t.maxstay}`,
+      t.capacity && `${t.capacity} spaces`, t['capacity:disabled'] && /^\d+$/.test(t['capacity:disabled']) && `${t['capacity:disabled']} accessible`,
+      t.parking === 'multi-storey' ? 'Garage' : t.parking === 'underground' ? 'Underground' : null, t.surface && t.surface !== 'asphalt' && t.surface !== 'paved' && `Surface: ${t.surface}`,
+      yesT(t.trailer) && 'Trailers OK', t.supervised === 'yes' && 'Attended'] }
+};
+const POI_CELL = .05, POI_DAYS = 30;
+for (const [k, P] of Object.entries(POI)) Object.assign(P, { key: k, layer: L.layerGroup(), cells: LS.get('poi.' + k, {}), busy: false, t: null });
+const cellKey = (i, j) => `${i},${j}`;
+function cellsFor(b){ const out = []; for (let i = Math.floor(b.getSouth() / POI_CELL); i <= Math.floor(b.getNorth() / POI_CELL); i++) for (let j = Math.floor(b.getWest() / POI_CELL); j <= Math.floor(b.getEast() / POI_CELL); j++) out.push([i, j]); return out; }
+async function poiFetch(P, b){
+  const cells = cellsFor(b), fresh = Date.now() - POI_DAYS * 864e5, need = cells.filter(([i, j]) => !(P.cells[cellKey(i, j)]?.at > fresh));
+  if (!need.length) return true;
+  if (need.length > 40) return false; // too far out: zoom in
+  const s = Math.min(...need.map(c => c[0])) * POI_CELL, w = Math.min(...need.map(c => c[1])) * POI_CELL, n = (Math.max(...need.map(c => c[0])) + 1) * POI_CELL, e = (Math.max(...need.map(c => c[1])) + 1) * POI_CELL;
+  const j = await overpass(`[out:json][timeout:25];${P.query([s, w, n, e].map(v => v.toFixed(4)).join(','))}out center tags 800;`);
+  const pts = (j.elements || []).map(el => ({ lat: el.lat ?? el.center?.lat, lon: el.lon ?? el.center?.lon, tags: el.tags || {} })).filter(p => p.lat != null);
+  for (const [ci, cj] of need) P.cells[cellKey(ci, cj)] = { at: Date.now(), pts: pts.filter(p => Math.floor(p.lat / POI_CELL) === ci && Math.floor(p.lon / POI_CELL) === cj).map(p => [+p.lat.toFixed(6), +p.lon.toFixed(6), p.tags]) };
+  const keys = Object.keys(P.cells); if (keys.length > 400) keys.sort((a, b) => P.cells[a].at - P.cells[b].at).slice(0, keys.length - 400).forEach(k => delete P.cells[k]);
+  LS.set('poi.' + P.key, P.cells); return true;
+}
+const poiIcon = (P, dim) => L.divIcon({ className: '', html: `<div class="poi ${P.cls}${dim ? ' closed' : ''}">${P.icon}</div>`, iconSize: [24, 24], iconAnchor: [12, 12] });
+function poiMarkers(P, b, group){
+  for (const [i, j] of cellsFor(b.pad(.2))) for (const [lat, lon, t] of P.cells[cellKey(i, j)]?.pts || []){
+    const dim = t.access === 'private' || t.access === 'no' || t.access === 'customers';
+    L.marker([lat, lon], { icon: poiIcon(P, dim), keyboard: false }).bindPopup(() => { const info = P.info(t).filter(Boolean);
+      return `<b>${esc(t.name || P.title)}</b>${t.operator ? `<br><small>${esc(t.operator)}</small>` : ''}${info.length ? `<br>${info.map(esc).join(' · ')}` : ''}${t.description ? `<br><small>${esc(t.description)}</small>` : ''}
+      <br><a href="https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}" target="_blank" rel="noopener">Directions</a> · <small>OpenStreetMap; may be out of date</small>`; }).addTo(group);
+  }
+}
+async function poiRefresh(P){
+  P.layer.clearLayers(); if (!settings[P.key]) return;
+  const b = map.getBounds(); poiMarkers(P, b, P.layer);
+  if (P.busy || !navigator.onLine) return;
+  P.busy = true;
+  try{ if (!(await poiFetch(P, b.pad(.5)) || await poiFetch(P, b))) toast(`Zoom in to see ${P.name.toLowerCase()}.`); else { P.layer.clearLayers(); poiMarkers(P, map.getBounds(), P.layer); } }
+  catch{ toast(`${P.name} could not be loaded (OpenStreetMap).`); }
+  finally{ P.busy = false; }
+}
+function poiState(P){ const on = !!settings[P.key]; $(P.btn).classList.toggle('on', on); if (on) P.layer.addTo(map); else map.removeLayer(P.layer);
+  map.attributionControl[on ? 'addAttribution' : 'removeAttribution'](`${P.name} © OpenStreetMap`); }
+for (const P of Object.values(POI)){
+  $(P.btn).onclick = () => { settings[P.key] = !settings[P.key]; saveSettings(); poiState(P); poiRefresh(P); toast(settings[P.key] ? P.toastOn : `${P.name} off.`); };
+  poiState(P); if (settings[P.key]) setTimeout(() => poiRefresh(P), 1500);
+}
+map.on('moveend', () => { for (const P of Object.values(POI)) if (settings[P.key]){ clearTimeout(P.t); P.t = setTimeout(() => poiRefresh(P), 700); } });
+
 /* ---------- share plan + print ---------- */
 // For people without the app: a plain-text plan for a forum or email (plus the GPX), and a printable sheet.
 const legsOf = () => { const r = trip.route, start = dayStart() + trip.start * 6e4; let cum = 0;
@@ -2359,6 +2442,7 @@ async function openPrint(){
   r.forEach((p, i) => L.marker(ll2(p), { icon: L.divIcon({ className: '', html: `<div class="wp">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(pMap));
   for (const k of trip.marks) L.marker([k.lat, k.lng], { icon: MARK_ICON }).bindTooltip(esc(k.name), { permanent: true, direction: 'right', offset: [8, -9], className: 'mkname' }).addTo(pMap);
   pts.length ? pMap.fitBounds(L.latLngBounds(pts), { padding: [24, 24], maxZoom: 15 }) : pMap.setView(map.getCenter(), map.getZoom());
+  for (const P of Object.values(POI)) if (settings[P.key]) poiMarkers(P, pMap.getBounds(), pMap);
 }
 $('#printPlan').onclick = openPrint;
 $('#pPrint').onclick = () => print();
