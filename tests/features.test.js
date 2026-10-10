@@ -29,7 +29,7 @@ module.exports = async (browser, url, check) => {
     c('elevation gain shown', /^\+[\d,]+ ft/.test(await page.text('#elevV')), await page.text('#elevV'));
     c('climb included in duration', /climb \+[\d,]+ ft/.test(await page.text('#legs')), await page.text('#legs'));
     c('graph offers Elevation and Wind', (await page.locator('#graphSel button').allInnerTexts()).join() === 'Elevation,Wind');
-    c('wind shown in mph', /^mph/.test(await page.text('#windS')) && /mph/.test(await page.text('#atWind')), await page.text('#windS'));
+    c('wind shown in mph', (await page.text('#windK')) === 'Wind · mph' && /mph/.test(await page.text('#atWind')), await page.text('#windK'));
     await page.screenshot({ path: path.join(OUT, 'feat-hike.png') });
     c('no page errors (hike)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
@@ -194,7 +194,7 @@ module.exports = async (browser, url, check) => {
     await page.selectOption('[data-unit=paddle]', 'km');
     c('paddle in km', (await page.text('#dist')) === (nm * 1.852).toFixed(1) + ' km', await page.text('#dist'));
     c('speed converts with the unit', await page.inputValue('[data-speed=paddle]') === '5.6' && (await page.text('#spd')) === '5.6 km/h', await page.inputValue('[data-speed=paddle]'));
-    c('wind follows the unit', /km\/h/.test(await page.text('#windS')) || (await page.text('#windV')) === '–');
+    c('wind follows the unit', (await page.text('#windK')) === 'Wind · km/h' || (await page.text('#windV')) === '–');
     await page.fill('[data-speed=paddle]', '7.4'); await page.dispatchEvent('[data-speed=paddle]', 'change');
     c('speed saved in knots', Math.abs(await page.evaluate(() => settings.speedsKt.paddle) - 7.4 / 1.852) < 1e-9);
     await page.selectOption('[data-unit=hike]', 'km');

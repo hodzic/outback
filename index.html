@@ -96,6 +96,7 @@ table.acts td,table.acts th{padding:5px 3px}
 .cell .v{font-size:clamp(17px,5.2vw,20px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere}
 .cell .s{font-size:13px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
 .rt{padding-bottom:4px} .rline{font-size:16px;font-variant-numeric:tabular-nums} .rline b{margin-right:4px}
+#windV,#sunV{font-size:clamp(15px,4.6vw,18px);white-space:nowrap}
 .v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
 .now{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin:8px 0 0;padding:6px 10px;background:var(--wash);border-radius:10px;font-variant-numeric:tabular-nums}
 .now .ri{min-width:0;height:38px} .now .ri[hidden]{display:none}
@@ -337,8 +338,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <div class="cell tidal"><div class="k" id="tideK">Tide</div><div class="v" id="tideV">–</div><div class="s" id="tideS">&nbsp;</div></div>
           <div class="cell curc"><div class="k" id="curK">Current</div><div class="v" id="curV">–</div><div class="s" id="curS">&nbsp;</div></div>
           <div class="cell elevc"><div class="k">Elevation</div><div class="v" id="elevV">–</div><div class="s" id="elevS">&nbsp;</div></div>
-          <div class="cell"><div class="k">Wind</div><div class="v" id="windV">–</div><div class="s" id="windS">&nbsp;</div></div>
-          <div class="cell"><div class="k">Pressure</div><div class="v" id="presV">–</div><div class="s" id="presS">&nbsp;</div></div>
+          <div class="cell"><div class="k" id="windK">Wind</div><div class="v" id="windV">–</div></div>
+          <div class="cell"><div class="k">Pressure · mb</div><div class="v" id="presV">–</div><div class="s" id="presS">&nbsp;</div></div>
           <div class="cell"><div class="k">Lightning</div><div class="v" id="ltgV">–</div><div class="s" id="ltgS">&nbsp;</div></div>
           <div class="cell"><div class="k">Sun</div><div class="v" id="sunV">–</div><div class="s" id="sunS">&nbsp;</div></div>
         </div>
@@ -409,7 +410,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-09c';
+const APP_VERSION = '2026-10-09d';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1149,11 +1150,10 @@ function render(){
   $('#elevV').textContent = es ? `+${ft(es.up)} / −${ft(es.down)}` : '–';
   $('#elevS').textContent = es ? `High ${ft(es.hi)} · low ${ft(es.lo)}` : (trip.route.length > 1 ? 'Tap Get forecast for the profile' : ' ');
 
-  const wv = $('#windV'), half = (h, n) => h ? `${n} ${Math.round(wU(h.ws))} G${Math.round(wU(h.wg))}` : '';
+  const wv = $('#windV'), half = (h, n) => h ? `${n} ${Math.round(wU(h.ws))} G${Math.round(wU(h.wg))} ${compass(h.wd)}` : '';
+  $('#windK').textContent = `Wind · ${wUnit()}`;
   wv.innerHTML = dy.am || dy.pm ? [half(dy.am, 'AM'), half(dy.pm, 'PM')].filter(Boolean).join('<br>') : '–';
   wv.classList.toggle('warn', [dy.am, dy.pm].some(h => h && h.wg >= gust()));
-  const wds = [...new Set([dy.am, dy.pm].filter(Boolean).map(h => compass(h.wd)))];
-  $('#windS').textContent = wds.length ? `${wUnit()} · from ${wds.join(', then ')}` : ' ';
   const dt = dayTemps();
   $('#tempV').innerHTML = dt ? `<span class="lo">Low ${temp(dt.lo)}</span> · <span class="hi">High ${temp(dt.hi)}</span>${tUnit()}` : '–';
   $('#tempS').textContent = dy.sky ? `${dy.sky}${dy.pop != null ? dy.pop ? ' · rain up to ' + dy.pop + '%' : ' · no rain' : ''} in daylight` : ' ';
@@ -1161,7 +1161,7 @@ function render(){
   if (dy.p){
     const d = dy.p.b - dy.p.a;
     pv.textContent = `${Math.round(dy.p.a)} → ${Math.round(dy.p.b)}`;
-    $('#presS').textContent = `mb · ${Math.abs(d) < 1 ? 'Steady' : (d > 0 ? 'Rising ' : 'Falling ') + Math.abs(d).toFixed(1) + ' mb'} in daylight${dy.p.drop ? ' · falls fast near ' + hmS(dy.p.drop) : ''}`;
+    $('#presS').textContent = `${Math.abs(d) < 1 ? 'Steady' : (d > 0 ? 'Rising ' : 'Falling ') + Math.abs(d).toFixed(1)} in daylight${dy.p.drop ? ' · falls fast near ' + hmS(dy.p.drop) : ''}`;
     if (dy.p.drop) pv.classList.add('warn');
   } else { pv.textContent = '–'; $('#presS').textContent = ' '; }
   const lv = $('#ltgV'); lv.classList.remove('warn');
@@ -1172,7 +1172,7 @@ function render(){
     lv.textContent = dy.sr.txt; if (dy.sr.warn) lv.classList.add('warn');
     $('#ltgS').textContent = 'Estimated, worst in daylight';
   } else { lv.textContent = '–'; $('#ltgS').textContent = ' '; }
-  $('#sunV').textContent = sun.rise ? `${hm(sun.rise)} – ${hm(sun.set)}` : '–';
+  $('#sunV').innerHTML = sun.rise ? `Rise ${hm(sun.rise)}<br>Set ${hm(sun.set)}` : '–';
   $('#sunS').textContent = sun.dawn ? `First light ${hm(sun.dawn)} · last ${hm(sun.dusk)}` : ' ';
 
   const st = $('#status'); st.classList.remove('warn');

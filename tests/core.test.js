@@ -9,7 +9,7 @@ module.exports = async (browser, url, check) => {
   c('opens on the Trip view', await page.evaluate(() => state.view) === 1 && await page.isVisible('#tripName'));
   c('tab shows the trip name', (await page.text('#tabTrip')) === 'New paddle', await page.text('#tabTrip'));
   c('status asks for a forecast', /no forecast/i.test(await page.text('#status')));
-  c('sun times computed offline', /\d.*–.*\d/.test(await page.text('#sunV')), await page.text('#sunV'));
+  c('sun times computed offline, Rise and Set lines', /^Rise \d+:\d\d [AP]M\s+Set \d+:\d\d [AP]M$/.test(await page.text('#sunV')), await page.text('#sunV'));
 
   // Trips view: new paddle trip goes straight to the map in draw mode
   await view(page, 0);
@@ -53,8 +53,8 @@ module.exports = async (browser, url, check) => {
   c('strongest flood and ebb, ebb negative', /^\d+\.\d \/ -\d+\.\d kt$/.test(await page.text('#curV')), await page.text('#curV'));
   c('max flood, max ebb and slack, one per line in time order', await page.evaluate(() => { const r = [...document.querySelectorAll('#curS .tl > span')].map(e => e.textContent), ev = trip.data.current.filter(e => e.t >= dayStart() && e.t < dayStart() + 864e5);
     return r.length === ev.length * 2 && ev.every((e, i) => r[2 * i] === hmS(e.t)) && r.some(x => /^Flood \d+\.\d$/.test(x)) && r.some(x => /^Ebb -\d+\.\d$/.test(x)) && r.includes('Slack'); }), await page.text('#curS'));
-  c('wind morning and afternoon with gusts', /^AM \d+ G\d+\s*PM \d+ G\d+$/.test(await page.text('#windV')), await page.text('#windV'));
-  c('wind unit and direction', /^kt · from [NESW]+(, then [NESW]+)?$/.test(await page.text('#windS')), await page.text('#windS'));
+  c('wind morning and afternoon with gusts', /^AM \d+ G\d+ [NESW]+\s+PM \d+ G\d+ [NESW]+$/.test(await page.text('#windV')), await page.text('#windV'));
+  c('wind unit in the title', (await page.text('#windK')) === 'Wind · kt', await page.text('#windK'));
   const tv = await page.text('#tempV'), m = tv.match(/Low (\d+)° · High (\d+)°F/);
   c('day low and high temperature shown', !!m && +m[1] <= +m[2], tv);
   c('low/high is the trip day only', await page.evaluate(() => { const d = dayTemps(), w = trip.data.wx, t0 = dayStart();
@@ -73,7 +73,7 @@ module.exports = async (browser, url, check) => {
       for (const m of [0, 300, 700, 1100]){ state.tMin = m; render(); if (r.offsetHeight !== h) return false; } return ok; })); }
   c('temperature is the first, full-width reading', await page.evaluate(() => document.querySelector('.read').firstElementChild.id === '' && document.querySelector('.read .cell').classList.contains('tempc')));
   c('map summary shows the range', /\d+°–\d+°/.test(await page.text('#mini')), await page.text('#mini'));
-  c('pressure over daylight', /^\d+ → \d+$/.test(await page.text('#presV')) && /^mb · .*in daylight/.test(await page.text('#presS')), await page.text('#presV') + ' ' + await page.text('#presS'));
+  c('pressure over daylight', /^\d+ → \d+$/.test(await page.text('#presV')) && /^(Steady|Rising|Falling) .*in daylight/.test(await page.text('#presS')) && /Pressure · mb/.test(await page.text('.read')), await page.text('#presV') + ' ' + await page.text('#presS'));
   c('lightning from NWS, daylight peak', /%$/.test(await page.text('#ltgV')) && /NWS/.test(await page.text('#ltgS')), await page.text('#ltgV'));
   c('trip time zone learned', await page.evaluate(() => trip.tz) === 'America/Los_Angeles');
   c('status says the map is saved offline', /map saved offline/.test(await page.text('#status')), await page.text('#status'));
