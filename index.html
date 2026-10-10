@@ -322,7 +322,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li>The first PDF import downloads the PDF reader (about 10 MB). Big PDFs can take a while.</li>
           <li>One page is used: the one with map data or GPS labels, otherwise the first page.</li>
-          <li><b>Built-in maps</b> (in the PDF list) come already placed: tap <b>Add</b> once while online. Now: the National Park Service's Tomales Bay boat-in camping map.</li>
+          <li><b>Built-in maps</b> (in the PDF list) come already placed: tap <b>Add</b> once while online. Now: Tomales Bay boat-in camping (National Park Service), Del Valle Regional Park (East Bay Regional Park District) and Sacramento–San Joaquin Delta boating (California Coastal Commission, 2005: marinas, pump-outs and fuel docks may have changed).</li>
           <li>Overlay PDF maps you saved in the GPS Map app can be copied in from the PDF list.</li>
           <li>Overlay PDF maps are included in <b>Back up</b>.</li>
         </ul>
@@ -457,7 +457,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10f';
+const APP_VERSION = '2026-10-10g';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1879,6 +1879,22 @@ const BUILTIN_MAPS = [{
     { px: 1619.2, py: 1000, lat: 38.1821554, lon: -122.8563587, name: 'Right edge' },
     { px: 880, py: 1840, lat: 38.1107202, lon: -122.9388511, name: 'Bottom edge' },
     { px: 140.8, py: 1000, lat: 38.1848373, lon: -123.021031, name: 'Left edge' }]
+}, {
+  id: 'builtin-del-valle', name: 'Del Valle Regional Park', src: 'maps/del-valle.jpg', thumb: 'maps/del-valle-thumb.jpg', size: 496626, by: 'East Bay Regional Park District',
+  imageWidth: 1189, imageHeight: 2000,
+  topLeft: [37.619052, -121.7704201], topRight: [37.6496622, -121.7164172], bottomLeft: [37.5468142, -121.7056485],
+  controlPoints: [{ px: 594.5, py: 160, lat: 37.6285781, lon: -121.7382369, name: 'Top edge' },
+    { px: 1093.88, py: 1000, lat: 37.6110944, lon: -121.6883516, name: 'Right edge' },
+    { px: 594.5, py: 1840, lat: 37.5678983, lon: -121.6838287, name: 'Bottom edge' },
+    { px: 95.12, py: 1000, lat: 37.5853819, lon: -121.7337141, name: 'Left edge' }]
+}, {
+  id: 'builtin-delta', name: 'Sacramento–San Joaquin Delta boating', src: 'maps/delta.jpg', thumb: 'maps/delta-thumb.jpg', size: 271306, by: 'California Coastal Commission, 2005',
+  imageWidth: 1122.83, imageHeight: 1283.03,
+  topLeft: [38.3152387, -121.859331], topRight: [38.3172529, -121.2631108], bottomLeft: [37.782965, -121.8424777],
+  controlPoints: [{ px: 561.42, py: 102.64, lat: 38.2736639, lon: -121.55987, name: 'Top edge' },
+    { px: 1033.01, py: 641.52, lat: 38.0509539, lon: -121.3023784, name: 'Right edge' },
+    { px: 561.42, py: 1180.39, lat: 37.826552, lon: -121.5457132, name: 'Bottom edge' },
+    { px: 89.83, py: 641.52, lat: 38.049262, lon: -121.8032048, name: 'Left edge' }]
 }];
 async function addBuiltin(id){
   const b = BUILTIN_MAPS.find(x => x.id === id);

@@ -329,9 +329,19 @@ module.exports = async (browser, url, check) => {
     c('Add copies it to the phone, placed over Tomales Bay', m.size === 559295 && m.method === 'built-in, National Park Service' && Math.abs(m.topLeft[0] - 38.27) < 0.01 && Math.abs(m.topLeft[1] + 123.04) < 0.01, JSON.stringify(m.topLeft));
     c('built-in map shown and the map zooms to it', await page.locator('img.leaflet-image-layer').count() === 1 && await page.evaluate(() => map.getBounds().contains([38.18, -122.94])));
     await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-rmpdf]');
-    c('added built-in moves to your maps, no longer offered', !(await page.locator('#sheet [data-builtin]').count()) && /Tomales Bay boat-in camping/.test(await page.text('#sheet')));
-    await page.click('#sheet [data-rmpdf]'); await page.waitForSelector('#sheet [data-builtin]');
+    c('added built-in moves to your maps, no longer offered', !(await page.locator('#sheet [data-builtin="builtin-tomales-bay"]').count()) && /Tomales Bay boat-in camping/.test(await page.text('#sheet')));
+    await page.click('#sheet [data-rmpdf]'); await page.waitForSelector('#sheet [data-builtin="builtin-tomales-bay"]');
     c('deleting it offers it again', await page.evaluate(async () => !(await idb.get('trailMaps', 'builtin-tomales-bay')) && shownMaps.size === 0));
+    // Del Valle and the Delta: each image loads and lands where it belongs
+    for (const [id, lat, lon, name] of [['builtin-del-valle', 37.59, -121.71, 'Del Valle Regional Park'], ['builtin-delta', 38.05, -121.55, 'Sacramento–San Joaquin Delta boating']]){
+      c(`built-in offered: ${name}`, (await page.text('#sheet')).includes(name));
+      await page.click(`#sheet [data-builtin="${id}"]`); await page.waitForFunction(id => shownMaps.has(id), id, { timeout: 15000 });
+      const ok = await page.evaluate(async ([id, lat, lon]) => { const m = await idb.get('trailMaps', id), b = BUILTIN_MAPS.find(x => x.id === id);
+        const img = await createImageBitmap(m.imageBlob); return m.imageBlob.size === b.size && Math.abs(img.width - b.imageWidth) < 1 && Math.abs(img.height - b.imageHeight) < 1
+          && shownMaps.get(id).layer.getBounds().contains([lat, lon]); }, [id, lat, lon]);
+      c(`built-in ${name}: image and placement`, ok);
+      await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-rmpdf]');
+    }
     await page.click('#sheet [data-close]');
     c('no page errors (built-in maps)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
