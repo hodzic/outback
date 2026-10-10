@@ -56,6 +56,8 @@ Three views; swipe between them or use the tabs at the bottom.
   With location on, a ship that will pass within 0.5 nm in the next 20 minutes turns the button red,
   vibrates and shows a warning. Needs a connection; not every boat sends AIS. Key `demo` shows made-up ships.
   Name, type and size (sent only every ~6 minutes) are remembered on the device, so known ships show them at once.
+- **Help** (the **?** button at the top of the Trips and Trip tabs) opens its own page: installing, offline use, AIS ships,
+  overlay PDF maps, and Tomales Bay / San Francisco Bay links. Close or the phone's back button returns.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
   **Markers** are named points saved with the trip (long-press the map, or *Marker* while editing the route);
   the Trip view lists them under the route. GPX export and import keep both (`<wpt>` for markers).
@@ -67,14 +69,14 @@ Three views; swipe between them or use the tabs at the bottom.
   gets OpenStreetMap water for the area (Overpass API; kept with the map, so re-aligning works offline) and fits a
   shift, turn and scale that lays one shoreline on the other (`align.js`, all on the phone). The OSM water shows as a
   dashed blue line, the toast gives the mismatch before and after, and *Undo align* puts the points back. It needs
-  the map placed within a few hundred metres first; maps without water say so. *Help: overlay PDF maps* on the Trips tab
+  the map placed within a few hundred metres first; maps without water say so. *Overlay PDF maps* in Help (the ? button)
   (linked from the PDF list) explains placing and Auto-align.
   Opacity slider on the right. Overlay PDF maps saved in GPS Map (same origin) can be copied in.
   **Built-in maps** ship already placed (`maps/`, listed in `BUILTIN_MAPS`): *Add* in the PDF list copies one into the
   phone's maps, where it works like an imported one. Now: NPS Tomales Bay boat-in camping (public domain),
   Del Valle Regional Park (EBRPD, GeoPDF placement refined by Auto-align: shoreline median 8 m) and the
   Sacramento–San Joaquin Delta boating map (California Coastal Commission, 2005; placed from its GeoPDF data).
-- **Help: Tomales Bay and San Francisco Bay** (Trips tab) links the official info: NPS boat-in camping, map and
+- **Tomales Bay and San Francisco Bay** in Help (the ? button) links the official info: NPS boat-in camping, map and
   kayaking pages for Tomales Bay; the SF Bay Water Trail, its web map and conditions page, and the Dolphin Club's Bay guide.
 
 **Not for navigation or safety decisions.** Forecasts, tides, currents, maps, elevation, ship positions and time
