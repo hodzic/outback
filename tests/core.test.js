@@ -10,6 +10,18 @@ module.exports = async (browser, url, check) => {
   c('tab shows the trip name', (await page.text('#tabTrip')) === 'New paddle', await page.text('#tabTrip'));
   c('status asks for a forecast', /no forecast/i.test(await page.text('#status')));
   c('sun times computed offline, Rise and Set lines', /^Rise \d+:\d\d [AP]M\s+Set \d+:\d\d [AP]M$/.test(await page.text('#sunV')), await page.text('#sunV'));
+  { // moon: rise/set in time order, phase with its icon and lit fraction, spring/neap on tidal water (computed offline)
+    const keep = await page.evaluate(() => ({ date: trip.date, env: trip.env, envSet: trip.envSet }));
+    await page.evaluate(() => { trip.date = '2026-10-26'; render(); });
+    const mv = await page.text('#moonV'), ms = await page.text('#moonS');
+    c('moon rise and set, in time order', /^(Rise|Set) \d+:\d\d [AP]M\s+(Rise|Set) \d+:\d\d [AP]M$/.test(mv) && /Rise/.test(mv) && /Set/.test(mv), mv);
+    c('full moon on Oct 26 2026: icon, name, lit fraction', (await page.text('#moonK')) === 'Moon 🌕' && /^Full moon, (99|100)% lit/.test(ms), (await page.text('#moonK')) + ' ' + ms);
+    await page.evaluate(() => { trip.env = 'bay'; trip.envSet = true; render(); });
+    c('spring tides flagged near full moon on tidal water', /spring tides/.test(await page.text('#moonS')), await page.text('#moonS'));
+    await page.evaluate(() => { trip.date = '2026-10-18'; render(); });
+    c('first quarter: neap tides', /^First quarter, 5\d% lit · neap tides/.test(await page.text('#moonS')) && (await page.text('#moonK')) === 'Moon 🌓', await page.text('#moonS'));
+    await page.evaluate(k => { Object.assign(trip, k); render(); }, keep);
+  }
 
   // Trips view: new paddle trip goes straight to the map in draw mode
   await view(page, 0);

@@ -103,7 +103,7 @@ table.acts td,table.acts th{padding:5px 3px}
 .roll::-webkit-scrollbar{display:none} .roll .pad{height:80px}
 .roll div[data-i]{height:40px;line-height:40px;text-align:center;font-size:24px;font-variant-numeric:tabular-nums;scroll-snap-align:center;cursor:pointer}
 .rt{padding-bottom:4px} .rline{font-size:16px;font-variant-numeric:tabular-nums} .rline b{margin-right:4px}
-#windV,#sunV{font-size:clamp(15px,4.6vw,18px);white-space:nowrap}
+#windV,#sunV,#moonV{font-size:clamp(15px,4.6vw,18px);white-space:nowrap}
 .v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
 .now{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin:8px 0 0;padding:6px 10px;background:var(--wash);border-radius:10px;font-variant-numeric:tabular-nums}
 .now .ri{min-width:0;height:38px} .now .ri[hidden]{display:none}
@@ -320,6 +320,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <div class="cell"><div class="k">Pressure · mb</div><div class="v" id="presV">–</div><div class="s" id="presS">&nbsp;</div></div>
           <div class="cell"><div class="k">Lightning</div><div class="v" id="ltgV">–</div><div class="s" id="ltgS">&nbsp;</div></div>
           <div class="cell"><div class="k">Sun</div><div class="v" id="sunV">–</div><div class="s" id="sunS">&nbsp;</div></div>
+          <div class="cell"><div class="k" id="moonK">Moon</div><div class="v" id="moonV">–</div><div class="s" id="moonS">&nbsp;</div></div>
         </div>
         <div class="row" style="margin:8px 0 4px" id="stationRow"><button class="btn" id="stationsBtn">Choose stations on the map</button></div>
         <div class="row" style="margin-top:12px"><span class="muted grow" id="chartHint">Tap or drag the graph to pick a time.</span><output id="timeOut" aria-live="polite"></output><button id="nowBtn" class="btn">Now</button></div>
@@ -457,7 +458,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <p>Lay a park or trail map PDF over the map, e.g. a brochure from the park's website. Tap <b>PDF</b> on the map, then <b>Add an overlay PDF map…</b> It's saved on this phone and shows offline.</p>
         <h3>Placing it</h3>
         <ul>
-          <li>Outback places it from the PDF's own map data (GeoPDF) or from printed <b>GPS Coordinates</b> labels when the PDF has them. Otherwise it starts over the area you're looking at.</li>
+          <li>Outback places it from the PDF's own map data (GeoPDF) or from printed <b>GPS Coordinates</b> labels when the PDF has them. Otherwise it starts over the area you're looking at. A map that prints its scale (like 1:24,000) comes in at the right size, so you only need to move it into place.</li>
           <li>Drag the 4 pink points onto the spots they belong, or <b>✥</b> to move the whole map. The others follow as you drag one. The PDF slider on the right makes it see-through.</li>
           <li>Map came in sideways (some brochures are printed that way)? Tap <b>⟳ 90°</b> until it reads the right way up, then place it.</li>
           <li><b>Save</b> keeps it; <b>Cancel</b> drops the change. Later, <b>Adjust</b> in the PDF list brings the points back.</li>
@@ -530,7 +531,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10p';
+const APP_VERSION = '2026-10-10q';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -720,6 +721,42 @@ function sunTimes(dateIso, lat, lng){
   const [rise, set] = pair(-0.833), [dawn, dusk] = pair(-6);
   return { rise, set, dawn, dusk };
 }
+
+// Moon (SunCalc's method): rise/set for the local day starting at t0, phase and lit fraction at a moment.
+const MOON = (() => {
+  const rad = Math.PI / 180, e = rad * 23.4397, days = t => t / 864e5 - 0.5 + 2440588 - 2451545;
+  const ra = (l, b) => Math.atan2(Math.sin(l) * Math.cos(e) - Math.tan(b) * Math.sin(e), Math.cos(l));
+  const dec = (l, b) => Math.asin(Math.sin(b) * Math.cos(e) + Math.cos(b) * Math.sin(e) * Math.sin(l));
+  const sun = d => { const M = rad * (357.5291 + 0.98560028 * d), L = M + rad * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M)) + rad * 102.9372 + Math.PI; return { dec: dec(L, 0), ra: ra(L, 0) }; };
+  const moon = d => { const L = rad * (218.316 + 13.176396 * d), M = rad * (134.963 + 13.064993 * d), F = rad * (93.272 + 13.229350 * d), l = L + rad * 6.289 * Math.sin(M), b = rad * 5.128 * Math.sin(F);
+    return { ra: ra(l, b), dec: dec(l, b), dist: 385001 - 20905 * Math.cos(M) }; };
+  const alt = (t, lat, lng) => { const d = days(t), c = moon(d), phi = rad * lat, H = rad * (280.16 + 360.9856235 * d) - rad * -lng - c.ra;
+    let h = Math.asin(Math.sin(phi) * Math.sin(c.dec) + Math.cos(phi) * Math.cos(c.dec) * Math.cos(H)); const r = Math.max(h, 0); return h + 0.0002967 / Math.tan(r + 0.00312536 / (r + 0.08901179)); };
+  function times(t0, lat, lng){
+    const hc = 0.133 * rad, at = h => t0 + h * 36e5; let h0 = alt(t0, lat, lng) - hc, rise = null, set = null, ye = 0;
+    for (let i = 1; i <= 24; i += 2){
+      const h1 = alt(at(i), lat, lng) - hc, h2 = alt(at(i + 1), lat, lng) - hc, a = (h0 + h2) / 2 - h1, b = (h2 - h0) / 2, xe = -b / (2 * a), D = b * b - 4 * a * h1;
+      ye = (a * xe + b) * xe + h1; let roots = 0, x1 = 0, x2 = 0;
+      if (D >= 0){ const dx = Math.sqrt(D) / (Math.abs(a) * 2); x1 = xe - dx; x2 = xe + dx; if (Math.abs(x1) <= 1) roots++; if (Math.abs(x2) <= 1) roots++; if (x1 < -1) x1 = x2; }
+      if (roots === 1){ if (h0 < 0) rise = i + x1; else set = i + x1; }
+      else if (roots === 2){ rise = i + (ye < 0 ? x2 : x1); set = i + (ye < 0 ? x1 : x2); }
+      if (rise != null && set != null) break;
+      h0 = h2;
+    }
+    return { rise: rise != null ? at(rise) : null, set: set != null ? at(set) : null, up: rise == null && set == null ? ye > 0 : null };
+  }
+  function phase(t){
+    const d = days(t), s = sun(d), m = moon(d), sd = 149598000;
+    const phi = Math.acos(Math.sin(s.dec) * Math.sin(m.dec) + Math.cos(s.dec) * Math.cos(m.dec) * Math.cos(s.ra - m.ra));
+    const inc = Math.atan2(sd * Math.sin(phi), m.dist - sd * Math.cos(phi));
+    const ang = Math.atan2(Math.cos(s.dec) * Math.sin(s.ra - m.ra), Math.sin(s.dec) * Math.cos(m.dec) - Math.cos(s.dec) * Math.sin(m.dec) * Math.cos(s.ra - m.ra));
+    return { fraction: (1 + Math.cos(inc)) / 2, phase: 0.5 + 0.5 * inc * (ang < 0 ? -1 : 1) / Math.PI, dist: m.dist };
+  }
+  // phase 0 new, .25 first quarter, .5 full, .75 last quarter; the named ones within about a day
+  const NAMES = [['🌑', 'New moon'], ['🌒', 'Waxing crescent'], ['🌓', 'First quarter'], ['🌔', 'Waxing gibbous'], ['🌕', 'Full moon'], ['🌖', 'Waning gibbous'], ['🌗', 'Last quarter'], ['🌘', 'Waning crescent']];
+  const name = p => { const q = p * 4, k = Math.round(q); return Math.abs(q - k) < 0.136 ? NAMES[(k % 4) * 2] : NAMES[(Math.floor(q) % 4) * 2 + 1]; };
+  return { times, phase, name };
+})();
 
 /* ---------- state ---------- */
 const state = { legs: new Set(), undo: [], tMin: 600, drawing: false, pos: null, watch: null,
@@ -1336,6 +1373,16 @@ function render(){
   } else { lv.textContent = '–'; $('#ltgS').textContent = ' '; }
   $('#sunV').innerHTML = sun.rise ? `Rise ${hm(sun.rise)}<br>Set ${hm(sun.set)}` : '–';
   $('#sunS').textContent = sun.dawn ? `First light ${hm(sun.dawn)} · last ${hm(sun.dusk)}` : ' ';
+  { // moon: rise and set in time order, phase and how much is lit at midday; spring or neap tides on tidal trips
+    const [la, lo] = centroid(), t0 = dayStart(), mt = MOON.times(t0, la, lo), ph = MOON.phase(t0 + 12 * 36e5), [ic, nm] = MOON.name(ph.phase);
+    const ev = [mt.rise && ['Rise', mt.rise], mt.set && ['Set', mt.set]].filter(Boolean).sort((a, b) => a[1] - b[1]);
+    $('#moonK').textContent = `Moon ${ic}`;
+    $('#moonV').innerHTML = ev.length ? ev.map(([k, t]) => `${k} ${hm(t)}`).join('<br>') : mt.up ? 'Up all day' : 'Down all day';
+    const k4 = ph.phase * 4, near = Math.abs(k4 - Math.round(k4)) * 7.4; // days from the nearest new, quarter or full moon
+    const tides = isTidal() && near <= 2 ? (Math.round(k4) % 2 === 0 ? ' · spring tides (bigger range)' : ' · neap tides (smaller range)') : '';
+    const big = ph.fraction > .9 && ph.dist < 362000 ? ' · supermoon' : '';
+    $('#moonS').textContent = `${nm}, ${Math.round(ph.fraction * 100)}% lit${big}${tides}`;
+  }
 
   const st = $('#status'); st.classList.remove('warn');
   if (!trip.fetchedAt) st.textContent = 'No forecast yet. Plot a route, then tap Get forecast. It also saves the map for offline use.';
@@ -2069,10 +2116,14 @@ $('#pdfFile').onchange = async e => {
     const res = await Promise.race([mod.parseGeoPdf(f), new Promise((_, rej) => setTimeout(() => rej(new Error('Timed out. The PDF may be too large.')), 60000))]);
     const name = (prompt('Name this map', f.name.replace(/\.pdf$/i, '')) || '').trim() || f.name;
     let { topLeft: tl, topRight: tr, bottomLeft: bl } = res;
+    if (!tl && res.mPerPx){ // true size from the printed scale, north up, centred on the view
+      const c = map.getCenter(), dLat = res.imageHeight * res.mPerPx / 2 / 111320, dLon = res.imageWidth * res.mPerPx / 2 / (111320 * Math.cos(c.lat * Math.PI / 180));
+      tl = [c.lat + dLat, c.lng - dLon]; tr = [c.lat + dLat, c.lng + dLon]; bl = [c.lat - dLat, c.lng - dLon]; res.method = `sized from its scale (${res.scaleText})`;
+    }
     if (!tl){ const b = map.getBounds().pad(-0.15); tl = [b.getNorth(), b.getWest()]; tr = [b.getNorth(), b.getEast()]; bl = [b.getSouth(), b.getWest()]; }
     const m = { id: uid(), name, imageBlob: res.imageBlob, imageWidth: res.imageWidth, imageHeight: res.imageHeight, topLeft: tl, topRight: tr, bottomLeft: bl,
       controlPoints: edgePoints(tl, tr, bl, res.imageWidth, res.imageHeight), method: res.method, detectedLabels: res.labels || [], createdAt: Date.now() };
-    toast(res.labels?.length ? `Found ${res.labels.length} GPS labels (${res.labels.join(', ')}). Check the placement.` : res.method === 'manual placement' ? 'No position data in this PDF. Drag the points into place.' : 'Placed from the PDF\'s map data. Check it.', 6000);
+    toast(res.labels?.length ? `Found ${res.labels.length} GPS labels (${res.labels.join(', ')}). Check the placement.` : res.mPerPx ? `Sized from the map's printed scale (${res.scaleText}). Move it into place with ✥, then Auto-align.` : res.method === 'manual placement' ? 'No position data in this PDF. Drag the points into place.' : 'Placed from the PDF\'s map data. Check it.', 6000);
     startNudge(m, true);
   }catch(err){ toast('PDF import failed: ' + err.message, 5000); }
 };
@@ -2506,7 +2557,7 @@ async function openPrint(){
         <p>Legs in ${unitName()}; bearings magnetic (${settings.variation}° E); arrivals at ${esc($('#spd').textContent)}.</p>` : '<p>No route.</p>'}
       ${trip.marks.length ? `<h3>Points of interest</h3><table>${trip.marks.map(k => `<tr><td>${esc(k.name)}</td><td>${k.lat.toFixed(4)}, ${k.lng.toFixed(4)}</td></tr>`).join('')}</table>` : ''}</div>
       <div><h3>Forecast${trip.fetchedAt ? ` <span style="font-weight:400">(as of ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })})</span>` : ''}</h3>
-        ${fc.length ? `<dl>${fc.map(([k, l]) => `<dt>${esc(k)}</dt><dd>${esc(l[0])}${l.length > 1 ? '<br>' + l.slice(1).map(esc).join(' · ') : ''}</dd>`).join('')}</dl>` : '<p>No forecast yet: tap Get forecast first.</p>'}</div></div>
+        ${fc.length ? `<dl>${fc.map(([k, l]) => `<dt>${esc(k)}</dt><dd>${l.map(esc).join(' · ')}</dd>`).join('')}</dl>` : '<p>No forecast yet: tap Get forecast first.</p>'}</div></div>
     ${trip.data ? `<div class="pgs">${kinds.map(k => `<div class="pg"><h3>${names[k]}</h3><canvas data-kind="${k}"></canvas></div>`).join('')}</div>` : ''}
     <p class="pfoot">Magenta line on the graphs: the planned start. Not for navigation; check official forecasts and local conditions. Planned with Outback, ${esc(appUrl())}</p>`;
   if ($('#printView').hidden){ $('#printView').hidden = false; history.pushState({ print: 1 }, ''); }

@@ -474,6 +474,15 @@ module.exports = async (browser, url, check) => {
     await page.click('#sheet [data-pdfmap]'); await page.waitForTimeout(300);
     c('Hide removes the overlay', await page.locator('img.leaflet-image-layer').count() === 0 && await page.isHidden('#opBar'));
     await page.click('#sheet [data-close]');
+    // a printed scale sizes the map: 612 pt wide at 1:24,000 is 5,182 m
+    page.promptAnswer = 'Scaled';
+    await page.setInputFiles('#pdfFile', path.join(OUT, 'scaled.pdf'));
+    await page.waitForSelector('#nSave', { timeout: 60000 });
+    const wM = await page.evaluate(() => state.nudge.layer._topLeft.distanceTo(state.nudge.layer._topRight));
+    c('printed scale sizes a PDF with no position data', /Sized from the map's printed scale \(1:24,000\)/.test(await page.text('#toast')) && Math.abs(wM - 5182) < 60, `${wM.toFixed(0)} m; ${await page.text('#toast')}`);
+    c('printed scale parsing: ratios and inch-equals forms', await page.evaluate(async () => { const { printedScale: p } = await import('./pdfmap.js');
+      return p('Scale 1:63,360')?.ratio === 63360 && p('1 : 24000')?.ratio === 24000 && p('1 inch = 2,000 feet')?.ratio === 24000 && p('1 in = 1 mile')?.ratio === 63360 && p('Call 1:30 pm') === null && p('no scale here') === null; }));
+    await page.click('#nCancel');
     page.promptAnswer = 'Plain';
     await page.setInputFiles('#pdfFile', path.join(OUT, 'plain.pdf'));
     await page.waitForSelector('#nSave', { timeout: 60000 });
