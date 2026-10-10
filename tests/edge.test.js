@@ -32,14 +32,14 @@ module.exports = async (browser, url, check) => {
     await page.goto(url); await ready(page); await seedRoute(page, GG);
     await page.click('#fcBtn'); await waitForecast(page);
     c('NOAA errors are reported', (await page.text('#toast')).includes('Missing: tides'), await page.text('#toast'));
-    c('wind still shown when NOAA fails', /kt/.test(await page.text('#windV'))); await ctx.close(); }
+    c('wind still shown when NOAA fails', /G\d/.test(await page.text('#windV')) && /kt/.test(await page.text('#atWind'))); await ctx.close(); }
 
   { // planning an SF trip from New York: times must be SF local
     const { ctx, page } = await open(browser, url, { timezoneId: 'America/New_York' });
     await page.goto(url); await ready(page); await seedRoute(page, GG);
     await page.click('#fcBtn'); await waitForecast(page);
     const sun = await page.text('#sunV');
-    c('times shown in trip time zone', /^(6|7):\d\d AM/.test(sun), sun);
+    c('times shown in trip time zone', /^Rise (6|7):\d\d AM/.test(sun), sun);
     await page.evaluate(() => { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width * 0.5, clientY: r.top + 30, pointerId: 1, bubbles: true })); });
     c('graph time is trip-local', (await page.text('#timeOut')).startsWith('12:00'), await page.text('#timeOut'));
     c('wind sample matches trip-local hour', await page.evaluate(() => trip.data.wx.t.includes(tAt())));

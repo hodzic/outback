@@ -28,8 +28,15 @@ module.exports = async (browser, url, check) => {
     c('no tide cells on a trail', !(await page.isVisible('#tideV')) && !(await page.isVisible('#curV')));
     c('elevation gain shown', /^\+[\d,]+ ft/.test(await page.text('#elevV')), await page.text('#elevV'));
     c('climb included in duration', /climb \+[\d,]+ ft/.test(await page.text('#legs')), await page.text('#legs'));
+    { await page.evaluate(() => { settings.graph = 'elev'; render(); });
+      const got = await page.evaluate(() => { const P = CanvasRenderingContext2D.prototype, f = P.fillText, out = [];
+        P.fillText = function(t, ...a){ if (this.canvas === cv) out.push(t); return f.call(this, t, ...a); };
+        try{ const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width / 2, clientY: r.top + 30, pointerId: 1, bubbles: true })); } finally{ P.fillText = f; }
+        return { f: state.elevF, out }; });
+      c('elevation graph reads elevation, distance and time at the picked spot', Math.abs(got.f - .5) < .02 && got.out.some(t => /^[\d,]+ ft · \d+\.\d mi · \d/.test(t)), got.out.join(' | '));
+      c('elevation hint says to drag along the route', /elevation along the route/.test(await page.text('#chartHint'))); }
     c('graph offers Elevation and Wind', (await page.locator('#graphSel button').allInnerTexts()).join() === 'Elevation,Wind');
-    c('wind shown in mph', /mph/.test(await page.text('#windV')), await page.text('#windV'));
+    c('wind shown in mph', (await page.text('#windK')) === 'Wind · mph' && /mph/.test(await page.text('#atWind')), await page.text('#windK'));
     await page.screenshot({ path: path.join(OUT, 'feat-hike.png') });
     c('no page errors (hike)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
@@ -80,14 +87,20 @@ module.exports = async (browser, url, check) => {
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
     c('no out-and-back or reverse buttons', await page.locator('#outBack, #reverse').count() === 0);
+    c('route card is one line plus waypoints, no buttons', await page.locator('#vTrip .rt button').count() === 0 && await page.isVisible('#wpDetails summary')
+      && await page.evaluate(() => document.querySelector('.rline').getBoundingClientRect().height < 30));
+    await view(page, 2); await page.click('#drawBtn');
+    c('Clear sits in the map route editor', await page.isVisible('#drawBar #clearRoute'));
     await page.click('#clearRoute'); await page.waitForTimeout(200);
-    c('clear waypoints empties the route', await page.evaluate(() => trip.route.length) === 0 && /0\.0 nm/.test(await page.text('#dist')));
+    c('clear waypoints empties the route', await page.evaluate(() => trip.route.length) === 0 && await page.locator('.wp').count() === 0);
     c('clear is disabled with no waypoints', await page.isDisabled('#clearRoute'));
+    await page.click('#doneBtn'); await view(page, 1);
+    c('empty route says to draw it on the map', /none yet/.test(await page.text('#dist')) && !(await page.isVisible('#dur')), await page.text('#dist'));
     await view(page, 0);
     c('paddle trips show a kayak with a double-bladed paddle', await page.locator('#tripList .trip .ic svg ellipse[transform]').count() >= 2 && await page.locator('#tripList .trip', { hasText: '🛶' }).count() === 0);
     await seedRoute(page, GG); await view(page, 1);
-    await page.click('#editRoute'); await page.waitForTimeout(500);
-    c('Edit route opens the map in draw mode', await page.evaluate(() => state.view === 2 && state.drawing));
+    await view(page, 2); await page.click('#drawBtn');
+    c('route button opens draw mode', await page.evaluate(() => state.view === 2 && state.drawing));
     await page.click('#doneBtn');
     c('Done leaves draw mode', await page.evaluate(() => !state.drawing));
     await ctx.close(); }
@@ -117,6 +130,8 @@ module.exports = async (browser, url, check) => {
     c('next tap adds a waypoint again', await page.evaluate(() => trip.route.length) === 4);
     await page.click('#undoBtn'); await page.click('#doneBtn');
     await view(page, 1);
+    c('markers fold out in the route card, after waypoints', (await page.text('#mkSum')) === 'Markers (2)' && await page.evaluate(() => document.querySelector('#wpDetails').nextElementSibling.id === 'mkDetails' && !!document.querySelector('.rt #mkDetails')));
+    await page.click('#mkSum');
     c('Trip view lists markers', (await page.locator('#markList b').allInnerTexts()).join() === 'Kirby Cove,Put-in');
     page.promptAnswer = 'Kirby Cove beach';
     await page.locator('#markList [data-mkren]').first().click(); await page.waitForTimeout(200);
@@ -188,7 +203,7 @@ module.exports = async (browser, url, check) => {
     await page.selectOption('[data-unit=paddle]', 'km');
     c('paddle in km', (await page.text('#dist')) === (nm * 1.852).toFixed(1) + ' km', await page.text('#dist'));
     c('speed converts with the unit', await page.inputValue('[data-speed=paddle]') === '5.6' && (await page.text('#spd')) === '5.6 km/h', await page.inputValue('[data-speed=paddle]'));
-    c('wind follows the unit', /km\/h|–/.test(await page.text('#windV')));
+    c('wind follows the unit', (await page.text('#windK')) === 'Wind · km/h' || (await page.text('#windV')) === '–');
     await page.fill('[data-speed=paddle]', '7.4'); await page.dispatchEvent('[data-speed=paddle]', 'change');
     c('speed saved in knots', Math.abs(await page.evaluate(() => settings.speedsKt.paddle) - 7.4 / 1.852) < 1e-9);
     await page.selectOption('[data-unit=hike]', 'km');

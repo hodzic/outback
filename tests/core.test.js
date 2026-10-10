@@ -9,7 +9,7 @@ module.exports = async (browser, url, check) => {
   c('opens on the Trip view', await page.evaluate(() => state.view) === 1 && await page.isVisible('#tripName'));
   c('tab shows the trip name', (await page.text('#tabTrip')) === 'New paddle', await page.text('#tabTrip'));
   c('status asks for a forecast', /no forecast/i.test(await page.text('#status')));
-  c('sun times computed offline', /\d.*–.*\d/.test(await page.text('#sunV')), await page.text('#sunV'));
+  c('sun times computed offline, Rise and Set lines', /^Rise \d+:\d\d [AP]M\s+Set \d+:\d\d [AP]M$/.test(await page.text('#sunV')), await page.text('#sunV'));
 
   // Trips view: new paddle trip goes straight to the map in draw mode
   await view(page, 0);
@@ -40,24 +40,54 @@ module.exports = async (browser, url, check) => {
   c('route length in nm', / nm$/.test(await page.text('#dist')) && parseFloat(await page.text('#dist')) > 0, await page.text('#dist'));
   c('duration shown', /min|h/.test(await page.text('#dur')), await page.text('#dur'));
   c('legs summary', (await page.text('#legs')).startsWith('2 legs'), await page.text('#legs'));
+  c('start time next to the date, 9:00 by default', (await page.text('#start')) === '9:00 AM' && await page.evaluate(() => document.querySelector('#date').parentElement.contains(document.querySelector('#start'))));
+  await page.click('#start');
+  c('start picker: hour, minute and AM/PM rollers set to the start', await page.evaluate(() => [rollAt($('#tpH')), rollAt($('#tpM')), rollAt($('#tpA'))].join()) === '8,0,0' && await page.isVisible('#tpOk'));
+  await page.evaluate(() => { $('#tpH').scrollTop = 6 * ROW; $('#tpM').scrollTop = 6 * ROW; });
+  await page.click('#tpA div[data-i="1"]'); await page.waitForTimeout(600);
+  c('tapping a roller item rolls to it', await page.evaluate(() => rollAt($('#tpA'))) === 1);
+  await page.evaluate(() => { $('#tpA').scrollTop = 0; }); await page.waitForTimeout(100);
+  await page.click('#tpOk');
+  c('start time is saved and moves the graph time', await page.evaluate(() => trip.start === 450 && state.tMin === 450 && settings.start === 450) && /^7:30/.test(await page.text('#timeOut')) && (await page.text('#start')) === '7:30 AM' && !(await page.evaluate(() => sheet.open)), await page.text('#timeOut'));
+  await page.click('#wpDetails summary'); await page.waitForTimeout(150);
+  c('waypoint times leave at the planned start', /Leaving at 7:30 AM \(the planned start\)/.test(await page.text('#routeTable')), await page.text('#routeTable'));
+  await page.click('#wpDetails summary');
+  c('new trips take the last start; old trips get 9:00', await page.evaluate(() => newTrip().start === 450 && normTrip({ route: [], tracks: [], marks: [] }).start === 540));
+  c('route on one line', /^Route \d+\.\d nm · .+ at 3 kt · 2 legs$/.test(await page.text('.rline')), await page.text('.rline'));
   await page.click('#fcBtn'); await waitForecast(page); await page.waitForTimeout(200);
   c('forecast saved toast', /Forecast saved/.test(await page.text('#toast')), await page.text('#toast'));
   c('tidal water detected as bay (auto)', await page.evaluate(() => trip.env === 'bay' && !trip.envSet) && /Auto: Bay/.test(await page.text('#envSel')));
-  c('tide value', /ft$/.test(await page.text('#tideV')), await page.text('#tideV'));
+  c('tide range for the day', /^-?\d+\.\d – -?\d+\.\d ft$/.test(await page.text('#tideV')), await page.text('#tideV'));
+  c('every high and low tide, one per line in time order', await page.evaluate(() => { const r = [...document.querySelectorAll('#tideS .tl > span')].map(e => e.textContent);
+    return r.length === 8 && r.filter((_, i) => i % 2).every(x => /^(High|Low) -?\d+\.\d ft$/.test(x)) && trip.data.tide.filter(e => e.t >= dayStart() && e.t < dayStart() + 864e5).every((e, i) => r[2 * i] === hmS(e.t)); }), await page.text('#tideS'));
   c('forecast readouts are not truncated', await page.evaluate(() => [...document.querySelectorAll('.read .k, .read .v, .read .s')].every(e => e.scrollWidth <= e.clientWidth + 1 && getComputedStyle(e).textOverflow !== 'ellipsis')));
   c('nearest tide station', (await page.text('#tideK')).includes('San Francisco'), await page.text('#tideK'));
   c('current station deduped to shallowest bin', await page.evaluate(() => state.nearby.current.find(s => s.id === 'SFB1201')?.bin === 2));
-  c('current value', /kt|Slack/.test(await page.text('#curV')), await page.text('#curV'));
-  c('wind value', /kt/.test(await page.text('#windV')), await page.text('#windV'));
+  c('strongest flood and ebb, ebb negative', /^\d+\.\d \/ -\d+\.\d kt$/.test(await page.text('#curV')), await page.text('#curV'));
+  c('max flood, max ebb and slack, one per line in time order', await page.evaluate(() => { const r = [...document.querySelectorAll('#curS .tl > span')].map(e => e.textContent), ev = trip.data.current.filter(e => e.t >= dayStart() && e.t < dayStart() + 864e5);
+    return r.length === ev.length * 2 && ev.every((e, i) => r[2 * i] === hmS(e.t)) && r.some(x => /^Flood \d+\.\d$/.test(x)) && r.some(x => /^Ebb -\d+\.\d$/.test(x)) && r.includes('Slack'); }), await page.text('#curS'));
+  c('wind morning and afternoon with gusts', /^AM \d+ G\d+ [NESW]+\s+PM \d+ G\d+ [NESW]+$/.test(await page.text('#windV')), await page.text('#windV'));
+  c('wind unit in the title', (await page.text('#windK')) === 'Wind · kt', await page.text('#windK'));
   const tv = await page.text('#tempV'), m = tv.match(/Low (\d+)° · High (\d+)°F/);
   c('day low and high temperature shown', !!m && +m[1] <= +m[2], tv);
   c('low/high is the trip day only', await page.evaluate(() => { const d = dayTemps(), w = trip.data.wx, t0 = dayStart();
     const v = w.temp.filter((_, i) => w.t[i] >= t0 && w.t[i] < t0 + 864e5); return d.lo === Math.min(...v) && d.hi === Math.max(...v); }));
-  c('temperature at the selected time', /°F at \d/.test(await page.text('#tempS')), await page.text('#tempS'));
+  c('daylight sky and rain', /in daylight$/.test(await page.text('#tempS')), await page.text('#tempS'));
+  c('time readout under the graph', /ft [↑↓]$/.test(await page.text('#atTide')) && /kt|Slack/.test(await page.text('#atCur')) && /^\d+ G\d+ kt [NESW]+$/.test(await page.text('#atWind'))
+    && /^\d+°F · rain \d+%$/.test(await page.text('#atAir')) && /mb/.test(await page.text('#atPres')) && /%/.test(await page.text('#atLtg')), [await page.text('#atTide'), await page.text('#atCur'), await page.text('#atWind'), await page.text('#atAir')].join(' | '));
+  { const day = () => page.evaluate(() => [...document.querySelectorAll('.read .v, .read .s')].map(e => e.textContent).join('|'));
+    const at = () => page.evaluate(() => [...document.querySelectorAll('#atRead b')].map(e => e.textContent).join('|'));
+    await page.evaluate(() => { state.tMin = 8 * 60; render(); }); const d1 = await day(), a1 = await at();
+    await page.evaluate(() => { state.tMin = 16 * 60; render(); }); const d2 = await day(), a2 = await at();
+    c('cells stay put when the time changes', d1 === d2, d1 + ' ≠ ' + d2);
+    c('readout follows the time', a1 !== a2, a1);
+    c('readout sits above the graph with a fixed height', await page.evaluate(() => { const r = document.querySelector('#atRead'), h = r.offsetHeight;
+      const ok = r.nextElementSibling === cv && [...r.children].every(e => e.hidden || e.offsetHeight === 38);
+      for (const m of [0, 300, 700, 1100]){ state.tMin = m; render(); if (r.offsetHeight !== h) return false; } return ok; })); }
   c('temperature is the first, full-width reading', await page.evaluate(() => document.querySelector('.read').firstElementChild.id === '' && document.querySelector('.read .cell').classList.contains('tempc')));
   c('map summary shows the range', /\d+°–\d+°/.test(await page.text('#mini')), await page.text('#mini'));
-  c('pressure value', /mb/.test(await page.text('#presV')), await page.text('#presV'));
-  c('lightning from NWS', /%/.test(await page.text('#ltgV')), await page.text('#ltgV'));
+  c('pressure over daylight', /^\d+ → \d+$/.test(await page.text('#presV')) && /^(Steady|Rising|Falling) .*in daylight/.test(await page.text('#presS')) && /Pressure · mb/.test(await page.text('.read')), await page.text('#presV') + ' ' + await page.text('#presS'));
+  c('lightning from NWS, daylight peak', /%$/.test(await page.text('#ltgV')) && /NWS/.test(await page.text('#ltgS')), await page.text('#ltgV'));
   c('trip time zone learned', await page.evaluate(() => trip.tz) === 'America/Los_Angeles');
   c('status says the map is saved offline', /map saved offline/.test(await page.text('#status')), await page.text('#status'));
   await page.screenshot({ path: path.join(OUT, 'core-trip.png') });
@@ -89,11 +119,12 @@ module.exports = async (browser, url, check) => {
 
   // start from a fixed time, not 'now' (which could be 3:00 PM itself)
   await page.evaluate(() => { state.tMin = 9 * 60; render(); });
-  const before = await page.text('#tideV');
-  c('no time slider; time and Now sit by the graph buttons', await page.locator('#time').count() === 0 && await page.evaluate(() => document.querySelector('#graphSel').parentElement.contains(document.querySelector('#nowBtn'))));
+  const before = await page.text('#atTide');
+  c('graph at the bottom of the forecast, its buttons right under it', await page.locator('#time').count() === 0 && await page.evaluate(() => cv.nextElementSibling.id === 'graphSel' && !cv.parentElement.lastElementChild.previousElementSibling.compareDocumentPosition(cv) && cv.parentElement.lastElementChild.id === 'graphSel'
+    && document.querySelector('.read').compareDocumentPosition(cv) & Node.DOCUMENT_POSITION_FOLLOWING));
   await page.evaluate(() => { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width * 0.625, clientY: r.top + 30, pointerId: 1, bubbles: true })); });
   c('graph tap sets time', (await page.text('#timeOut')).includes('3:00'), await page.text('#timeOut'));
-  c('time change updates tide', (await page.text('#tideV')) !== before);
+  c('time change updates tide', (await page.text('#atTide')) !== before);
   await page.locator('#chart').scrollIntoViewIfNeeded();
   const box = await page.locator('#chart').boundingBox();
   await page.mouse.click(box.x + box.width * 0.25, box.y + 30);
@@ -159,7 +190,7 @@ module.exports = async (browser, url, check) => {
   await view(page, 1);
   await page.fill('#date', '2026-12-10'); await page.dispatchEvent('#date', 'change');
   c('date change clears forecast', /no forecast/i.test(await page.text('#status')));
-  c('weekday shown before the date', (await page.text('#dow')) === 'Thursday,', await page.text('#dow'));
+  c('weekday shown before the date', (await page.text('#dow')) === 'Thu,', await page.text('#dow'));
   c('date sits above the activity buttons', await page.evaluate(() => document.querySelector('#date').getBoundingClientRect().bottom <= document.querySelector('#actSel').getBoundingClientRect().top));
   const n0 = await page.evaluate(async () => (await idb.all('trips')).length);
   await page.click('#deleteTrip'); await page.waitForTimeout(500);
