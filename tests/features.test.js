@@ -435,6 +435,15 @@ module.exports = async (browser, url, check) => {
     c('4 handles + centre while placing', await page.locator('.nudge').count() === 4 && await page.locator('.nudge-c').count() === 1);
     c('opacity control visible', await page.isVisible('#opBar'));
     await page.screenshot({ path: path.join(OUT, 'feat-pdf-nudge.png') });
+    // ⟳ 90° turns a sideways brochure in place; twice more and back to the start, then Cancel-proof
+    const geo = () => page.evaluate(() => { const l = state.nudge.layer, c = l.getBounds().getCenter(); return { w: l._rawImage?.naturalWidth || 0, tl: l._topLeft, tr: l._topRight, c: [c.lat, c.lng] }; });
+    const g0 = await geo();
+    await page.click('#nRot'); await page.waitForFunction(w => state.nudge.layer._rawImage?.naturalWidth && state.nudge.layer._rawImage.naturalWidth !== w, g0.w, { timeout: 5000 }).catch(() => {});
+    const g1 = await geo();
+    c('⟳ 90° rotates the picture, keeping its place', g1.w > 0 && g1.w !== g0.w && Math.abs(g1.c[0] - g0.c[0]) < 1e-3 && Math.abs(g1.c[1] - g0.c[1]) < 1e-3 && await page.locator('.nudge').count() === 4, JSON.stringify([g0, g1]));
+    for (let i = 0; i < 3; i++){ await page.click('#nRot'); await page.waitForTimeout(400); }
+    const g4 = await geo();
+    c('four turns bring it back', g4.w === g0.w && Math.abs(g4.tl.lat - g0.tl.lat) < 1e-6 && Math.abs(g4.tl.lng - g0.tl.lng) < 1e-6, JSON.stringify([g0.tl, g4.tl]));
     await page.click('#nSave'); await page.waitForTimeout(300);
     const m = await page.evaluate(async () => (await idb.all('trailMaps'))[0]);
     // page top-left (0,792) maps to about lat 37.946, lon -122.55; labels are drawn from their baseline, so allow some slack
@@ -452,6 +461,15 @@ module.exports = async (browser, url, check) => {
     await page.click('#nSave'); await page.waitForTimeout(300);
     const m2 = await page.evaluate(async () => (await idb.all('trailMaps'))[0]);
     c('adjust moves and saves', m2.topLeft[1] > m.topLeft[1] && /adjusted/.test(m2.method), `${m.topLeft[1]} -> ${m2.topLeft[1]} ${m2.method}`);
+    await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-adjust]');
+    await page.click('#sheet [data-adjust]'); await page.waitForSelector('#nRot');
+    await page.click('#nRot'); await page.waitForTimeout(500); await page.click('#nSave'); await page.waitForTimeout(300);
+    const m3 = await page.evaluate(async () => { const m = (await idb.all('trailMaps'))[0], b = await createImageBitmap(m.imageBlob); return { w: m.imageWidth, h: m.imageHeight, bw: b.width, bh: b.height }; });
+    c('a rotated map saves turned', m3.w === m2.imageHeight && m3.h === m2.imageWidth && m3.bw === m3.w && m3.bh === m3.h, JSON.stringify(m3));
+    await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-adjust]');
+    await page.click('#sheet [data-adjust]'); await page.waitForSelector('#nRot');
+    await page.click('#nRot'); await page.waitForTimeout(500); await page.click('#nCancel'); await page.waitForTimeout(300);
+    c('Cancel after a turn keeps the saved picture', await page.evaluate(async w => (await idb.all('trailMaps'))[0].imageWidth === w, m3.w) && await page.evaluate(w => [...shownMaps.values()][0] && true, 0));
     await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-pdfmap]');
     await page.click('#sheet [data-pdfmap]'); await page.waitForTimeout(300);
     c('Hide removes the overlay', await page.locator('img.leaflet-image-layer').count() === 0 && await page.isHidden('#opBar'));

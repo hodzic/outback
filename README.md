@@ -81,7 +81,7 @@ Three views; swipe between them or use the tabs at the bottom.
 - **GPX import**: route points become the trip's route (simplified to at most 100 waypoints, keeping the shape
   within a few metres); a timed track is kept as a recorded track.
 - **Overlay PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or
-  printed "GPS Coordinates" labels when present, then you drag 4 points (or the centre) to line it up.
+  printed "GPS Coordinates" labels when present, then you drag 4 points (or the centre) to line it up; *⟳ 90°* turns a sideways brochure in place.
   **Auto-align** refines a rough placement from the water drawn on the map: it finds the map's light-blue water,
   gets OpenStreetMap water for the area (Overpass API; kept with the map, so re-aligning works offline) and fits a
   shift, turn and scale that lays one shoreline on the other (`align.js`, all on the phone). The OSM water shows as a

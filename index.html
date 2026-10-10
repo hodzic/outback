@@ -459,6 +459,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li>Outback places it from the PDF's own map data (GeoPDF) or from printed <b>GPS Coordinates</b> labels when the PDF has them. Otherwise it starts over the area you're looking at.</li>
           <li>Drag the 4 pink points onto the spots they belong, or <b>✥</b> to move the whole map. The others follow as you drag one. The PDF slider on the right makes it see-through.</li>
+          <li>Map came in sideways (some brochures are printed that way)? Tap <b>⟳ 90°</b> until it reads the right way up, then place it.</li>
           <li><b>Save</b> keeps it; <b>Cancel</b> drops the change. Later, <b>Adjust</b> in the PDF list brings the points back.</li>
         </ul>
         <h3>Auto-align</h3>
@@ -529,7 +530,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10n';
+const APP_VERSION = '2026-10-10o';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2039,10 +2040,11 @@ async function startNudge(m, isNew){
   const { fitAffine, applyAffine } = await loadPdfMod();
   showView(2); setDrawing(false); if (sheet.open) sheet.close();
   if (!isNew) showPdfMap(m, false);
-  const url = URL.createObjectURL(m.imageBlob);
+  const orig = { imageBlob: m.imageBlob, imageWidth: m.imageWidth, imageHeight: m.imageHeight }; // Cancel undoes a rotation
+  let url = URL.createObjectURL(m.imageBlob);
   const layer = L.imageOverlay.rotated(url, L.latLng(m.topLeft), L.latLng(m.topRight), L.latLng(m.bottomLeft), { opacity: Math.max(+$('#opacity').value, .7), interactive: false }).addTo(map);
   const pts = (m.controlPoints?.length === 4 ? m.controlPoints : edgePoints(m.topLeft, m.topRight, m.bottomLeft, m.imageWidth, m.imageHeight)).map(p => ({ ...p }));
-  const W = m.imageWidth, H = m.imageHeight, handles = L.layerGroup().addTo(map);
+  let W = m.imageWidth, H = m.imageHeight; const handles = L.layerGroup().addTo(map);
   const fit = () => { const a = fitAffine(pts, 'lat'), b = fitAffine(pts, 'lon');
     const r = { topLeft: applyAffine(a, b, 0, 0), topRight: applyAffine(a, b, W, 0), bottomLeft: applyAffine(a, b, 0, H), a, b };
     layer.reposition(L.latLng(r.topLeft), L.latLng(r.topRight), L.latLng(r.bottomLeft)); return r; };
@@ -2061,7 +2063,7 @@ async function startNudge(m, isNew){
     pts.forEach((p, i) => { p.lat += dLat; p.lon += dLon; marks[i].setLatLng([p.lat, p.lon]); }); fit(); });
   const end = () => { map.removeLayer(handles); map.removeLayer(layer); URL.revokeObjectURL(url); state.nudge = null; opBarState(); };
   state.nudge = { layer };
-  showMapBar(`<span class="txt" style="flex-basis:100%">Drag the 4 points onto matching spots, or ✥ to move it all. Auto-align matches the map's water to OpenStreetMap.</span><button class="btn" id="nAlign" style="margin-right:auto">Auto-align</button><button class="btn" id="nCancel">Cancel</button><button class="btn" id="nSave">Save</button>`, end);
+  showMapBar(`<span class="txt" style="flex-basis:100%">Drag the 4 points onto matching spots, or ✥ to move it all. Sideways? ⟳ 90°. Auto-align matches the map's water to OpenStreetMap.</span><button class="btn" id="nAlign">Auto-align</button><button class="btn" id="nRot" aria-label="Rotate the map 90°" title="Rotate the map 90°" style="margin-right:auto">⟳ 90°</button><button class="btn" id="nCancel">Cancel</button><button class="btn" id="nSave">Save</button>`, end);
   opBarState();
   // Auto-align: match the water drawn on the map to OpenStreetMap water. Undo puts the points back.
   let water, undo = null, osmLine = null;
@@ -2086,7 +2088,22 @@ async function startNudge(m, isNew){
     }catch(err){ toast(navigator.onLine ? 'Auto-align failed: ' + err.message : 'Auto-align needs a connection the first time, to get OpenStreetMap water for this area.', 5000); }
     finally{ alignBtn.disabled = false; }
   };
-  $('#nCancel').onclick = () => { endMapBar(); if (!isNew) showPdfMap(m, true); };
+  // Rotate 90°: for brochures that come in sideways. Turns the picture clockwise in place: same centre and scale.
+  $('#nRot').onclick = async () => {
+    const btn = $('#nRot'); btn.disabled = true;
+    try{
+      const bmp = await createImageBitmap(m.imageBlob), c = document.createElement('canvas'); c.width = H; c.height = W;
+      const g = c.getContext('2d'); g.translate(H, 0); g.rotate(Math.PI / 2); g.drawImage(bmp, 0, 0); bmp.close?.();
+      const blob = await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('Could not rotate the map.')), 'image/jpeg', .88));
+      const { a, b } = fit(), W1 = W, H1 = H, W2 = H, H2 = W, at = (u, v) => applyAffine(a, b, u - W2 / 2 + W1 / 2, v - H2 / 2 + H1 / 2);
+      Object.assign(m, { imageBlob: blob, imageWidth: W2, imageHeight: H2 }); W = W2; H = H2;
+      URL.revokeObjectURL(url); url = URL.createObjectURL(blob); layer.setUrl(url);
+      edgePoints(at(0, 0), at(W, 0), at(0, H), W, H).forEach((p, i) => { Object.assign(pts[i], p); marks[i].setLatLng([p.lat, p.lon]); });
+      prev = centre(); cm.setLatLng(prev); fit(); water = undefined; noUndo();
+    }catch(err){ toast(err.message); }
+    finally{ btn.disabled = false; }
+  };
+  $('#nCancel').onclick = () => { Object.assign(m, orig); endMapBar(); if (!isNew) showPdfMap(m, true); };
   $('#nSave').onclick = async () => {
     const r = fit();
     Object.assign(m, { topLeft: r.topLeft, topRight: r.topRight, bottomLeft: r.bottomLeft, controlPoints: pts.map(p => ({ ...p })) });
