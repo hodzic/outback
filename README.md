@@ -70,6 +70,12 @@ Three views; swipe between them or use the tabs at the bottom.
   the map placed within a few hundred metres first; maps without water say so. *Help: overlay PDF maps* on the Trips tab
   (linked from the PDF list) explains placing and Auto-align.
   Opacity slider on the right. Overlay PDF maps saved in GPS Map (same origin) can be copied in.
+  **Built-in maps** ship already placed (`maps/`, listed in `BUILTIN_MAPS`): *Add* in the PDF list copies one into the
+  phone's maps, where it works like an imported one. Now: NPS Tomales Bay boat-in camping (public domain),
+  Del Valle Regional Park (EBRPD, GeoPDF placement refined by Auto-align: shoreline median 8 m) and the
+  Sacramento–San Joaquin Delta boating map (California Coastal Commission, 2005; placed from its GeoPDF data).
+- **Help: Tomales Bay and San Francisco Bay** (Trips tab) links the official info: NPS boat-in camping, map and
+  kayaking pages for Tomales Bay; the SF Bay Water Trail, its web map and conditions page, and the Dolphin Club's Bay guide.
 
 **Not for navigation or safety decisions.** Forecasts, tides, currents, maps, elevation, ship positions and time
 estimates come from free public services and simple calculations; they can be wrong, late, incomplete or missing,

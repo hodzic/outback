@@ -28,7 +28,10 @@ const listPage = [text(72, 720, 'GPS Coordinates'), ...labels.map(([n, x, y], i)
 const lakeGeo = (x, y) => [37.60 + (y - 100) * 0.00005, -121.72 + (x - 100) * 0.00005];
 const LAKE = [[150,300],[220,260],[300,280],[360,240],[450,270],[480,340],[430,400],[460,470],[400,520],[320,500],[260,540],[190,500],[170,430],[120,380]];
 const lakeLabels = [['Alder', 100, 700], ['Birch', 500, 700], ['Cedar', 100, 100]];
-const lakePage = '0.831 0.937 0.988 rg ' + LAKE.map(([x, y], i) => `${x} ${y} ${i ? 'l' : 'm'}`).join(' ') + ' h f 0 0 0 rg\n'
+// east arm in a deeper blue: maps tint water by zone
+const EAST = [[360,240],[450,270],[480,340],[430,400],[460,470],[400,520],[365,508]];
+const poly = P => P.map(([x, y], i) => `${x} ${y} ${i ? 'l' : 'm'}`).join(' ') + ' h f';
+const lakePage = '0.831 0.937 0.988 rg ' + poly(LAKE) + ' 0.64 0.87 0.98 rg ' + poly(EAST) + ' 0 0 0 rg\n'
   + text(270, 390, 'Lake Test', 14) + '\n' + lakeLabels.map(([n, x, y]) => text(x, y, n)).join('\n');
 const lakeList = [text(72, 720, 'GPS Coordinates'), ...lakeLabels.map(([n, x, y], i) => text(72, 690 - i * 20, `${n}: ${lakeGeo(x, y).map(v => v.toFixed(6)).join(', ')}`))].join('\n');
 module.exports = dir => {

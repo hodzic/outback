@@ -7,7 +7,7 @@ const { install } = require('./mocks');
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(__dirname, 'out');
 fs.mkdirSync(OUT, { recursive: true });
-const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.wasm': 'application/wasm', '.css': 'text/css', '.pdf': 'application/pdf' };
+const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.wasm': 'application/wasm', '.css': 'text/css', '.pdf': 'application/pdf', '.jpg': 'image/jpeg' };
 
 function serve(){
   return new Promise(res => {

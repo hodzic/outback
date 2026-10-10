@@ -276,6 +276,8 @@ module.exports = async (browser, url, check) => {
     await page.click('#pdfHelp'); await page.waitForTimeout(700);
     c('PDF list links to PDF help, which covers Auto-align', await page.evaluate(() => state.view === 0 && !document.querySelector('#sheet').open && document.querySelector('#helpPdf').open)
       && /Auto-align/.test(await page.text('#helpPdf')) && /Undo align/.test(await page.text('#helpPdf')));
+    c('Tomales Bay and SF Bay help follows PDF help, links open in a new tab', await page.evaluate(() => { const h = document.querySelector('#helpWaters'), l = [...h.querySelectorAll('a')];
+      return h.previousElementSibling.id === 'helpPdf' && l.length >= 8 && l.every(a => a.target === '_blank' && a.rel === 'noopener' && a.href.startsWith('https://')) && l.some(a => a.href.includes('nps.gov/pore')) && l.some(a => a.href.includes('sfbaywatertrail.org')); }));
     await view(page, 2);
     await page.setInputFiles('#pdfFile', path.join(OUT, 'brochure.pdf'));
     await page.waitForSelector('#nSave', { timeout: 60000 });
@@ -314,6 +316,34 @@ module.exports = async (browser, url, check) => {
     await page.click('#sheet [data-rmpdf]'); await page.waitForTimeout(300);
     c('delete PDF map', await page.evaluate(async () => (await idb.all('trailMaps')).length) === 0);
     c('no page errors (pdf)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
+  { // Built-in overlay maps: Tomales Bay (NPS), already placed
+    const { ctx, page, errors } = await open(browser, url);
+    await page.goto(url); await ready(page); await view(page, 2);
+    await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-builtin]');
+    c('PDF list offers the built-in Tomales Bay map', /Built-in maps/.test(await page.text('#sheet')) && /Tomales Bay boat-in camping \(NPS\)/.test(await page.text('#sheet'))
+      && await page.evaluate(() => document.querySelector('#sheet .item img').naturalWidth > 0));
+    await page.click('#sheet [data-builtin="builtin-tomales-bay"]');
+    await page.waitForFunction(() => shownMaps.has('builtin-tomales-bay'), null, { timeout: 15000 });
+    const m = await page.evaluate(async () => { const m = await idb.get('trailMaps', 'builtin-tomales-bay'); return { ...m, size: m.imageBlob.size, imageBlob: null }; });
+    c('Add copies it to the phone, placed over Tomales Bay', m.size === 559295 && m.method === 'built-in, National Park Service' && Math.abs(m.topLeft[0] - 38.27) < 0.01 && Math.abs(m.topLeft[1] + 123.04) < 0.01, JSON.stringify(m.topLeft));
+    c('built-in map shown and the map zooms to it', await page.locator('img.leaflet-image-layer').count() === 1 && await page.evaluate(() => map.getBounds().contains([38.18, -122.94])));
+    await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-rmpdf]');
+    c('added built-in moves to your maps, no longer offered', !(await page.locator('#sheet [data-builtin="builtin-tomales-bay"]').count()) && /Tomales Bay boat-in camping/.test(await page.text('#sheet')));
+    await page.click('#sheet [data-rmpdf]'); await page.waitForSelector('#sheet [data-builtin="builtin-tomales-bay"]');
+    c('deleting it offers it again', await page.evaluate(async () => !(await idb.get('trailMaps', 'builtin-tomales-bay')) && shownMaps.size === 0));
+    // Del Valle and the Delta: each image loads and lands where it belongs
+    for (const [id, lat, lon, name] of [['builtin-del-valle', 37.59, -121.71, 'Del Valle Regional Park'], ['builtin-delta', 38.05, -121.55, 'Sacramento–San Joaquin Delta boating']]){
+      c(`built-in offered: ${name}`, (await page.text('#sheet')).includes(name));
+      await page.click(`#sheet [data-builtin="${id}"]`); await page.waitForFunction(id => shownMaps.has(id), id, { timeout: 15000 });
+      const ok = await page.evaluate(async ([id, lat, lon]) => { const m = await idb.get('trailMaps', id), b = BUILTIN_MAPS.find(x => x.id === id);
+        const img = await createImageBitmap(m.imageBlob); return m.imageBlob.size === b.size && Math.abs(img.width - b.imageWidth) < 1 && Math.abs(img.height - b.imageHeight) < 1
+          && shownMaps.get(id).layer.getBounds().contains([lat, lon]); }, [id, lat, lon]);
+      c(`built-in ${name}: image and placement`, ok);
+      await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-rmpdf]');
+    }
+    await page.click('#sheet [data-close]');
+    c('no page errors (built-in maps)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // Auto-align: match the lake drawn on the PDF to OpenStreetMap water
     const { LAKE, lakeGeo } = require('./make-pdf');
