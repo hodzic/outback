@@ -273,7 +273,10 @@ module.exports = async (browser, url, check) => {
     await page.goto(url); await ready(page); await view(page, 2);
     await page.click('#mapsBtn'); await page.waitForSelector('#addPdf');
     c('PDF button opens the maps sheet', /PDF maps/.test(await page.text('#sheet')) && /None yet/.test(await page.text('#sheet')));
-    await page.click('#sheet [data-close]');
+    await page.click('#pdfHelp'); await page.waitForTimeout(700);
+    c('PDF list links to PDF help, which covers Auto-align', await page.evaluate(() => state.view === 0 && !document.querySelector('#sheet').open && document.querySelector('#helpPdf').open)
+      && /Auto-align/.test(await page.text('#helpPdf')) && /Undo align/.test(await page.text('#helpPdf')));
+    await view(page, 2);
     await page.setInputFiles('#pdfFile', path.join(OUT, 'brochure.pdf'));
     await page.waitForSelector('#nSave', { timeout: 60000 });
     c('PDF labels detected', /Found 3 GPS labels/.test(await page.text('#toast')), await page.text('#toast'));

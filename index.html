@@ -302,6 +302,30 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li>It uses data only while AIS is on and the app is open. Tap AIS again to turn it off.</li>
         </ul>
       </details>
+      <details class="card help" id="helpPdf"><summary>Help: PDF maps</summary>
+        <p>Lay a park or trail map PDF over the map, e.g. a brochure from the park's website. Tap <b>PDF</b> on the map, then <b>Add a PDF map…</b> It's saved on this phone and shows offline.</p>
+        <h3>Placing it</h3>
+        <ul>
+          <li>Outback places it from the PDF's own map data (GeoPDF) or from printed <b>GPS Coordinates</b> labels when the PDF has them. Otherwise it starts over the area you're looking at.</li>
+          <li>Drag the 4 pink points onto the spots they belong, or <b>✥</b> to move the whole map. The others follow as you drag one. The PDF slider on the right makes it see-through.</li>
+          <li><b>Save</b> keeps it; <b>Cancel</b> drops the change. Later, <b>Adjust</b> in the PDF list brings the points back.</li>
+        </ul>
+        <h3>Auto-align</h3>
+        <ul>
+          <li>For maps that show water (a lake, river or bay): place it roughly first, within a few hundred metres, then tap <b>Auto-align</b>.</li>
+          <li>It finds the light-blue water on the map and fits it to OpenStreetMap's shoreline, turning, shifting and scaling the map a little. The OpenStreetMap shoreline shows as a dashed blue line so you can check it, and the message gives how far off the shoreline was before and after.</li>
+          <li>Not right? <b>Undo align</b> puts the points back. Fine-tune by dragging, then Save.</li>
+          <li>The first time needs a connection, to get the water for the area. It's kept with the map, so later it works offline.</li>
+          <li>Brochure maps are simplified, so small coves can still be off by a little. Maps without water can't be auto-aligned.</li>
+        </ul>
+        <h3>Good to know</h3>
+        <ul>
+          <li>The first PDF import downloads the PDF reader (about 10 MB). Big PDFs can take a while.</li>
+          <li>One page is used: the one with map data or GPS labels, otherwise the first page.</li>
+          <li>PDF maps you saved in the GPS Map app can be copied in from the PDF list.</li>
+          <li>PDF maps are included in <b>Back up</b>.</li>
+        </ul>
+      </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
         <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo, and your own PDF maps. Auto-align of PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
@@ -414,7 +438,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10a';
+const APP_VERSION = '2026-10-10b';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1831,7 +1855,7 @@ async function mapsSheet(){
   const [maps, gm] = await Promise.all([idb.all('trailMaps'), gpsMapDb()]);
   gm?.close(); maps.sort((a, b) => b.createdAt - a.createdAt);
   const urls = [];
-  openSheet(`<h2>PDF maps</h2><p class="muted">Overlay a park or trail map PDF on the map. Saved on this phone; works offline.</p>
+  openSheet(`<h2>PDF maps</h2><p class="muted">Overlay a park or trail map PDF on the map. Saved on this phone; works offline. <a href="#helpPdf" id="pdfHelp">How to place one</a></p>
     <div>${maps.map(m => { const u = URL.createObjectURL(m.imageBlob); urls.push(u); const on = shownMaps.has(m.id);
       return `<div class="item"><img src="${u}" alt=""><div class="grow"><b>${esc(m.name)}</b><small>${fmtSize(m.imageBlob.size)} · ${esc(m.method || '')}</small></div>
       <button class="btn${on ? ' primary' : ''}" data-pdfmap="${esc(m.id)}">${on ? 'Hide' : 'Use'}</button><button class="btn" data-adjust="${esc(m.id)}">Adjust</button><button class="btn" data-rmpdf="${esc(m.id)}" aria-label="Delete ${esc(m.name)}">✕</button></div>`; }).join('') || '<p class="muted">None yet.</p>'}</div>
@@ -2123,6 +2147,7 @@ const sheet = $('#sheet');
 function openSheet(html){ sheet.innerHTML = `<div class="sh">${html}</div>`; if (!sheet.open) sheet.showModal(); }
 sheet.addEventListener('click', async e => {
   if (e.target === sheet || e.target.closest('[data-close]')) return sheet.close();
+  if (e.target.id === 'pdfHelp'){ e.preventDefault(); sheet.close(); showView(0); const h = $('#helpPdf'); h.open = true; return setTimeout(() => h.scrollIntoView({ behavior: 'smooth' }), 400); }
   const b = e.target.closest('button'); if (!b) return;
   const ds = b.dataset;
   if (b.id === 'addPdf'){ sheet.close(); return $('#pdfFile').click(); }
