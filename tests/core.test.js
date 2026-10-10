@@ -40,8 +40,8 @@ module.exports = async (browser, url, check) => {
   c('route length in nm', / nm$/.test(await page.text('#dist')) && parseFloat(await page.text('#dist')) > 0, await page.text('#dist'));
   c('duration shown', /min|h/.test(await page.text('#dur')), await page.text('#dur'));
   c('legs summary', (await page.text('#legs')).startsWith('2 legs'), await page.text('#legs'));
-  c('start time next to the date, 9:00 by default', await page.inputValue('#start') === '09:00' && await page.evaluate(() => document.querySelector('#date').parentElement.contains(document.querySelector('#start'))));
-  await page.fill('#start', '07:30'); await page.dispatchEvent('#start', 'change');
+  c('start time next to the date, 9:00 by default', await page.inputValue('#start') === '09:00' && await page.locator('#start option').count() === 96 && await page.evaluate(() => document.querySelector('#start').tagName) === 'SELECT' && await page.evaluate(() => document.querySelector('#date').parentElement.contains(document.querySelector('#start'))));
+  await page.selectOption('#start', '07:30');
   c('start time is saved and moves the graph time', await page.evaluate(() => trip.start === 450 && state.tMin === 450 && settings.start === 450) && /^7:30/.test(await page.text('#timeOut')), await page.text('#timeOut'));
   await page.click('#wpDetails summary'); await page.waitForTimeout(150);
   c('waypoint times leave at the planned start', /Leaving at 7:30 AM \(the planned start\)/.test(await page.text('#routeTable')), await page.text('#routeTable'));
@@ -114,7 +114,8 @@ module.exports = async (browser, url, check) => {
   // start from a fixed time, not 'now' (which could be 3:00 PM itself)
   await page.evaluate(() => { state.tMin = 9 * 60; render(); });
   const before = await page.text('#atTide');
-  c('no time slider; time and Now sit by the graph buttons', await page.locator('#time').count() === 0 && await page.evaluate(() => document.querySelector('#graphSel').parentElement.contains(document.querySelector('#nowBtn'))));
+  c('graph at the bottom of the forecast, its buttons right under it', await page.locator('#time').count() === 0 && await page.evaluate(() => cv.nextElementSibling.id === 'graphSel' && !cv.parentElement.lastElementChild.previousElementSibling.compareDocumentPosition(cv) && cv.parentElement.lastElementChild.id === 'graphSel'
+    && document.querySelector('.read').compareDocumentPosition(cv) & Node.DOCUMENT_POSITION_FOLLOWING));
   await page.evaluate(() => { const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width * 0.625, clientY: r.top + 30, pointerId: 1, bubbles: true })); });
   c('graph tap sets time', (await page.text('#timeOut')).includes('3:00'), await page.text('#timeOut'));
   c('time change updates tide', (await page.text('#atTide')) !== before);

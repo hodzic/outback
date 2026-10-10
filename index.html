@@ -95,7 +95,7 @@ table.acts td,table.acts th{padding:5px 3px}
 .cell .k{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .cell .v{font-size:clamp(17px,5.2vw,20px);font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere}
 .cell .s{font-size:13px;color:var(--muted);line-height:1.3;overflow-wrap:anywhere}
-.when{flex-wrap:nowrap;margin-bottom:10px} .when input.f{min-width:0;padding:0 6px} #date{flex:1.35} #start{flex:1}
+.when{flex-wrap:nowrap;margin-bottom:10px} .when .f{min-width:0;padding:0 6px} select.f{height:42px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:inherit;font:inherit} #date{flex:1.35} #start{flex:1}
 .rt{padding-bottom:4px} .rline{font-size:16px;font-variant-numeric:tabular-nums} .rline b{margin-right:4px}
 #windV,#sunV{font-size:clamp(15px,4.6vw,18px);white-space:nowrap}
 .v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
@@ -309,7 +309,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <div class="page">
       <input class="f" id="tripName" aria-label="Trip name" autocomplete="off">
       <div class="card">
-        <div class="row when"><span id="dow" class="dow"></span><input class="f" id="date" type="date" aria-label="Trip date"><input class="f" id="start" type="time" step="300" aria-label="Start time" title="Planned start"></div>
+        <div class="row when"><span id="dow" class="dow"></span><input class="f" id="date" type="date" aria-label="Trip date"><select class="f" id="start" aria-label="Start time" title="Planned start"></select></div>
         <div class="seg" id="actSel" role="group" aria-label="Activity"><button data-act="paddle">Paddle</button><button data-act="hike">Hike</button><button data-act="bike">Bike</button></div>
         <label class="f" id="envLabel">Water</label>
         <div class="chips" id="envSel"></div>
@@ -323,17 +323,6 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <div class="card">
         <div class="row"><h2 class="grow" style="margin:0">Forecast</h2><button class="btn primary" id="fcBtn">Get forecast</button></div>
         <p id="status"></p>
-        <div class="row"><div class="seg" id="graphSel" role="group" aria-label="Graph"></div><span class="grow"></span><output id="timeOut" aria-live="polite"></output><button id="nowBtn" class="btn">Now</button></div>
-        <div class="now" id="atRead" aria-live="polite">
-          <div class="ri tidal"><div class="k">Tide</div><b id="atTide">–</b></div>
-          <div class="ri curc"><div class="k">Current</div><b id="atCur">–</b></div>
-          <div class="ri"><div class="k">Wind</div><b id="atWind">–</b></div>
-          <div class="ri"><div class="k" id="atSky">Air</div><b id="atAir">–</b></div>
-          <div class="ri"><div class="k">Pressure</div><b id="atPres">–</b></div>
-          <div class="ri"><div class="k">Lightning</div><b id="atLtg">–</b></div>
-        </div>
-        <canvas id="chart" aria-label="Day graph for the trip"></canvas>
-        <p class="muted" id="chartHint" style="margin:0 0 8px">Tap or drag the graph to pick a time. Below: the whole day.</p>
         <div class="read">
           <div class="cell wide tempc"><div class="k">Temperature</div><div class="v" id="tempV">–</div><div class="s" id="tempS">&nbsp;</div></div>
           <div class="cell tidal"><div class="k" id="tideK">Tide</div><div class="v" id="tideV">–</div><div class="s" id="tideS">&nbsp;</div></div>
@@ -344,7 +333,18 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <div class="cell"><div class="k">Lightning</div><div class="v" id="ltgV">–</div><div class="s" id="ltgS">&nbsp;</div></div>
           <div class="cell"><div class="k">Sun</div><div class="v" id="sunV">–</div><div class="s" id="sunS">&nbsp;</div></div>
         </div>
-        <div class="row" style="margin-top:8px" id="stationRow"><button class="btn" id="stationsBtn">Choose tide stations on the map</button></div>
+        <div class="row" style="margin:8px 0 4px" id="stationRow"><button class="btn" id="stationsBtn">Choose stations on the map</button></div>
+        <div class="row" style="margin-top:12px"><span class="muted grow" id="chartHint">Tap or drag the graph to pick a time.</span><output id="timeOut" aria-live="polite"></output><button id="nowBtn" class="btn">Now</button></div>
+        <div class="now" id="atRead" aria-live="polite">
+          <div class="ri tidal"><div class="k">Tide</div><b id="atTide">–</b></div>
+          <div class="ri curc"><div class="k">Current</div><b id="atCur">–</b></div>
+          <div class="ri"><div class="k">Wind</div><b id="atWind">–</b></div>
+          <div class="ri"><div class="k" id="atSky">Air</div><b id="atAir">–</b></div>
+          <div class="ri"><div class="k">Pressure</div><b id="atPres">–</b></div>
+          <div class="ri"><div class="k">Lightning</div><b id="atLtg">–</b></div>
+        </div>
+        <canvas id="chart" aria-label="Day graph for the trip"></canvas>
+        <div class="seg" id="graphSel" role="group" aria-label="Graph"></div>
       </div>
 
       <div class="card" id="marksCard">
@@ -411,7 +411,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-09e';
+const APP_VERSION = '2026-10-09f';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1088,7 +1088,14 @@ function render(){
   if (document.activeElement !== $('#tripName')) $('#tripName').value = trip.name;
   $('#tabTrip').textContent = trip.name; $('#tripChip').textContent = trip.name;
   $('#date').value = trip.date;
-  if (document.activeElement !== $('#start')) $('#start').value = hhmm(trip.start);
+  // a plain list in 15-minute steps: the phone's time picker can crop its own buttons
+  const sk = `${tz()}|${trip.date}|${trip.start % 15 ? trip.start : ''}`;
+  if ($('#start').dataset.k !== sk){
+    const sts = [...Array(96).keys()].map(i => i * 15); if (!sts.includes(trip.start)) sts.push(trip.start);
+    $('#start').innerHTML = sts.sort((a, b) => a - b).map(m => `<option value="${hhmm(m)}">${hm(dayStart() + m * 6e4)}</option>`).join('');
+    $('#start').dataset.k = sk;
+  }
+  $('#start').value = hhmm(trip.start);
   $('#dow').textContent = new Date(trip.date + 'T12:00').toLocaleDateString('en-US', { weekday: 'short' }) + ',';
   document.querySelectorAll('#actSel button').forEach(b => b.classList.toggle('on', b.dataset.act === trip.activity));
   $('#envLabel').textContent = act().envLabel;
@@ -1137,7 +1144,7 @@ function render(){
   $('.cell.elevc').hidden = !hike;
   $('.cell.elevc').classList.toggle('wide', hike && !tidal);
   $('#stationRow').hidden = !tidal;
-  $('#stationsBtn').textContent = state.showStations ? 'Hide station choices on the map' : `Choose tide${hasCurrents() ? ' and current' : ''} stations on the map`;
+  $('#stationsBtn').textContent = state.showStations ? 'Hide station choices' : `Choose ${hasCurrents() ? 'tide and current ' : 'tide '}stations`;
   const gs = graphs(), g = curGraph();
   $('#graphSel').hidden = gs.length < 2;
   $('#graphSel').innerHTML = gs.map(k => `<button data-g="${k}" class="${k === g ? 'on' : ''}">${GRAPH_NAMES[k]}</button>`).join('');
