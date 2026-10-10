@@ -40,8 +40,8 @@ module.exports = async (browser, url, check) => {
   c('route length in nm', / nm$/.test(await page.text('#dist')) && parseFloat(await page.text('#dist')) > 0, await page.text('#dist'));
   c('duration shown', /min|h/.test(await page.text('#dur')), await page.text('#dur'));
   c('legs summary', (await page.text('#legs')).startsWith('2 legs'), await page.text('#legs'));
-  c('start time next to the date, 9:00 by default', await page.inputValue('#start') === '09:00' && await page.locator('#start option').count() === 96 && await page.evaluate(() => document.querySelector('#start').tagName) === 'SELECT' && await page.evaluate(() => document.querySelector('#date').parentElement.contains(document.querySelector('#start'))));
-  await page.selectOption('#start', '07:30');
+  c('start time next to the date, 9:00 by default', await page.inputValue('#start') === '09:00' && await page.evaluate(() => { const i = document.querySelector('#start'); return i.type === 'time' && i.required; }) && await page.evaluate(() => document.querySelector('#date').parentElement.contains(document.querySelector('#start'))));
+  await page.fill('#start', '07:30'); await page.dispatchEvent('#start', 'change');
   c('start time is saved and moves the graph time', await page.evaluate(() => trip.start === 450 && state.tMin === 450 && settings.start === 450) && /^7:30/.test(await page.text('#timeOut')), await page.text('#timeOut'));
   await page.click('#wpDetails summary'); await page.waitForTimeout(150);
   c('waypoint times leave at the planned start', /Leaving at 7:30 AM \(the planned start\)/.test(await page.text('#routeTable')), await page.text('#routeTable'));

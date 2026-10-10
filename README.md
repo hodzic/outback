@@ -13,8 +13,8 @@ Three views; swipe between them or use the tabs at the bottom.
    backup and restore of everything in one file,
    settings (distance unit, speed and gust warning per activity; magnetic variation), install and offline help, and about.
 2. **Trip**: everything about the selected trip:
-   - name, date (with the weekday) and planned start time (a list in 15-minute steps, 9:00 by default; new trips take the last one set; the graph opens there and the waypoint table times from it), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
-   - route: one line with length, duration, speed and legs; the waypoint table folds out. Draw, undo and clear the route on the map.
+   - name, date (with the weekday) and planned start time (9:00 by default; new trips take the last one set; the graph opens there and the waypoint table times from it), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
+   - route: one line with length, duration, speed and legs; the waypoint table and the markers fold out below it. Draw, undo and clear the route on the map.
    - forecast: first the whole day, which stays put as the time changes: low and high temperature (large, at the top) with daylight sky and rain, tide range with every high and low, and every max flood, max ebb and slack, one per line in time order, wind and gusts for morning and afternoon, pressure over daylight, the day's thunder chance, sun, elevation for hikes. At the bottom: the picked time with *Now*, a fixed-size box with everything at that time (tide, current, wind and gusts, temperature and sky, pressure, lightning), then the tide/wind graph with every high and low tide and every max flood and ebb labelled, and the strongest wind and gust in daylight (plus the night's when stronger); tap or drag it to pick a time. The Tide / Wind / Elevation buttons sit right under the graph.
      *Get forecast* also saves the map around the route for offline use.
    - tracks from imported GPX files (show on map, use as route, delete), export GPX or trip file, delete trip
@@ -58,7 +58,7 @@ Three views; swipe between them or use the tabs at the bottom.
   Name, type and size (sent only every ~6 minutes) are remembered on the device, so known ships show them at once.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
   **Markers** are named points saved with the trip (long-press the map, or *Marker* while editing the route);
-  the Trip view lists them. GPX export and import keep both (`<wpt>` for markers).
+  the Trip view lists them under the route. GPX export and import keep both (`<wpt>` for markers).
 - **GPX import**: route points become the trip's route (simplified to at most 100 waypoints, keeping the shape
   within a few metres); a timed track is kept as a recorded track.
 - **PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or

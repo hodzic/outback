@@ -123,6 +123,8 @@ module.exports = async (browser, url, check) => {
     c('next tap adds a waypoint again', await page.evaluate(() => trip.route.length) === 4);
     await page.click('#undoBtn'); await page.click('#doneBtn');
     await view(page, 1);
+    c('markers fold out in the route card, after waypoints', (await page.text('#mkSum')) === 'Markers (2)' && await page.evaluate(() => document.querySelector('#wpDetails').nextElementSibling.id === 'mkDetails' && !!document.querySelector('.rt #mkDetails')));
+    await page.click('#mkSum');
     c('Trip view lists markers', (await page.locator('#markList b').allInnerTexts()).join() === 'Kirby Cove,Put-in');
     page.promptAnswer = 'Kirby Cove beach';
     await page.locator('#markList [data-mkren]').first().click(); await page.waitForTimeout(200);
