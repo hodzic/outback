@@ -79,6 +79,9 @@ async function install(ctx, opts = {}){
   for (const h of ['overpass-api.de', 'overpass.kumi.systems'])
     await ctx.route(`https://${h}/**`, r => {
       const q = decodeURIComponent((r.request().postData() || '').replace(/^data=/, ''));
+      if (/slipway/.test(q)){ ctx.launchHits = (ctx.launchHits || 0) + 1; return json(r, { elements: opts.launches || [
+        { type: 'node', id: 5, lat: 37.8689, lon: -122.3179, tags: { leisure: 'slipway', name: 'Berkeley Marina ramp (OSM)', fee: 'yes' } },
+        { type: 'node', id: 6, lat: 37.8790, lon: -122.3060, tags: { canoe: 'put_in', name: 'Gilman put-in (OSM)' } }] }); }
       if (/amenity"="parking/.test(q)){ ctx.parkingHits = (ctx.parkingHits || 0) + 1; return json(r, { elements: opts.parking || PARKING }); }
       if (/amenity"="toilets/.test(q)){ ctx.toiletHits = (ctx.toiletHits || 0) + 1; return json(r, { elements: opts.toilets || TOILETS }); }
       ctx.overpassHits = (ctx.overpassHits || 0) + 1; json(r, { elements: opts.overpass || [] });

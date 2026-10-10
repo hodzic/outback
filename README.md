@@ -55,6 +55,10 @@ Three views; swipe between them or use the tabs at the bottom.
   *Directions* link to Google Maps; restrooms also show flush or vault and wheelchair access, parking shows spaces,
   time limits and trailers. Private and street-side parking are left out. Kept for 30 days per area, so they show
   offline; *Get forecast* fetches the route's area for whichever is on, and the printed trip sheet shows them.
+- **Launches 🛶** (paddle trips, bottom left of the map): the 48 San Francisco Bay Area Water Trail launch sites
+  (shipped in `data/watertrail.json`, refreshed with `node tools/watertrail.js` from the Water Trail's public API) with
+  launch type, facilities, parking, restrooms, hours and safety notes, a link to the site's page, *Directions*, and
+  *Start route here*; plus OpenStreetMap boat ramps and kayak put-ins anywhere (skipped where a Water Trail site is).
 - **AIS ships** (button at the bottom right of the map): live vessels around the map view from
   [aisstream.io](https://aisstream.io) (free API key, stored only on the device; Settings, or the first tap).
   Ships are coloured by type (cargo green, tanker red, passenger blue, tug/pilot teal, high-speed orange)
