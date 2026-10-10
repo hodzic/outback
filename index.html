@@ -457,7 +457,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10e';
+const APP_VERSION = '2026-10-10f';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1874,9 +1874,11 @@ async function copyGpsMaps(){
 const BUILTIN_MAPS = [{
   id: 'builtin-tomales-bay', name: 'Tomales Bay boat-in camping (NPS)', src: 'maps/tomales-bay.jpg', thumb: 'maps/tomales-bay-thumb.jpg', size: 559295, by: 'National Park Service',
   imageWidth: 1760, imageHeight: 2000,
-  topLeft: [38.272239342692764, -123.03868994904514], topRight: [38.269332715122296, -122.84062165577662], bottomLeft: [38.09717527716336, -123.03861289823361],
-  controlPoints: [{ px: 880, py: 160, lat: 38.256773416008166, lon: -122.93965772156557, name: 'Top edge' }, { px: 1619.2, py: 1000, lat: 38.18204070022022, lon: -122.8564205106129, name: 'Right edge' },
-    { px: 880, py: 1840, lat: 38.10971960096352, lon: -122.93959299888384, name: 'Bottom edge' }, { px: 140.8, py: 1000, lat: 38.184482267379444, lon: -123.02279787695835, name: 'Left edge' }]
+  topLeft: [38.2717311, -123.0365281], topRight: [38.2685383, -122.8404896], bottomLeft: [38.0984544, -123.0369001],
+  controlPoints: [{ px: 880, py: 160, lat: 38.2562726, lon: -122.9385386, name: 'Top edge' },
+    { px: 1619.2, py: 1000, lat: 38.1821554, lon: -122.8563587, name: 'Right edge' },
+    { px: 880, py: 1840, lat: 38.1107202, lon: -122.9388511, name: 'Bottom edge' },
+    { px: 140.8, py: 1000, lat: 38.1848373, lon: -123.021031, name: 'Left edge' }]
 }];
 async function addBuiltin(id){
   const b = BUILTIN_MAPS.find(x => x.id === id);

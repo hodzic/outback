@@ -61,6 +61,11 @@ function sample(dt, W, H, x, y){
 }
 
 /* ---------- 1. water on the PDF image ---------- */
+function hsv(r, g, b){
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  const h = !d ? 0 : mx === r ? 60 * (((g - b) / d) % 6) : mx === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
+  return [(h + 360) % 360, mx ? d / mx : 0, mx / 255];
+}
 // Most common light-blue colour, or null when there is too little of it.
 function waterColor(px, n){
   const bins = new Map();
@@ -98,7 +103,14 @@ export function findWater(px, W, H, color){
   const n = W * H, c = color || waterColor(px, n);
   if (!c) return null;
   let mask = new Uint8Array(n);
-  for (let i = 0; i < n; i++) if (Math.abs(px[i*4] - c[0]) + Math.abs(px[i*4+1] - c[1]) + Math.abs(px[i*4+2] - c[2]) < 40) mask[i] = 1;
+  // same blue in any shade: maps tint water differently by zone or fade it towards the shore
+  const [h0, s0, v0] = hsv(...c);
+  for (let i = 0; i < n; i++){
+    const r = px[i*4], g = px[i*4+1], b = px[i*4+2];
+    if (Math.abs(r - c[0]) + Math.abs(g - c[1]) + Math.abs(b - c[2]) < 40){ mask[i] = 1; continue; }
+    const [h, sa, v] = hsv(r, g, b);
+    if (Math.abs(h - h0) < 14 && sa > s0 * 0.45 && sa < s0 * 2.2 + 0.05 && v > v0 - 0.12) mask[i] = 1;
+  }
   // close over labels, trail lines and symbols drawn on the water
   const r = Math.max(2, Math.round(Math.max(W, H) / 330));
   const dIn = edt(mask, W, H), grown = new Uint8Array(n);
@@ -113,10 +125,17 @@ export function findWater(px, W, H, color){
   if (!keep.length) return null;
   const byId = new Map(keep.map(k => [k.id, k]));
   // shoreline = water pixels next to land; the picture's own border is not a shoreline
+  const edge = new Uint8Array(n);
   for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++){
-    const p = y * W + x, k = byId.get(comps.lab[p]); if (!k) continue;
-    if (!mask[p-1] || !mask[p+1] || !mask[p-W] || !mask[p+W]) k.edge.push(x, y);
+    const p = y * W + x; if (!byId.has(comps.lab[p])) continue;
+    if (!mask[p-1] || !mask[p+1] || !mask[p-W] || !mask[p+W]) edge[p] = 1;
   }
+  // long dead-straight horizontal or vertical runs are frames, title bands and legend boxes, not shores
+  const RUN = Math.max(20, Math.round(Math.max(W, H) / 40)), drop = new Uint8Array(n);
+  const runs = (len, step, at) => { for (let a = 0; a < len; a++){ let s = -1; for (let b = 0; b <= step; b++){ const on = b < step && edge[at(a, b)];
+    if (on && s < 0) s = b; else if (!on && s >= 0){ if (b - s >= RUN) for (let k = s; k < b; k++) drop[at(a, k)] = 1; s = -1; } } } };
+  runs(H, W, (y, x) => y * W + x); runs(W, H, (x, y) => y * W + x);
+  for (let p = 0; p < n; p++) if (edge[p] && !drop[p]) byId.get(comps.lab[p]).edge.push(p % W, (p / W) | 0);
   return { color: c.map(Math.round), comps: keep.filter(k => k.edge.length >= 40).sort((a, b) => b.area - a.area) };
 }
 
