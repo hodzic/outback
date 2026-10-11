@@ -290,12 +290,18 @@ module.exports = async (browser, url, check) => {
     await page.click('#sharePlan'); await page.waitForSelector('#planTxt');
     let t = await page.inputValue('#planTxt');
     c('plan text without a forecast: name, day, start, route, waypoints, markers, app link', /^Club paddle\nPaddle · .*start 9:00 AM/.test(t) && /Route: [\d.]+ nm/.test(t) && /1 Horseshoe Cove  37\.83210, -122\.47620  leave 9:00 AM/.test(t)
-      && /3 Aquatic Park  37\.81100, -122\.42000  [\d.]+ nm, \d{3}°M, \d+:\d\d [AP]M/.test(t) && /Alcatraz  37\.82600, -122\.42280/.test(t) && /google\.com\/maps\/search\/\?api=1&query=37\.83210,-122\.47620/.test(t)
+      && /3 Aquatic Park  37\.81100, -122\.42000  [\d.]+ nm, \d+:\d\d [AP]M/.test(t) && !/^2  37\.82700/m.test(t) && /1 unnamed left out; the GPX file has all 3/.test(t) && /Alcatraz  37\.82600, -122\.42280/.test(t) && /google\.com\/maps\/search\/\?api=1&query=37\.83210,-122\.47620/.test(t)
       && /Planned with Outback: http/.test(t) && !/Forecast for the day/.test(t), t);
     await page.click('#sheet [data-close]');
     await page.click('#fcBtn'); await waitForecast(page);
     await page.click('#sharePlan'); await page.waitForSelector('#planTxt'); t = await page.inputValue('#planTxt');
     c('plan text includes the day forecast', /Forecast for the day \(as of/.test(t) && /Tide · San Francisco: [\d.]+ – [\d.]+ ft; \d+:\d\d[ap] (Low|High)/.test(t) && /Wind · kt: AM \d+ G\d+ \w+; PM/.test(t) && /Sun: Rise \d/.test(t), t);
+    await page.waitForSelector('#planPrev:not([hidden])', { timeout: 10000 });
+    const img = await page.evaluate(async () => { const b = planImg; const bm = await createImageBitmap(b); return { type: b.type, name: b.name, w: bm.width, h: bm.height, data: [...new Uint8Array(await b.arrayBuffer())] }; });
+    require('fs').writeFileSync(require('path').join(OUT, 'feat-route.png'), Buffer.from(img.data));
+    c('Share plan makes a route map image', img.type === 'image/png' && /^Club-paddle_.*\.png$/.test(img.name) && img.w === 1200 && img.h === 800 && await page.isVisible('#planImg'), `${img.name} ${img.w}x${img.h}`);
+    const [imgDl] = await Promise.all([page.waitForEvent("download"), page.click("#planImg")]);
+    c("Map image saves the PNG", /\.png$/.test(imgDl.suggestedFilename()), imgDl.suggestedFilename());
     await page.click('#planCopy'); await page.waitForTimeout(150);
     c('Copy text puts the plan on the clipboard', (await page.evaluate(() => navigator.clipboard.readText())) === t && /copied/.test(await page.text('#toast')));
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#planGpx')]);
