@@ -190,7 +190,7 @@ table.acts td,table.acts th{padding:5px 3px}
 #coords.big{align-self:stretch;font-size:15px;padding:8px 12px;border-radius:12px;cursor:pointer;background:rgba(255,255,255,.96)}
 #coords.big .cacc{font-size:18px;font-weight:700}
 #coords.big .cbig{font-size:clamp(20px,6.6vw,30px);font-weight:800;white-space:nowrap}
-#locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}
+#locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}#locBtn[data-mode="4"]::after{content:'⚑'}
 #locBtn{position:relative}#locBtn::after{position:absolute;right:-3px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--me);border:1px solid var(--me);border-radius:8px;padding:0 3px;line-height:14px}
 #aisBtn{position:absolute;right:10px;bottom:24px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:13px;font-weight:800;padding:0}
 #wcBtn{position:absolute;left:10px;bottom:52px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:20px;padding:0}
@@ -234,6 +234,7 @@ table.acts td,table.acts th{padding:5px 3px}
 /* zoomed out: smaller waypoints (not while drawing, so they stay easy to drag) */
 .wp-mid .wp,.wp-far .wp{background:transparent;border-color:transparent;color:transparent;position:relative}
 .wp-mid .wp::after,.wp-far .wp::after{content:'';position:absolute;left:50%;top:50%;border-radius:50%;background:#fff;border:3px solid var(--magenta);transform:translate(-50%,-50%)}
+.wp.cp,.wp-mid .wp.cp::after,.wp-far .wp.cp::after{border-radius:6px}
 .wp-mid .wp::after{content:attr(data-n);width:20px;height:20px;font:700 10px/14px var(--font);color:var(--magenta);text-align:center}
 .wp-far .wp::after{width:12px;height:12px;border-width:3px}
 .wp-mid .wp.next::after,.wp-far .wp.next::after{background:var(--magenta);color:#fff}
@@ -504,6 +505,24 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li>For shipping lanes and depths, use the <b>Chart</b> layer on the map (NOAA charts).</li>
         </ul>
       </details>
+      <details class="card help" id="helpLoc"><summary>Location and checkpoints</summary>
+        <ul>
+          <li><b>◎</b> shows your location as a blue dot; it never moves the map (zoom out if you're off screen). Each tap switches what's shown with it:
+            <b>→</b> the next waypoint with distance and magnetic bearing; <b>⚑</b> the next checkpoint with the distance, time and arrival time along the route; <b>XY</b> large coordinates for an emergency call (tap them to copy); <b>•</b> the dot only. Hold the button to turn location off.</li>
+          <li><b>Checkpoints</b>: tap a waypoint, then <b>⚑ Checkpoint</b> (a crossing, a turn-around point, the lunch beach). Checkpoints are drawn as rounded squares. With no checkpoint ahead, ⚑ counts to the finish.</li>
+          <li>Times from your location use the trip's speed plus the stops on the way, and the time to get back onto the route if you're off it.</li>
+          <li>Tap any waypoint to see how far it is from you along the route, how long it takes and when you'd get there (or how far back it is once passed).</li>
+          <li>On hikes and rides the elevation graph shows you as a blue dot while location is on and you're near the route.</li>
+        </ul>
+      </details>
+      <details class="card help" id="helpGpx"><summary>Importing GPX (e.g. from your watch)</summary>
+        <ul>
+          <li><b>Import trip or GPX…</b> on the Trips page always makes a <b>new trip</b>; the trip you planned isn't changed. The new trip takes its name from the file and its day from the recording.</li>
+          <li>A recording with times (what a watch saves) is kept as a <b>track</b>: dashed blue on the map, listed under Tracks on the Trip tab with its distance, time and average speed. The new trip's route is the track simplified to about 60 waypoints.</li>
+          <li>A planned route from another app (route points) becomes the route as is, up to 100 waypoints; longer ones are simplified, keeping the shape. Named points keep their names; waypoints (<code>&lt;wpt&gt;</code>) become markers.</li>
+          <li>Under Tracks, <b>Use as route</b> turns a track into the trip's route.</li>
+        </ul>
+      </details>
       <details class="card help" id="helpPark"><summary>Parking and stops</summary>
         <ul>
           <li><b>Parking</b> (Trip tab, under the route) is where you'll leave the car. <b>Find nearby</b> lists the closest public lots to the route's start from OpenStreetMap, with the walk to the start, fees and spaces; tap <b>Use</b>. Or tap <b>Park here</b> in a <b>P</b> or 🛶 Water Trail popup on the map, or <b>Set on map</b> and tap the spot (a pullout, a friend's driveway).</li>
@@ -567,7 +586,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-11c';
+const APP_VERSION = '2026-10-11e';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -675,7 +694,9 @@ const hoursFor = (nm, climbFt = 0) => nm / speedKt() + (act().climb ? climbFt / 
 // Stops (lunch, a rest) are minutes saved on a waypoint, p[3]; they push back every later arrival.
 const pauseMin = p => +p?.[3] || 0;
 const stopsH = (r, i = r.length - 1) => r.slice(0, Math.max(0, i)).reduce((s, p) => s + pauseMin(p), 0) / 60; // stops before waypoint i
-const mkWp = (lat, lng, name = '', pause = 0) => pause > 0 ? [lat, lng, name, pause] : name ? [lat, lng, name] : [lat, lng];
+const isCp = p => !!p?.[4];
+// [lat, lng, name?, stop minutes?, checkpoint?], trailing blanks left off
+const mkWp = (lat, lng, name = '', pause = 0, cp = false) => { const a = [lat, lng, name || '', pause > 0 ? pause : 0, cp ? 1 : 0]; while (a.length > 2 && !a[a.length - 1]) a.pop(); return a; };
 
 /* ---------- geo + time helpers ---------- */
 const toR = d => d * Math.PI / 180, toD = r => r * 180 / Math.PI;
@@ -913,6 +934,8 @@ const trackLayer = L.layerGroup().addTo(map);
 const routeLayer = L.layerGroup().addTo(map);
 const stationLayer = L.layerGroup().addTo(map);
 const meLayer = L.layerGroup().addTo(map);
+// your location draws above waypoints and markers (below tooltips and popups) and lets taps through
+map.createPane('mePane').style.zIndex = 640; map.getPane('mePane').style.pointerEvents = 'none';
 const toLine = L.layerGroup().addTo(map);
 const markLayer = L.layerGroup().addTo(map);
 const parkLayer = L.layerGroup().addTo(map);
@@ -942,13 +965,13 @@ function drawRoute(){
           .setContent(`${fmtD(d, 2)} · ${magB(brgT(a,p))} · ${fmtDur(hoursFor(d))}`).addTo(routeLayer);
       }
     }
-    const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div data-n="${i+1}" class="wp${state.locMode === 1 && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
+    const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div data-n="${i+1}" class="wp${isCp(p) ? ' cp' : ''}${navMode() && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
     const tip = [p[2], pauseMin(p) && `⏸ ${fmtDur(pauseMin(p) / 60)}`].filter(Boolean).join(' · ');
     if (tip) m.bindTooltip(esc(tip), { permanent: true, direction: 'right', offset: [12, 0], className: 'wpname' });
     m.on('dragstart', editRoute);
-    m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = mkWp(ll.lat, ll.lng, p[2], pauseMin(p)); changed(); });
-    m.bindPopup(() => `<b>Waypoint ${i+1}${p[2] ? ': ' + esc(p[2]) : ''}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}<br>
-      <button class="btn" data-name="${i}">${p[2] ? 'Rename' : 'Name'}</button> <button class="btn" data-move="${i}">Move</button> <button class="btn" data-pause="${i}">${pauseMin(p) ? 'Stop ' + pauseMin(p) + ' min' : 'Stop here'}</button> <button class="btn" data-del="${i}">Delete</button>`);
+    m.on('dragend', () => { const ll = m.getLatLng(); trip.route[i] = mkWp(ll.lat, ll.lng, p[2], pauseMin(p), isCp(p)); changed(); });
+    m.bindPopup(() => `<b>${isCp(p) ? '⚑ Checkpoint' : 'Waypoint'} ${i+1}${p[2] ? ': ' + esc(p[2]) : ''}</b><br>${p[0].toFixed(5)}, ${p[1].toFixed(5)}${fromYou(i)}<br>
+      <button class="btn" data-name="${i}">${p[2] ? 'Rename' : 'Name'}</button> <button class="btn" data-move="${i}">Move</button> <button class="btn" data-pause="${i}">${pauseMin(p) ? 'Stop ' + pauseMin(p) + ' min' : 'Stop here'}</button> <button class="btn" data-cp="${i}">${isCp(p) ? 'Not a checkpoint' : '⚑ Checkpoint'}</button> <button class="btn" data-del="${i}">Delete</button>`, { autoPanPaddingTopLeft: [10, 200], autoPanPaddingBottomRight: [10, 90] });
   });
 }
 function insertWp(i, latlng){
@@ -995,14 +1018,19 @@ map.on('click', e => {
   changed();
 });
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-del],[data-use],[data-name],[data-move],[data-pause],[data-mkname],[data-mkdel]'); if (!t) return;
+  const t = e.target.closest('[data-del],[data-use],[data-name],[data-move],[data-pause],[data-cp],[data-mkname],[data-mkdel]'); if (!t) return;
+  if (t.dataset.cp){
+    const i = +t.dataset.cp, p = trip.route[i]; map.closePopup();
+    editRoute(); trip.route[i] = mkWp(p[0], p[1], p[2], pauseMin(p), !isCp(p)); changed(); showToNext();
+    toast(isCp(trip.route[i]) ? `Waypoint ${i + 1} is a checkpoint. Location → ⚑ shows the distance, time and ETA to the next one.` : 'Checkpoint removed.', 3500, isCp(trip.route[i]) ? 'helpLoc' : undefined); return;
+  }
   if (t.dataset.pause){
     const i = +t.dataset.pause, p = trip.route[i]; map.closePopup();
     const n = prompt(`Stop at waypoint ${i + 1} for how many minutes? (e.g. 45 for lunch; 0 to remove)`, pauseMin(p) || 30);
     if (n === null || !(+n >= 0)) return;
     let name = p[2] || '';
     if (+n > 0 && !name){ const q = prompt(`Name the stop (optional, e.g. Lunch)`, 'Lunch'); if (q) name = q.trim(); }
-    editRoute(); trip.route[i] = mkWp(p[0], p[1], name, Math.round(+n)); changed();
+    editRoute(); trip.route[i] = mkWp(p[0], p[1], name, Math.round(+n), isCp(p)); changed();
     toast(+n > 0 ? `Stop of ${fmtDur(+n / 60)} at waypoint ${i + 1}: later arrival times include it.` : 'Stop removed.'); return;
   }
   if (t.dataset.move){ map.closePopup(); if (!state.drawing) setDrawing(true); toast(`Drag waypoint ${+t.dataset.move + 1} to its new spot, then tap Done.`, 4000); return; }
@@ -1011,7 +1039,7 @@ document.addEventListener('click', e => {
     const i = +t.dataset.name, p = trip.route[i]; map.closePopup();
     const n = prompt(`Name for waypoint ${i + 1} (empty to clear)`, p[2] || '');
     if (n === null) return;
-    editRoute(); trip.route[i] = mkWp(p[0], p[1], n.trim(), pauseMin(p)); changed();
+    editRoute(); trip.route[i] = mkWp(p[0], p[1], n.trim(), pauseMin(p), isCp(p)); changed();
   }
   if (t.dataset.mkname || t.dataset.mkdel){
     const k = trip.marks.find(m => m.id === (t.dataset.mkname || t.dataset.mkdel)); map.closePopup(); if (!k) return;
@@ -1660,7 +1688,7 @@ function drawDay(cv, sun, kind, o){
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
   const font = getComputedStyle(document.body).fontFamily, lab = '600 10px ' + font, T = o.compact ? v => v : (v, t) => `${v} ${hmS(t)}`;
   const note = s => { g.fillStyle = '#5B7183'; g.font = (o.compact ? '11px ' : '13px ') + font; g.fillText(s, 8, o.compact ? 14 : 22); };
-  if (kind === 'elev') return drawElev(g, W, H, font, note);
+  if (kind === 'elev') return drawElev(g, W, H, font, note, !o.dpr);
   const t0 = dayStart(), t1 = t0 + 864e5, X = t => (t - t0) / (t1 - t0) * W, at = x => t0 + x / W * 864e5;
   g.fillStyle = 'rgba(18,50,74,.10)';
   if (sun.rise){ g.fillRect(0, 0, X(sun.rise), H); g.fillRect(X(sun.set), 0, W - X(sun.set), H); }
@@ -1721,7 +1749,7 @@ function drawWind(g, W, H, X, t0, t1, font, note, T, sun){
     put(gi, 'wg', '#B3261E', -1); put(pk('ws', set), 'ws', '#12324A', 1);
     if (w.wg[all] > w.wg[gi]) put(all, 'wg', '#B3261E', -1); }
 }
-function drawElev(g, W, H, font, note){
+function drawElev(g, W, H, font, note, live){
   const el = trip.data?.elev;
   if (!el || el.key !== routeKey(trip.route)) return note(trip.route.length > 1 ? 'Elevation profile appears after Get forecast' : 'Plot a route to see its elevation profile');
   const lo = Math.min(...el.e), hi = Math.max(...el.e), span = Math.max(50, hi - lo), D = el.d[el.d.length - 1] || 1;
@@ -1742,6 +1770,13 @@ function drawElev(g, W, H, font, note){
     g.fillStyle = '#C8167E'; g.fillRect(X(d) - 1, 0, 2, H);
     g.font = '600 10px ' + font;
     tag(g, W, H, X(d), Y(e), `${ft(e)} · ${dU(d).toFixed(1)} ${unitName()} · ${fmtDur(hoursFor(d, up))}`, '#C8167E', -1, [[0, 0, 60, 13], [0, H - 28, 60, 13]]);
+  }
+  // you, on the profile, while location is on and you're near the route (not on the printed sheet)
+  const rp = live && routePos(state.pos, trip.route);
+  if (rp && rp.off < 0.5){
+    const d = rp.along / (routeNm(trip.route) || 1) * D; let i = el.d.findIndex(x => x >= d); i = i < 0 ? el.d.length - 1 : Math.max(1, i);
+    const a = el.d[i - 1], b = el.d[i], e = b > a ? el.e[i - 1] + (el.e[i] - el.e[i - 1]) * (d - a) / (b - a) : el.e[i - 1];
+    g.fillStyle = '#1a73e8'; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(X(d), Y(e), 6, 0, 7); g.fill(); g.stroke();
   }
 }
 $('#graphSel').addEventListener('click', e => { const b = e.target.closest('button[data-g]'); if (!b) return; settings.graph = b.dataset.g; saveSettings(); render(); });
@@ -1880,7 +1915,7 @@ $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.tar
 let saveT, listT;
 function changed(){
   trip.updated = Date.now(); scaleCtl._update();
-  if (state.locMode === 1 && state.pos) state.nextWp = nextWaypoint(state.pos, trip.route); // highlight drawn below
+  if (navMode() && state.pos) state.nextWp = (state.locMode === 4 ? nextCheckpoint : nextWaypoint)(state.pos, trip.route); // highlight drawn below
   drawRoute(); drawMarks(); drawPark(); drawTracks(); drawStations(); render(); showToNext();
   clearTimeout(saveT); saveT = setTimeout(saveNow, 300);
 }
@@ -1928,17 +1963,19 @@ function maybeStopWatch(){
   if (state.locating || state.watch == null) return;
   navigator.geolocation.clearWatch(state.watch); state.watch = null;
 }
-// ◎ tap cycles: dot + next waypoint → dot + large coordinates (for emergencies) → dot only.
+// ◎ tap cycles: dot + next waypoint → dot + next checkpoint → dot + large coordinates (for emergencies) → dot only.
 // Long-press turns it off; the next tap comes back in the mode it had. It never moves the map.
 const LOC_MODES = [
   { label: 'Show my location', toast: 'Location off' },
-  { label: 'Location: next waypoint. Tap for large coordinates, hold to turn off', toast: 'Location: next waypoint' },
+  { label: 'Location: next waypoint. Tap for next checkpoint, hold to turn off', toast: 'Location: next waypoint' },
   { label: 'Location: large coordinates. Tap for dot only, hold to turn off', toast: 'Location: large coordinates (tap them to copy)' },
-  { label: 'Location: dot only. Tap for next waypoint, hold to turn off', toast: 'Location: dot only' }];
+  { label: 'Location: dot only. Tap for next waypoint, hold to turn off', toast: 'Location: dot only' },
+  { label: 'Location: next checkpoint. Tap for large coordinates, hold to turn off', toast: 'Location: next checkpoint (⚑ on a waypoint, else the finish)' }];
+const LOC_NEXT = { 1: 4, 4: 2, 2: 3, 3: 1 };
 function locBtnState(){
   const m = state.locMode, b = $('#locBtn');
   b.classList.toggle('on', m > 0); b.dataset.mode = m; b.setAttribute('aria-label', LOC_MODES[m].label); b.title = LOC_MODES[m].label;
-  $('#coords').hidden = !(m === 1 || m === 2) || !state.pos;
+  $('#coords').hidden = !(m === 1 || m === 2 || m === 4) || !state.pos;
   $('#coords').classList.toggle('big', m === 2);
 }
 function setLocMode(m){
@@ -1955,7 +1992,7 @@ locBtn.addEventListener('pointerdown', () => { locHeld = false; clearTimeout(loc
 locBtn.addEventListener('contextmenu', e => e.preventDefault());
 locBtn.onclick = () => {
   if (locHeld){ locHeld = false; return; }
-  setLocMode(state.locMode ? state.locMode % 3 + 1 : settings.locMode || 1);
+  setLocMode(state.locMode ? LOC_NEXT[state.locMode] : settings.locMode || 1);
 };
 // Decimal degrees and accuracy
 function showCoords(){
@@ -1975,31 +2012,69 @@ function onPos(p){
   state.fix = { lat: c.latitude, lng: c.longitude, acc: c.accuracy };
   showCoords(); showToNext();
   locBtnState();
+  if (trip && state.view === 1 && curGraph() === 'elev') drawChart(sunTimes(trip.date, ...centroid()));
   if (ais.on) drawShipsSoon();
 }
-// Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.
+// Where you are on the route: the leg you're closest to (i = its end), how far along it (f), the point
+// on it (at), the distance from the start along the route and how far off the route you are (nm).
 const NEAR_M = 25;
-function nextWaypoint(pos, r){
-  if (r.length < 2) return null;
+function routePos(pos, r){
+  if (!pos || r.length < 2) return null;
   const k = Math.cos(toR(pos[0])), xy = p => [p[1] * k * 60 * 1852, p[0] * 60 * 1852]; // metres, flat
   const [px, py] = xy(pos);
-  let best = 1, bd = Infinity;
+  let best = 1, bd = Infinity, bf = 0;
   for (let i = 1; i < r.length; i++){
     const [ax, ay] = xy(r[i-1]), [bx, by] = xy(r[i]), dx = bx - ax, dy = by - ay, L2 = dx*dx + dy*dy;
     const f = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0;
     const d = Math.hypot(px - ax - f * dx, py - ay - f * dy);
-    if (d < bd - 1e-9){ bd = d; best = i; }
+    if (d < bd - 1e-9){ bd = d; best = i; bf = f; }
   }
-  if (best < r.length - 1 && distNm(pos, r[best]) * 1852 < NEAR_M) best++;
-  return best;
+  const a = r[best - 1], b = r[best];
+  return { i: best, f: bf, at: [a[0] + (b[0] - a[0]) * bf, a[1] + (b[1] - a[1]) * bf], along: routeNm(r.slice(0, best)) + bf * distNm(a, b), off: bd / 1852 };
+}
+// Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.
+function nextWaypoint(pos, r){
+  const rp = routePos(pos, r); if (!rp) return null;
+  return rp.i < r.length - 1 && distNm(pos, r[rp.i]) * 1852 < NEAR_M ? rp.i + 1 : rp.i;
+}
+// Next checkpoint: the first one ahead of the next waypoint, else the finish.
+function nextCheckpoint(pos, r){
+  const i = nextWaypoint(pos, r); if (i == null) return null;
+  for (let j = i; j < r.length - 1; j++) if (isCp(r[j])) return j;
+  return r.length - 1;
+}
+// From you to waypoint j along the route: distance (negative once passed), time at the trip's speed with the
+// stops on the way (not j's own) and the walk or paddle back onto the route, and the arrival time.
+function toWp(pos, r, j){
+  const rp = routePos(pos, r); if (!rp) return null;
+  const d = routeNm(r.slice(0, j + 1)) - rp.along;
+  let stop = 0; for (let k = rp.f < 1 ? rp.i : rp.i + 1; k < j; k++) stop += pauseMin(r[k]);
+  const h = d > 0 ? hoursFor(d + rp.off) + stop / 60 : 0;
+  return { d, off: rp.off, h, eta: Date.now() + h * 36e5, rp };
+}
+const navMode = () => state.locMode === 1 || state.locMode === 4;
+function fromYou(j){
+  const r = trip.route; if (!state.pos) return '';
+  if (r.length < 2) return `<br><small>From you: ${fmtShort(distNm(state.pos, r[j]))}</small>`;
+  const t = toWp(state.pos, r, j), off = t.off * 1852 > 2 * NEAR_M ? ` (+ ${fmtShort(t.off)} to the route)` : '';
+  if (t.d < -NEAR_M / 1852) return `<br><small>Passed: ${fmtShort(-t.d)} back along the route${off}</small>`;
+  if (t.d * 1852 < NEAR_M && t.off * 1852 < NEAR_M) return '<br><small>You are here</small>';
+  return `<br><small>From you: ${fmtShort(Math.max(0, t.d))} along the route${off} · ${fmtDur(t.h)} · ETA ${hm(t.eta)}</small>`;
 }
 const fmtShort = nm => nm >= 0.1 ? fmtD(nm, 2) : unitName() === 'mi' ? Math.round(nm * 6076) + ' ft' : Math.round(nm * 1852) + ' m';
 function showToNext(){
-  const el = $('#toNext'), r = trip?.route || [];
-  const i = state.pos && state.locMode === 1 ? nextWaypoint(state.pos, r) : null;
+  const el = $('#toNext'), r = trip?.route || [], cp = state.locMode === 4;
+  const i = state.pos && navMode() ? (cp ? nextCheckpoint : nextWaypoint)(state.pos, r) : null;
   if (i !== state.nextWp){ state.nextWp = i; drawRoute(); }
   toLine.clearLayers();
   if (i == null){ el.hidden = true; return; }
+  if (cp){ // along the route to the next checkpoint: distance, time and ETA
+    const t = toWp(state.pos, r, i), last = i === r.length - 1;
+    L.polyline([state.pos, t.rp.at, ...r.slice(t.rp.i, i + 1).map(ll2)], { color: '#1a73e8', weight: 3, dashArray: '6 8', opacity: .9, interactive: false }).addTo(toLine);
+    el.textContent = last && distNm(state.pos, r[i]) * 1852 < NEAR_M ? 'At the finish'
+      : `⚑ ${last ? 'Finish' + (r[i][2] ? ' ' + r[i][2] : '') : wpLabel(r, i)} · ${fmtShort(Math.max(0, t.d) + t.off)} · ${fmtDur(t.h)} · ETA ${hm(t.eta)}`;
+    el.hidden = false; return;
+  }
   L.polyline([state.pos, ll2(r[i])], { color: '#1a73e8', weight: 3, dashArray: '6 8', opacity: .9, interactive: false }).addTo(toLine);
   const d = distNm(state.pos, r[i]), last = i === r.length - 1;
   el.textContent = last && d * 1852 < NEAR_M ? 'At the finish' : `→ ${last ? 'Finish' + (r[i][2] ? ' ' + r[i][2] : '') : wpLabel(r, i)} · ${fmtShort(d)} · ${magB(brgT(state.pos, r[i]))}`;
@@ -2008,7 +2083,7 @@ function showToNext(){
 function showMe(p, acc){
   meLayer.clearLayers();
   if (acc) L.circle(p, { radius: acc, color: '#1a73e8', weight: 1, fillOpacity: .08, interactive: false }).addTo(meLayer);
-  L.marker(p, { interactive: false, icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [18,18], iconAnchor: [9,9] }) }).addTo(meLayer);
+  L.marker(p, { interactive: false, pane: 'mePane', icon: L.divIcon({ className: '', html: '<div class="me"></div>', iconSize: [18,18], iconAnchor: [9,9] }) }).addTo(meLayer);
 }
 
 /* ---------- imported tracks ---------- */
@@ -2640,7 +2715,7 @@ function planForecast(){
 const startTime = () => hm(dayStart() + trip.start * 6e4);
 const envName = () => trip.envSet || trip.env ? env().name || '' : '';
 // the start, the finish and the named or stop waypoints; a skipped stretch shows its distance without a bearing
-const namedLegs = (all, r) => all.filter(g => !g.i || g.i === r.length - 1 || g.p[2] || g.stop)
+const namedLegs = (all, r) => all.filter(g => !g.i || g.i === r.length - 1 || g.p[2] || g.stop || isCp(g.p))
   .map((g, k, a) => k && a[k - 1].i !== g.i - 1 ? { ...g, d: g.cum - a[k - 1].cum, brg: '' } : g);
 function planText(){
   const L = [], r = trip.route, ll = p => `${p[0].toFixed(5)}, ${p[1].toFixed(5)}`;
@@ -2666,7 +2741,7 @@ async function routeImage(W = 1200, H = 800){
   const r = trip.route, pk = trip.parking, head = 64, pad = 48;
   const pts = [...r.map(ll2), ...trip.marks.map(k => [k.lat, k.lng]), ...(pk ? [[pk.lat, pk.lng]] : [])];
   if (!pts.length) return null;
-  const P = (p, z) => L.CRS.EPSG3857.latLngToPoint(L.latLng(p), z), L0 = LAYERS[settings.layer] || LAYERS.street;
+  const P = (p, z) => L.CRS.EPSG3857.latLngToPoint(L.latLng(p[0], p[1]), z), L0 = LAYERS[settings.layer] || LAYERS.street;
   let z = 15, a, b;
   for (; z > 2; z--){ const q = pts.map(p => P(p, z)); a = L.point(Math.min(...q.map(v => v.x)), Math.min(...q.map(v => v.y))); b = L.point(Math.max(...q.map(v => v.x)), Math.max(...q.map(v => v.y)));
     if (b.x - a.x <= W - 2 * pad && b.y - a.y <= H - head - 2 * pad) break; }

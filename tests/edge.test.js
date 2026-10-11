@@ -70,9 +70,34 @@ module.exports = async (browser, url, check) => {
     c('no line without a route', await page.isHidden('#toNext') && await page.evaluate(() => toLine.getLayers().length === 0));
     await page.evaluate(() => { trip.route = [[37.80, -122.45], [37.81, -122.42], [37.82, -122.40]]; changed(); }); await page.waitForTimeout(200);
     c('line returns when a route is drawn', await page.isVisible('#toNext'));
-    // ◎ cycles: next waypoint → large coordinates → dot only → off
+    c('your dot draws above waypoints', await page.evaluate(() => !!document.querySelector('.leaflet-me-pane .me') && +map.getPane('mePane').style.zIndex > +getComputedStyle(map.getPane('markerPane')).zIndex));
+    // ◎ cycles: next waypoint → next checkpoint → large coordinates → dot only → off
+    await ctx.setGeolocation({ latitude: 37.8001, longitude: -122.4497 }); await page.waitForTimeout(700);
     await page.click('#locBtn'); await page.waitForTimeout(300);
-    c('second tap: large coordinates', await page.evaluate(() => state.locMode === 2) && await page.isVisible('#coords.big .cbig')
+    const cpWant = () => page.evaluate(() => { const r = trip.route, j = nextCheckpoint(state.pos, r), t = toWp(state.pos, r, j);
+      return `⚑ ${j === r.length - 1 ? 'Finish' : wpLabel(r, j)} · ${fmtShort(Math.max(0, t.d) + t.off)} · ${fmtDur(t.h)} · ETA ${hm(t.eta)}`; });
+    let cpTxt = await page.text('#toNext');
+    c('second tap: next checkpoint, the finish when none is set', await page.evaluate(() => state.locMode === 4) && cpTxt === await cpWant() && /^⚑ Finish · [\d.]+ nm · \d+ min · ETA \d+:\d\d/.test(cpTxt), cpTxt);
+    c('checkpoint line follows the route', await page.evaluate(() => toLine.getLayers()[0].getLatLngs().length === 4) && (await page.locator('.wp.next').innerText()) === '3');
+    await page.evaluate(() => routeLayer.getLayers().filter(l => l.getIcon)[1].openPopup());
+    await page.click('.leaflet-popup [data-cp="1"]'); await page.waitForTimeout(200);
+    cpTxt = await page.text('#toNext');
+    c('a waypoint marked ⚑ becomes the next checkpoint', await page.evaluate(() => trip.route[1][4] === 1) && await page.locator('.wp.cp').count() === 1 && cpTxt.startsWith('⚑ 2 · ') && cpTxt === await cpWant() && (await page.locator('.wp.next').innerText()) === '2', cpTxt);
+    await page.evaluate(() => { trip.route[1] = mkWp(37.81, -122.42, 'Pier', 20, true); changed(); });
+    c('stops and names keep the checkpoint', await page.evaluate(() => JSON.stringify(trip.route[1]) === '[37.81,-122.42,"Pier",20,1]') && (await page.text('#toNext')).startsWith('⚑ 2 Pier'));
+    await page.evaluate(() => routeLayer.getLayers().filter(l => l.getIcon)[2].openPopup()); await page.waitForTimeout(150);
+    let pop = await page.text('.leaflet-popup-content');
+    const finWant = await page.evaluate(() => { const t = toWp(state.pos, trip.route, 2); return t.h - routeNm(trip.route.slice(0, 3)) / speedKt() + 0; });
+    c('waypoint popup: distance, time and ETA from you along the route (the stop on the way counts)', /From you: [\d.]+ nm along the route · \d+ h \d\d · ETA \d+:\d\d/.test(pop) && finWant > 0.3, pop + ' ' + finWant);
+    await page.evaluate(() => map.closePopup());
+    await ctx.setGeolocation({ latitude: 37.8150, longitude: -122.4100 }); await page.waitForTimeout(700);
+    c('past the checkpoint: the finish is next', (await page.text('#toNext')).startsWith('⚑ Finish'), await page.text('#toNext'));
+    await page.evaluate(() => routeLayer.getLayers().filter(l => l.getIcon)[0].openPopup()); await page.waitForTimeout(150);
+    pop = await page.text('.leaflet-popup-content');
+    c('a passed waypoint says how far back it is', /Passed: [\d.]+ nm back along the route/.test(pop), pop);
+    await page.evaluate(() => map.closePopup());
+    await page.click('#locBtn'); await page.waitForTimeout(300);
+    c('third tap: large coordinates', await page.evaluate(() => state.locMode === 2) && await page.isVisible('#coords.big .cbig')
       && /^37\.\d{5}, -122\.\d{5}$/.test(await page.text('#coords .cbig')), await page.text('#coords'));
     c('decimal numbers only, plus accuracy', !/°/.test(await page.text('#coords')) && /^±\d+ m$/.test(await page.text('#coords .cacc')), await page.text('#coords'));
     c('large coordinates mode hides the line and highlight', await page.evaluate(() => toLine.getLayers().length === 0) && await page.locator('.wp.next').count() === 0 && await page.isHidden('#toNext'));
@@ -82,10 +107,10 @@ module.exports = async (browser, url, check) => {
     await page.click('#coords'); await page.waitForTimeout(200);
     c('tap the coordinates to copy them', /^37\.80500, -122\.43000 ±\d+ m$/.test(await page.evaluate(() => window.__copied)), await page.evaluate(() => window.__copied));
     await page.click('#locBtn'); await page.waitForTimeout(300);
-    c('third tap: dot only', await page.evaluate(() => state.locMode === 3) && await page.isHidden('#coords') && await page.locator('.me').count() === 1 && await page.evaluate(() => toLine.getLayers().length === 0));
+    c('fourth tap: dot only', await page.evaluate(() => state.locMode === 3) && await page.isHidden('#coords') && await page.locator('.me').count() === 1 && await page.evaluate(() => toLine.getLayers().length === 0));
     await page.click('#locBtn'); await page.waitForTimeout(300);
-    c('fourth tap cycles back to next waypoint, not off', await page.evaluate(() => state.locMode === 1) && await page.isVisible('#toNext'));
-    await page.click('#locBtn'); await page.waitForTimeout(300);
+    c('fifth tap cycles back to next waypoint, not off', await page.evaluate(() => state.locMode === 1) && await page.isVisible('#toNext'));
+    await page.click('#locBtn'); await page.waitForTimeout(300); await page.click('#locBtn'); await page.waitForTimeout(300);
     await hold(page, '#locBtn');
     c('long-press turns location off', await page.evaluate(() => state.locMode === 0 && state.watch == null) && await page.locator('.me').count() === 0);
     c('long-press selects no button text', await page.evaluate(() => getSelection().toString() === '' && getComputedStyle($('#locBtn')).userSelect === 'none' && getComputedStyle($('#curBtn')).userSelect === 'none'));

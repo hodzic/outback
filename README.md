@@ -44,8 +44,13 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Location ◎** never moves the map (zoom out if you're off screen). A tap cycles through:
   1. blue dot, plus the next waypoint (the end of the leg you're closest to) with distance and magnetic bearing,
      highlighted and joined to you by a dashed line;
-  2. blue dot and large coordinates (decimal degrees and accuracy) for an emergency call; tap them to copy;
-  3. blue dot only.
+  2. blue dot, plus the next checkpoint (⚑ on a waypoint, else the finish) with distance, time and ETA along the
+     route (trip speed, stops on the way, and getting back onto the route), joined by a dashed line along the route;
+  3. blue dot and large coordinates (decimal degrees and accuracy) for an emergency call; tap them to copy;
+  4. blue dot only.
+
+  The dot draws above waypoints. A waypoint's popup shows its distance, time and ETA from you along the route;
+  hiking and biking elevation graphs show you as a blue dot.
 
   Hold the button to turn location off; the next tap brings back the mode you had.
 - **Sea marks ⚓** (paddle trips, above ≈ at the bottom right of the map): OpenSeaMap's buoys, beacons, lights and
@@ -84,8 +89,10 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
   **Markers** are named points saved with the trip (long-press the map, or *Marker* while editing the route);
   the Trip view lists them under the route. GPX export and import keep both (`<wpt>` for markers).
-- **GPX import**: route points become the trip's route (simplified to at most 100 waypoints, keeping the shape
-  within a few metres); a timed track is kept as a recorded track.
+- **GPX import** always creates a new trip (the planned one is untouched): route points become its route
+  (simplified to at most 100 waypoints, keeping the shape within a few metres); a timed track (e.g. from a watch)
+  is kept as a recorded track, and without route points the route is the track simplified to about 60 waypoints.
+- **Checkpoints**: ⚑ on a waypoint's popup marks it (drawn as a rounded square) for the next-checkpoint location mode.
 - **Overlay PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or
   printed "GPS Coordinates" labels when present, a PDF with neither but with a printed scale ("1:24,000", "1 inch = 2,000 feet") comes in at true size, north up, over the area you're viewing; then you drag 4 points (or the centre) to line it up; *⟳ 90°* turns a sideways brochure in place.
   **Auto-align** refines a rough placement from the water drawn on the map: it finds the map's light-blue water,
