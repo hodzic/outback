@@ -487,7 +487,7 @@ module.exports = async (browser, url, check) => {
     await page.click('#toast'); await page.waitForTimeout(400);
     const lg = await page.evaluate(() => ({ open: !$('#helpPage').hidden && $('#helpSeamarks').open, svgs: document.querySelectorAll('#helpSeamarks .sm svg').length,
       red: !!document.querySelector('#smLateral svg rect[fill="#d40000"]'), cones: document.querySelectorAll('#smCardinal svg path[fill="#111"]').length }));
-    c('tapping it opens the sea marks legend with drawn symbols in colour', lg.open && lg.svgs >= 21 && lg.red && lg.cones === 8, JSON.stringify(lg));
+    c('tapping it opens the sea marks legend with drawn symbols in colour', lg.open && lg.svgs >= 23 && lg.red && lg.cones === 8, JSON.stringify(lg));
     await page.locator('#helpSeamarks').screenshot({ path: path.join(OUT, 'feat-seamark-legend.png') });
     await page.click('#helpClose'); await page.waitForTimeout(300);
     await page.click('#layerBtn'); await page.waitForTimeout(200);
