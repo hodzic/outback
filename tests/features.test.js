@@ -304,16 +304,31 @@ module.exports = async (browser, url, check) => {
     await page.click('#printPlan'); await page.waitForTimeout(1200);
     c('Print opens a preview with title, map, waypoints, forecast and graphs', await page.isVisible('#printView') && /Club paddle/.test(await page.text('#printDoc h1'))
       && await page.locator('#pMap .leaflet-tile').count() > 0 && await page.locator('#pMap .wp').count() === 3 && await page.locator('#printDoc table tr').count() >= 4
-      && /Tide · San Francisco/.test(await page.text('#printDoc dl')) && await page.locator('#printDoc canvas[data-kind]').count() === 2);
+      && /Tide · San Francisco/.test(await page.text('#printDoc .pfc')) && await page.locator('#printDoc canvas[data-kind]').count() === 2);
     c('graphs drawn sharp for paper', await page.evaluate(() => [...document.querySelectorAll('#printDoc canvas')].every(c => c.width >= c.clientWidth * 3 - 1)));
     await page.click('#pPrint');
     c('Print button prints', await page.evaluate(() => window.__printed === 1));
     await page.emulateMedia({ media: 'print' });
     const pdf = await page.pdf({ format: 'Letter' });
+    fs.writeFileSync(path.join(OUT, 'feat-print.pdf'), pdf);
     c('trip sheet fits on one Letter page', (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 1);
     await page.emulateMedia({ media: 'screen' });
     await page.goBack(); await page.waitForTimeout(200);
     c('back closes the print preview', await page.isHidden('#printView') && await page.evaluate(() => state.view === 1 && !pMap));
+    // a long route prints the start, finish and named waypoints; the toggle shows them all
+    await page.evaluate(() => { const r = []; for (let i = 0; i < 16; i++) r.push([37.80 + i * .004, -122.45 + (i % 2) * .006]);
+      r[5] = [...r[5].slice(0, 2), 'Angel Island']; r[9] = [...r[9].slice(0, 2), '', 30]; trip.route = r; delete settings.printNamed; changed(); });
+    await page.click('#printPlan'); await page.waitForTimeout(1200);
+    const rows = await page.locator('#printDoc table tr').allInnerTexts();
+    c('long route: named waypoints only, by default', await page.isVisible('#pNamed') && await page.isChecked('#pNamed') && rows.length === 5
+      && /^6 Angel Island/.test(rows[2]) && /⏸ 30 min, leave/.test(rows[3]) && /^16/.test(rows[4]) && /4 of 16/.test(await page.text('#printDoc')), rows.join(' | '));
+    c('skipped waypoints: distance along the route, no bearing', /\t–\t/.test(rows[2]) && Math.abs(parseFloat(rows[2].split('\t')[2]) - parseFloat(rows[2].split('\t')[4])) < .01, rows[2]);
+    await page.emulateMedia({ media: 'print' });
+    c('named-only sheet fits on one page', ((await page.pdf({ format: 'Letter' })).toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 1);
+    await page.emulateMedia({ media: 'screen' });
+    await page.click('#pNamed'); await page.waitForTimeout(1200);
+    c('unticked: every waypoint, remembered', await page.locator('#printDoc table tr').count() === 17 && await page.evaluate(() => settings.printNamed === false && !!pMap));
+    await page.click('#pClose'); await page.waitForTimeout(200);
     c('no page errors (share, print)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // Restrooms: 🚻 shows OpenStreetMap toilets in view, with details and directions; kept for offline
