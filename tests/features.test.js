@@ -34,7 +34,17 @@ module.exports = async (browser, url, check) => {
         try{ const r = cv.getBoundingClientRect(); cv.dispatchEvent(new PointerEvent('pointerdown', { clientX: r.left + r.width / 2, clientY: r.top + 30, pointerId: 1, bubbles: true })); } finally{ P.fillText = f; }
         return { f: state.elevF, out }; });
       c('elevation graph reads elevation, distance and time at the picked spot', Math.abs(got.f - .5) < .02 && got.out.some(t => /^[\d,]+ ft · \d+\.\d mi · \d/.test(t)), got.out.join(' | '));
-      c('elevation hint says to drag along the route', /elevation along the route/.test(await page.text('#chartHint'))); }
+      c('elevation hint says to drag along the route', /elevation along the route/.test(await page.text('#chartHint')));
+      // you on the profile: a blue dot while location is on near the route
+      const blue = () => page.evaluate(() => { const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let n = 0;
+        for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 26) < 12 && Math.abs(d[i+1] - 115) < 12 && Math.abs(d[i+2] - 232) < 12) n++; return n; });
+      const before = await blue();
+      await page.evaluate(() => { const r = trip.route, k = Math.floor(r.length / 2); state.pos = [r[k][0] + 1e-4, r[k][1]]; drawChart(sunTimes(trip.date, ...centroid())); });
+      const after = await blue();
+      await page.evaluate(() => { state.pos = [trip.route[0][0] + 1, trip.route[0][1]]; drawChart(sunTimes(trip.date, ...centroid())); });
+      const far = await blue();
+      await page.evaluate(() => { state.pos = null; drawChart(sunTimes(trip.date, ...centroid())); });
+      c('elevation graph shows you as a blue dot near the route, not when far off it', before === 0 && after > 40 && far === 0, `${before} → ${after}, far ${far}`); }
     c('graph offers Elevation and Wind', (await page.locator('#graphSel button').allInnerTexts()).join() === 'Elevation,Wind');
     c('wind shown in mph', (await page.text('#windK')) === 'Wind · mph' && /mph/.test(await page.text('#atWind')), await page.text('#windK'));
     await page.screenshot({ path: path.join(OUT, 'feat-hike.png') });
@@ -238,7 +248,7 @@ module.exports = async (browser, url, check) => {
   { // Help: its own page from the ? buttons
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);
-    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll('#helpPage .help').length === 8));
+    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll("#helpPage .help").length === 10));
     c('? button at the top of Trips and Trip', await page.evaluate(() => ['#vTrips', '#vTrip'].every(v => document.querySelector(v + ' [data-help]'))));
     for (const v of [1, 0]){
       await view(page, v); await page.locator(['#vTrips', '#vTrip'][v] + ' [data-help]').click();
