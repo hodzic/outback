@@ -535,7 +535,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card help" id="helpShare"><summary>Sharing and printing a trip</summary>
         <ul>
-          <li><b>Share plan</b> (Trip tab, under Tracks) writes the trip out as plain text anyone can read: day and start time, route, every waypoint with coordinates, leg, bearing and estimated arrival, your markers and the day's forecast. <b>Copy text</b> to paste it into a club forum or email; <b>Share…</b> sends it with the GPX file where the phone allows; <b>GPX file</b> is for people with a GPS or map app.</li>
+          <li><b>Share plan</b> (Trip tab, under Tracks) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast. <b>Copy text</b> to paste it into a club forum or email; <b>Share…</b> sends it with a map image of the route and the GPX file where the phone allows; <b>Map image</b> saves the picture on its own (the route on the current map layer, numbered waypoints with names, markers and parking); <b>GPX file</b> is for people with a GPS or map app.</li>
           <li><b>Print</b> makes a one-page trip sheet: the map with the route and numbered waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Check the preview, then tap <b>Print</b>, or choose Save as PDF in the print dialog.</li>
           <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping Print.</li>
@@ -567,7 +567,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-11a';
+const APP_VERSION = '2026-10-11c';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2639,14 +2639,18 @@ function planForecast(){
 }
 const startTime = () => hm(dayStart() + trip.start * 6e4);
 const envName = () => trip.envSet || trip.env ? env().name || '' : '';
+// the start, the finish and the named or stop waypoints; a skipped stretch shows its distance without a bearing
+const namedLegs = (all, r) => all.filter(g => !g.i || g.i === r.length - 1 || g.p[2] || g.stop)
+  .map((g, k, a) => k && a[k - 1].i !== g.i - 1 ? { ...g, d: g.cum - a[k - 1].cum, brg: '' } : g);
 function planText(){
   const L = [], r = trip.route, ll = p => `${p[0].toFixed(5)}, ${p[1].toFixed(5)}`;
   L.push(trip.name, `${act().name}${envName() ? ' · ' + envName() : ''} · ${fmtDay(trip.date)} · start ${startTime()}`);
   if (r.length > 1) L.push(`Route: ${$('#dist').textContent} · ${$('#dur').textContent} at ${$('#spd').textContent} · ${$('#legs').textContent}`);
   if (r.length){
     L.push('', `Start: ${r[0][2] ? r[0][2] + ' ' : ''}${ll(r[0])}  https://www.google.com/maps/search/?api=1&query=${r[0][0].toFixed(5)},${r[0][1].toFixed(5)}`);
-    if (r.length > 1){ L.push('', 'Waypoints (leg, bearing, est. arrival):');
-      for (const g of legsOf()) L.push(`${wpLabel(r, g.i)}  ${ll(g.p)}  ${g.i ? `${dU(g.d).toFixed(2)} ${unitName()}, ${g.brg}, ${hm(g.at)}` : `leave ${hm(g.at)}`}${g.stop ? `, stop ${fmtDur(g.stop / 60)}${g.i ? ` (leave ${hm(g.at + g.stop * 6e4)})` : ''}` : ''}`); }
+    if (r.length > 1){ const legs = namedLegs(legsOf(), r), skip = r.length - legs.length;
+      L.push('', `Waypoints (distance, bearing, est. arrival)${skip ? `, start, finish and named only (${skip} unnamed left out; the GPX file has all ${r.length})` : ''}:`);
+      for (const g of legs) L.push(`${wpLabel(r, g.i)}  ${ll(g.p)}  ${g.i ? `${dU(g.d).toFixed(2)} ${unitName()}${g.brg ? ', ' + g.brg : ''}, ${hm(g.at)}` : `leave ${hm(g.at)}`}${g.stop ? `, stop ${fmtDur(g.stop / 60)}${g.i ? ` (leave ${hm(g.at + g.stop * 6e4)})` : ''}` : ''}`); }
   }
   const pk = trip.parking;
   if (pk) L.push('', `Parking: ${pk.name}${pk.note ? ' (' + pk.note + ')' : ''}  ${pk.lat.toFixed(5)}, ${pk.lng.toFixed(5)}${parkToStart() ? ', ' + parkToStart() : ''}`, `Driving directions: ${gDrive(pk)}`);
@@ -2657,11 +2661,68 @@ function planText(){
   L.push('', `Times are estimates at ${$('#spd').textContent}. Check official forecasts and conditions before you go.`, `Planned with Outback: ${appUrl()}`);
   return L.join('\n');
 }
+// a PNG of the route on the current base layer, for chats and forums that show images (the text can't carry one)
+async function routeImage(W = 1200, H = 800){
+  const r = trip.route, pk = trip.parking, head = 64, pad = 48;
+  const pts = [...r.map(ll2), ...trip.marks.map(k => [k.lat, k.lng]), ...(pk ? [[pk.lat, pk.lng]] : [])];
+  if (!pts.length) return null;
+  const P = (p, z) => L.CRS.EPSG3857.latLngToPoint(L.latLng(p), z), L0 = LAYERS[settings.layer] || LAYERS.street;
+  let z = 15, a, b;
+  for (; z > 2; z--){ const q = pts.map(p => P(p, z)); a = L.point(Math.min(...q.map(v => v.x)), Math.min(...q.map(v => v.y))); b = L.point(Math.max(...q.map(v => v.x)), Math.max(...q.map(v => v.y)));
+    if (b.x - a.x <= W - 2 * pad && b.y - a.y <= H - head - 2 * pad) break; }
+  const ox = (a.x + b.x) / 2 - W / 2, oy = (a.y + b.y) / 2 - head - (H - head) / 2, xy = p => { const v = P(p, z); return [v.x - ox, v.y - oy]; };
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'); g.fillStyle = '#e8eef2'; g.fillRect(0, 0, W, H);
+  const n = 2 ** z, tile = (u, x, y) => u.tile ? u.tile(z, x, y) : u.url.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+  const draw = async (u, x, y) => { try{
+      const url = tile(u, (x % n + n) % n, y), res = await caches.match(url) || await fetch(url, { mode: 'cors' });
+      if (!res.ok) return;
+      g.drawImage(await createImageBitmap(await res.blob()), x * 256 - ox, y * 256 - oy, 256, 256); drawn++;
+    }catch{} };
+  let drawn = 0, B = L0;
+  const tiles = [];
+  for (let x = Math.floor(ox / 256); x <= Math.floor((ox + W) / 256); x++) for (let y = Math.max(0, Math.floor((oy + head) / 256)); y <= Math.min(n - 1, Math.floor((oy + H) / 256)); y++) tiles.push([x, y]);
+  const within = (ps, ms) => Promise.race([Promise.all(ps), new Promise(res => setTimeout(res, ms))]);
+  await within(tiles.map(([x, y]) => draw(L0, x, y)), 8000);
+  // a server that won't share its tiles with a canvas: Street does
+  if (!drawn && L0 !== LAYERS.street) await within(tiles.map(([x, y]) => draw(B = LAYERS.street, x, y)), 8000);
+  if (seaLayer && z >= 9) await within(tiles.map(([x, y]) => draw(SEAMARKS, x, y)), 5000);
+  // the route, the numbered waypoints with their names, markers and parking
+  const M = '#C8167E';
+  g.lineJoin = g.lineCap = 'round';
+  if (r.length > 1){ g.beginPath(); r.forEach((p, i) => g[i ? 'lineTo' : 'moveTo'](...xy(p)));
+    g.strokeStyle = '#fff'; g.lineWidth = 9; g.stroke(); g.strokeStyle = M; g.lineWidth = 5; g.stroke(); }
+  const label = (t, x, y, color = '#111') => { g.font = '600 15px system-ui,sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 4; g.strokeText(t, x, y); g.fillStyle = color; g.fillText(t, x, y); };
+  if (pk){ const [x, y] = xy([pk.lat, pk.lng]);
+    g.fillStyle = M; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.roundRect(x - 13, y - 13, 26, 26, 5); g.fill(); g.stroke();
+    g.fillStyle = '#fff'; g.font = '800 16px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('P', x, y + 1); }
+  for (const k of trip.marks){ const [x, y] = xy([k.lat, k.lng]);
+    g.fillStyle = '#F2B705'; g.strokeStyle = '#111'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, 7, 0, 7); g.fill(); g.stroke(); label(k.name, x + 11, y); }
+  r.forEach((p, i) => { const [x, y] = xy(p);
+    g.fillStyle = '#fff'; g.strokeStyle = M; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 12, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = M; g.font = '700 12px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(i + 1, x, y + 1);
+    if (p[2] || p[3]) label(`${p[2] || ''}${p[3] ? ` · ⏸ ${fmtDur(p[3] / 60)}` : ''}`, x + 16, y, M); });
+  // the title bar and the attribution
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, head); g.fillStyle = '#ddd'; g.fillRect(0, head - 1, W, 1);
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic'; g.fillStyle = '#111'; g.font = '700 22px system-ui,sans-serif'; g.fillText(trip.name || 'Trip', 16, 28);
+  g.fillStyle = '#555'; g.font = '15px system-ui,sans-serif';
+  g.fillText(`${act().name} · ${fmtDay(trip.date)} · start ${startTime()}${r.length > 1 ? ` · ${$('#dist').textContent} · ${$('#dur').textContent}` : ''}`, 16, 52);
+  const att = `${String(B.opt.attribution || '').replace(/<[^>]+>/g, '')}${seaLayer ? ' · OpenSeaMap' : ''} · Outback`;
+  g.font = '12px system-ui,sans-serif'; const tw = g.measureText(att).width;
+  g.fillStyle = 'rgba(255,255,255,.8)'; g.fillRect(W - tw - 12, H - 20, tw + 12, 20); g.fillStyle = '#333'; g.fillText(att, W - tw - 6, H - 6);
+  return new Promise(res => c.toBlob(res, 'image/png'));
+}
+let planImg = null;
 function sharePlanSheet(){
   openSheet(`<h2>Share trip plan</h2><p class="muted">For a club forum, email or chat: anyone can read it. The GPX file opens in most map and GPS apps.</p>
     <textarea id="planTxt" class="f" readonly rows="12" style="width:100%;font:13px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap"></textarea>
-    <div class="row" style="flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="planCopy">Copy text</button><button class="btn" id="planShare">Share…</button><button class="btn" id="planGpx">GPX file</button><span class="grow"></span><button class="btn" data-close>Close</button></div>`);
-  $('#planTxt').value = planText();
+    <div class="row" style="flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="planCopy">Copy text</button><button class="btn" id="planShare">Share…</button><button class="btn" id="planGpx">GPX file</button><button class="btn" id="planImg" hidden>Map image</button><span class="grow"></span><button class="btn" data-close>Close</button></div>
+    <img id="planPrev" alt="Route map" hidden style="display:block;width:100%;max-height:220px;object-fit:contain;margin-top:10px;border:1px solid var(--line,#ddd);border-radius:8px">`);
+  $('#planTxt').value = planText(); planImg = null;
+  // made ahead so Share… still has the tap's permission when it runs
+  routeImage().then(b => { if (!b || !$('#planPrev')) return; planImg = new File([b], fileName('png'), { type: 'image/png' });
+    $('#planPrev').src = URL.createObjectURL(b); $('#planPrev').hidden = $('#planImg').hidden = false; }).catch(() => {});
 }
 $('#sharePlan').onclick = sharePlanSheet;
 async function copyText(t){ try{ await navigator.clipboard.writeText(t); return true; }catch{ const a = $('#planTxt'); a?.select(); try{ return document.execCommand('copy'); }catch{ return false; } } }
@@ -2672,10 +2733,10 @@ async function openPrint(){
   if (pMap){ pMap.remove(); pMap = null; }
   const r = trip.route, all = legsOf(), fc = planForecast(), sun = sunTimes(trip.date, ...centroid());
   // long routes: the start, the finish and the named or stop waypoints are enough for the sheet (auto above 10 waypoints)
-  const named = all.filter(g => !g.i || g.i === r.length - 1 || g.p[2] || g.stop), canNamed = named.length > 2 && named.length < all.length;
+  const named = namedLegs(all, r), canNamed = named.length > 2 && named.length < all.length;
   const onlyNamed = canNamed && (settings.printNamed ?? r.length > 10);
   $('#pNamedL').hidden = !canNamed; $('#pNamed').checked = onlyNamed;
-  const legs = (onlyNamed ? named : all).map((g, k, a) => k && a[k - 1].i !== g.i - 1 ? { ...g, d: g.cum - a[k - 1].cum, brg: '' } : g);
+  const legs = onlyNamed ? named : all;
   const kinds = [isTidal() && 'tide', 'wind', hasElev() && r.length > 1 && 'elev'].filter(Boolean);
   const names = { tide: hasCurrents() ? 'Tide and current' : 'Tide', wind: 'Wind and gusts', elev: 'Elevation' };
   $('#printDoc').innerHTML = `<h1>${esc(trip.name)}</h1>
@@ -2803,9 +2864,11 @@ sheet.addEventListener('click', async e => {
   if (b.id === 'copyGps') return copyGpsMaps();
   if (b.id === 'planCopy') return toast(await copyText($('#planTxt').value) ? 'Trip plan copied. Paste it into the forum post.' : 'Could not copy; select the text and copy it.');
   if (b.id === 'planShare'){ const text = $('#planTxt').value, gpx = trip.route.length ? new File([toGpx()], fileName('gpx'), { type: 'application/gpx+xml' }) : null;
-    try{ if (gpx && navigator.canShare?.({ files: [gpx], text })) return await navigator.share({ title: trip.name, text, files: [gpx] });
+    const files = [planImg, gpx].filter(Boolean);
+    try{ for (const f of [files, files.slice(0, 1), gpx ? [gpx] : []]) if (f.length && navigator.canShare?.({ files: f, text })) return await navigator.share({ title: trip.name, text, files: f });
       if (navigator.share) return await navigator.share({ title: trip.name, text }); }catch(e){ if (e.name === 'AbortError') return; }
     return toast(await copyText(text) ? 'Trip plan copied.' : 'Sharing is not available here; copy the text instead.'); }
+  if (b.id === 'planImg') return planImg && shareFile(planImg.name, planImg, 'image/png');
   if (b.id === 'planGpx') return trip.route.length || trip.marks.length ? shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml') : toast('No route to export.');
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
   if (ds.pdfmap){ const m = await idb.get('trailMaps', ds.pdfmap), on = !shownMaps.has(ds.pdfmap); showPdfMap(m, on, on); if (on) sheet.close(); else mapsSheet(); return; }

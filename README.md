@@ -69,7 +69,7 @@ Three views; swipe between them or use the tabs at the bottom.
   Name, type and size (sent only every ~6 minutes) are remembered on the device, so known ships show them at once.
 - **Help** (the **?** button at the top of the Trips and Trip tabs) opens its own page: installing, offline use, AIS ships,
   overlay PDF maps, and Tomales Bay / San Francisco Bay links. Close or the phone's back button returns.
-- **Share plan** (Trip tab): a plain-text plan for a club forum, email or chat (name, day, start, route, waypoints
+- **Share plan** (Trip tab): a route map image and a plain-text plan for a club forum, email or chat (name, day, start, route, the start, finish and named waypoints
   with coordinates, legs, bearings and estimated arrivals, points of interest, the day's forecast, a map link to the
   start); *Copy text*, *Share…* (with the GPX attached where the phone allows) or *GPX file*.
 - **Print** (Trip tab): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
