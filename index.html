@@ -522,6 +522,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <div class="sm" id="smCardinal"></div>
         <h3>Other marks</h3>
         <div class="sm" id="smOther"></div>
+        <h3>Lines and areas (magenta)</h3>
+        <div class="sm" id="smLines"></div>
         <h3>Light codes</h3>
         <p>The label by a light gives its pattern, colour, period and sometimes height and range, e.g. <b>Fl G 4s 15ft 5M</b>: flashing green every 4 seconds, 15 ft up, seen 5 nautical miles.</p>
         <ul>
@@ -565,7 +567,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10t';
+const APP_VERSION = '2026-10-10u';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2754,6 +2756,16 @@ $('#smOther').innerHTML = [
   smRow([smSvg({ bands: 'Y', top: 'x' })], '<b style="color:#b38f00">Special mark</b>: yellow, X on top. A zone (swim area, speed limit, cable, outfall, race course); check the chart or signs.'),
   smRow([smSvg({ shape: 'can', bands: 'WOW' })], '<b>White with orange</b>: regulatory (no wake, keep out, danger). Read the sign on it.'),
   smRow([smLight], '<b style="color:#d1009b">Magenta flare</b>: the mark has a light; the label gives its code (below).')
+].join('');
+// line samples, 40 wide like the marks
+const smLine = d => `<svg viewBox="0 0 40 44" aria-hidden="true"><g fill="none" stroke="#c0189a" stroke-width="2">${d}</g></svg>`;
+$('#smLines').innerHTML = [
+  smRow([smLine('<path d="M2 22 q4.5 -7 9 0 t9 0 t9 0 t9 0"/>')], '<b>Submarine cable</b>: power or telecom on the bottom. Ships mustn\'t anchor on it; harmless for kayaks.'),
+  smRow([smLine('<path d="M2 8 H38 M2 36 H38" stroke-dasharray="5 3"/><path d="M6 22 q3.5 -5 7 0 t7 0 t7 0 t7 0" stroke-width="1.5"/>')], '<b>Cable area</b>: dashed outline, cables somewhere inside. No anchoring.'),
+  smRow([smLine('<path d="M2 22 H38" stroke-dasharray="6 4"/><circle cx="12" cy="22" r="2.5" fill="#fff"/><circle cx="28" cy="22" r="2.5" fill="#fff"/>')], '<b>Pipeline</b>: water, gas or a sewer outfall. Outfalls can mean poor water quality nearby.'),
+  smRow([smLine('<path d="M2 18 H38" stroke-dasharray="7 4"/><path d="M3.5 18 V26 M14.5 18 V26 M25.5 18 V26 M36.5 18 V26" stroke-width="1.5"/>')], '<b>Restricted or regulated area</b>: T-shaped dashes on the inside. Security zones, no-wake, closures: read the label; some apply to kayaks.'),
+  smRow([smLine('<path d="M2 10 H38 M2 34 H38" stroke-dasharray="10 4"/><path d="M14 22 H26 M22 18 L26 22 L22 26" stroke-width="2.5"/>')], '<b>Traffic lanes and fairways</b>: the main ship routes, arrows show direction. Cross quickly at a right angle, never paddle along them.'),
+  smRow([smLine('<path d="M2 6 H38 V38 H2 Z" stroke-dasharray="6 3"/><text x="20" y="27" font-size="14" text-anchor="middle" fill="#c0189a" stroke="none">⚓</text>')], '<b>Anchorage</b>: ships at anchor, can swing on the tide. Give them room.')
 ].join('');
 document.addEventListener('click', e => {
   const a = e.target.closest('[data-wtstart]'); if (!a) return; e.preventDefault();
