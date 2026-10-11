@@ -305,6 +305,15 @@ module.exports = async (browser, url, check) => {
     c('Print opens a preview with title, map, waypoints, forecast and graphs', await page.isVisible('#printView') && /Club paddle/.test(await page.text('#printDoc h1'))
       && await page.locator('#pMap .leaflet-tile').count() > 0 && await page.locator('#pMap .wp').count() === 3 && await page.locator('#printDoc table tr').count() >= 4
       && /Tide · San Francisco/.test(await page.text('#printDoc .pfc')) && await page.locator('#printDoc canvas[data-kind]').count() === 2);
+    c('no overlay on the printed map when none is on', await page.locator('#pMap .leaflet-image-layer').count() === 0);
+    { // an overlay PDF map that's on prints too
+      await page.click('#pClose'); await page.waitForTimeout(200);
+      await page.evaluate(() => { const c = document.createElement('canvas'); c.width = c.height = 8; c.getContext('2d').fillRect(0, 0, 8, 8);
+        const o = L.imageOverlay.rotated(c.toDataURL(), L.latLng(37.84, -122.48), L.latLng(37.84, -122.40), L.latLng(37.79, -122.48), { opacity: .6 }).addTo(map); shownMaps.set('t', { layer: o, url: '' }); });
+      await page.click('#printPlan'); await page.waitForTimeout(800);
+      const im = await page.evaluate(() => { const d = document.querySelector('#pMap div.leaflet-image-layer'), e = d?.querySelector('img'); return e && { op: d.style.opacity, src: e.src.slice(0, 14) }; });
+      c('overlay PDF map that is on is printed on the map, at its opacity', im && im.op === '0.6' && im.src === 'data:image/png', JSON.stringify(im));
+      await page.evaluate(() => { map.removeLayer(shownMaps.get('t').layer); shownMaps.delete('t'); }); }
     c('graphs drawn sharp for paper', await page.evaluate(() => [...document.querySelectorAll('#printDoc canvas')].every(c => c.width >= c.clientWidth * 3 - 1)));
     await page.click('#pPrint');
     c('Print button prints', await page.evaluate(() => window.__printed === 1));
