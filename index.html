@@ -538,7 +538,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>Share plan</b> (Trip tab, under Tracks) writes the trip out as plain text anyone can read: day and start time, route, every waypoint with coordinates, leg, bearing and estimated arrival, your markers and the day's forecast. <b>Copy text</b> to paste it into a club forum or email; <b>Share…</b> sends it with the GPX file where the phone allows; <b>GPX file</b> is for people with a GPS or map app.</li>
           <li><b>Print</b> makes a one-page trip sheet: the map with the route and numbered waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Check the preview, then tap <b>Print</b>, or choose Save as PDF in the print dialog.</li>
           <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
-          <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) before tapping Print.</li>
+          <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping Print.</li>
           <li>Turn on <b>🚻</b> and <b>P</b> on the map first to have restrooms and parking on the printed map.</li>
           <li>For a waterproof case: print in colour if you can, fold once, and carry a proper chart or map too.</li>
         </ul>
@@ -567,7 +567,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10w';
+const APP_VERSION = '2026-10-11a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2707,6 +2707,8 @@ async function openPrint(){
   const L0 = LAYERS[settings.layer];
   pMap = L.map('pMap', { zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false });
   (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', L0.opt) : L.tileLayer(L0.url, L0.opt)).addTo(pMap);
+  // overlay PDF maps that are on, where they're placed now, at the on-screen opacity
+  shownMaps.forEach(({ layer: o }) => L.imageOverlay.rotated(o._url, o._topLeft, o._topRight, o._bottomLeft, { opacity: o.options.opacity, interactive: false }).addTo(pMap));
   if (seaLayer) L.tileLayer(SEAMARKS.url, SEAMARKS.opt).addTo(pMap);
   new (L.Control.Scale.extend({ _updateScales: scaleCtl._updateScales }))({ position: 'bottomleft', metric: true, imperial: false, maxWidth: 110 }).addTo(pMap);
   const pk = trip.parking, pts = [...r.map(ll2), ...trip.marks.map(k => [k.lat, k.lng]), ...(pk ? [[pk.lat, pk.lng]] : [])];
