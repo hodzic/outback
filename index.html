@@ -123,11 +123,10 @@ table.acts td,table.acts th{padding:5px 3px}
 #printDoc .sub{margin:2px 0 8px;font-size:13px}
 #pMap{height:3.4in;border:1.5px solid #000;margin:6px 0}
 #pMap .leaflet-control-attribution{font-size:8px}
-.pcols{display:grid;grid-template-columns:auto 1fr;gap:0 18px}
+.pfc{display:grid;grid-template-columns:repeat(3,1fr);gap:3px 16px} .pfc div{break-inside:avoid} .pfc b{display:block}
+.pbar label{display:flex;align-items:center;gap:5px;font-size:14px;margin-right:6px}
 #printDoc table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
 #printDoc td,#printDoc th{border-bottom:1px solid #999;padding:2px 4px;text-align:left;font-size:11.5px;white-space:nowrap}
-#printDoc dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:2px 8px}
-#printDoc dt{font-weight:700;max-width:1.25in} #printDoc dd{margin:0}
 #printDoc .pg{break-inside:avoid;min-width:0}
 #printDoc .pgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(3in,1fr));gap:0 14px}
 #printDoc canvas{width:100%;height:1.35in;display:block;border:1px solid #999}
@@ -386,7 +385,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
 </main>
 <!-- Print: a printable trip sheet (map, waypoints, forecast, graphs), shown first as a preview -->
 <div id="printView" hidden role="dialog" aria-modal="true" aria-label="Print trip">
-  <div class="pbar noprint"><b class="grow">Print preview</b><button class="btn primary" id="pPrint">Print</button><button class="btn" id="pClose">Close</button></div>
+  <div class="pbar noprint"><b class="grow">Print preview</b><label id="pNamedL" hidden><input type="checkbox" id="pNamed"> Named waypoints only</label><button class="btn primary" id="pPrint">Print</button><button class="btn" id="pClose">Close</button></div>
   <div id="printDoc"></div>
 </div>
 <!-- Help: its own page over the app, opened by the ? buttons -->
@@ -538,6 +537,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li><b>Share plan</b> (Trip tab, under Tracks) writes the trip out as plain text anyone can read: day and start time, route, every waypoint with coordinates, leg, bearing and estimated arrival, your markers and the day's forecast. <b>Copy text</b> to paste it into a club forum or email; <b>Share…</b> sends it with the GPX file where the phone allows; <b>GPX file</b> is for people with a GPS or map app.</li>
           <li><b>Print</b> makes a one-page trip sheet: the map with the route and numbered waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Check the preview, then tap <b>Print</b>, or choose Save as PDF in the print dialog.</li>
+          <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) before tapping Print.</li>
           <li>Turn on <b>🚻</b> and <b>P</b> on the map first to have restrooms and parking on the printed map.</li>
           <li>For a waterproof case: print in colour if you can, fold once, and carry a proper chart or map too.</li>
@@ -567,7 +567,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10v';
+const APP_VERSION = '2026-10-10w';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2669,26 +2669,36 @@ async function copyText(t){ try{ await navigator.clipboard.writeText(t); return 
 let pMap = null;
 function closePrint(){ if (pMap){ pMap.remove(); pMap = null; } $('#printView').hidden = true; }
 async function openPrint(){
-  const r = trip.route, legs = legsOf(), fc = planForecast(), sun = sunTimes(trip.date, ...centroid());
+  if (pMap){ pMap.remove(); pMap = null; }
+  const r = trip.route, all = legsOf(), fc = planForecast(), sun = sunTimes(trip.date, ...centroid());
+  // long routes: the start, the finish and the named or stop waypoints are enough for the sheet (auto above 10 waypoints)
+  const named = all.filter(g => !g.i || g.i === r.length - 1 || g.p[2] || g.stop), canNamed = named.length > 2 && named.length < all.length;
+  const onlyNamed = canNamed && (settings.printNamed ?? r.length > 10);
+  $('#pNamedL').hidden = !canNamed; $('#pNamed').checked = onlyNamed;
+  const legs = (onlyNamed ? named : all).map((g, k, a) => k && a[k - 1].i !== g.i - 1 ? { ...g, d: g.cum - a[k - 1].cum, brg: '' } : g);
   const kinds = [isTidal() && 'tide', 'wind', hasElev() && r.length > 1 && 'elev'].filter(Boolean);
   const names = { tide: hasCurrents() ? 'Tide and current' : 'Tide', wind: 'Wind and gusts', elev: 'Elevation' };
   $('#printDoc').innerHTML = `<h1>${esc(trip.name)}</h1>
     <p class="sub"><b>${act().name}${envName() ? ' · ' + esc(envName()) : ''}</b> · ${fmtDay(trip.date)} · start ${startTime()}${r.length > 1 ? ` · ${esc($('#dist').textContent)} · ${esc($('#dur').textContent)} at ${esc($('#spd').textContent)}` : ''}</p>
     ${trip.parking ? `<p class="sub">Parking: <b>${esc(trip.parking.name)}</b>${trip.parking.note ? ' · ' + esc(trip.parking.note) : ''} · ${trip.parking.lat.toFixed(5)}, ${trip.parking.lng.toFixed(5)}${parkToStart() ? ' · ' + parkToStart() : ''}</p>` : ''}
     <div id="pMap"></div>
-    <div class="pcols"><div><h3>Waypoints</h3>${r.length > 1 ? `<table><tr><th>#</th><th>Lat, lon</th><th>Leg</th><th>Brg</th><th>Arrive</th></tr>${legs.map(g =>
-        `<tr><td>${esc(wpLabel(r, g.i))}</td><td>${g.p[0].toFixed(4)}, ${g.p[1].toFixed(4)}</td><td>${g.i ? dU(g.d).toFixed(2) : '–'}</td><td>${g.brg || '–'}</td><td>${hm(g.at)}${g.stop ? ` ⏸${g.stop}′` : ''}</td></tr>`).join('')}</table>
-        <p>Legs in ${unitName()}; bearings magnetic (${settings.variation}° E); arrivals at ${esc($('#spd').textContent)}${legs.some(g => g.stop) ? '; ⏸ stop in minutes, included in later arrivals' : ''}.</p>` : '<p>No route.</p>'}
-      ${trip.marks.length ? `<h3>Points of interest</h3><table>${trip.marks.map(k => `<tr><td>${esc(k.name)}</td><td>${k.lat.toFixed(4)}, ${k.lng.toFixed(4)}</td></tr>`).join('')}</table>` : ''}</div>
-      <div><h3>Forecast${trip.fetchedAt ? ` <span style="font-weight:400">(as of ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })})</span>` : ''}</h3>
-        ${fc.length ? `<dl>${fc.map(([k, l]) => `<dt>${esc(k)}</dt><dd>${l.map(esc).join(' · ')}</dd>`).join('')}</dl>` : '<p>No forecast yet: tap Get forecast first.</p>'}</div></div>
+    <h3>Waypoints${onlyNamed ? ` <span style="font-weight:400">(start, finish and named: ${legs.length} of ${r.length})</span>` : ''}</h3>${r.length > 1 ? `<table><tr><th>#</th><th>Lat, lon</th><th>${onlyNamed ? 'Dist' : 'Leg'}</th><th>Brg</th><th>Total</th><th>Arrive</th></tr>${legs.map(g =>
+        `<tr><td>${esc(wpLabel(r, g.i))}</td><td>${g.p[0].toFixed(4)}, ${g.p[1].toFixed(4)}</td><td>${g.i ? dU(g.d).toFixed(2) : '–'}</td><td>${g.brg || '–'}</td><td>${dU(g.cum).toFixed(2)}</td><td>${hm(g.at)}${g.stop ? ` ⏸ ${g.stop} min, leave ${hm(g.at + g.stop * 6e4)}` : ''}</td></tr>`).join('')}</table>
+        <p>${onlyNamed ? 'Dist: along the route from the previous listed waypoint; bearings only between consecutive waypoints. ' : ''}Distances in ${unitName()}; bearings magnetic (${settings.variation}° E); arrivals at ${esc($('#spd').textContent)}${legs.some(g => g.stop) ? ', including stops' : ''}.</p>` : '<p>No route.</p>'}
+    ${trip.marks.length ? `<h3>Points of interest</h3><p>${trip.marks.map(k => `<b>${esc(k.name)}</b> ${k.lat.toFixed(4)}, ${k.lng.toFixed(4)}`).join(' · ')}</p>` : ''}
+    <h3>Forecast${trip.fetchedAt ? ` <span style="font-weight:400">(as of ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })})</span>` : ''}</h3>
+    ${fc.length ? `<div class="pfc">${fc.map(([k, l]) => `<div><b>${esc(k)}</b>${l.map(esc).join(' · ')}</div>`).join('')}</div>` : '<p>No forecast yet: tap Get forecast first.</p>'}
     ${trip.data ? `<div class="pgs">${kinds.map(k => `<div class="pg"><h3>${names[k]}</h3><canvas data-kind="${k}"></canvas></div>`).join('')}</div>` : ''}
     <p class="pfoot">Magenta line on the graphs: the planned start. Not for navigation; check official forecasts and local conditions. Planned with Outback, ${esc(appUrl())}</p>`;
   if ($('#printView').hidden){ $('#printView').hidden = false; history.pushState({ print: 1 }, ''); }
   $('#printView').scrollTop = 0;
   // laid out at paper width; the on-screen preview is shrunk to fit (print resets it)
   const doc = $('#printDoc'), fitW = () => { doc.style.zoom = Math.min(1, ($('#printView').clientWidth - 16) / doc.offsetWidth); };
-  doc.style.zoom = 1; fitW();
+  doc.style.zoom = 1;
+  // one Letter page (10.3 in inside the margins): a long sheet takes the room from the map, down to 2.2 in
+  const pm = $('#pMap'); pm.style.height = '';
+  const over = doc.offsetHeight - 10.1 * 96; if (over > 0) pm.style.height = Math.max(2.2 * 96, pm.offsetHeight - over) + 'px';
+  fitW();
   // graphs with the cursor at the planned start
   const tMin = state.tMin; state.tMin = trip.start;
   $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr: 3 }));
@@ -2709,6 +2719,7 @@ async function openPrint(){
 }
 $('#printPlan').onclick = openPrint;
 $('#pPrint').onclick = () => print();
+$('#pNamed').onchange = e => { settings.printNamed = e.target.checked; saveSettings(); openPrint(); };
 $('#pClose').onclick = () => history.state?.print ? history.back() : closePrint();
 
 /* ---------- help page ---------- */
