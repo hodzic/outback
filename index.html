@@ -259,7 +259,10 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
 .sh .add{width:100%;margin-top:10px}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tabs) + 12px);z-index:3000;background:var(--ink);color:#fff;
   padding:10px 16px;border-radius:12px;font-size:15px;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
-#toast.show{opacity:1}
+#toast.show{opacity:1} #toast.show.link{pointer-events:auto;cursor:pointer}
+.sm{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 12px;margin:6px 0 10px}
+.sm>div{display:flex;align-items:center;gap:8px;font-size:14px;line-height:1.35} .sm svg{flex:none;width:40px;height:44px}
+.sm .pair{gap:2px} .sm .pair svg{width:34px;height:40px} .sm .pair span{margin-left:6px} .sm b{font-weight:700}
 body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
 </style>
 </head>
@@ -510,6 +513,25 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>Stops</b>: tap a waypoint, then <b>Stop here</b>, and enter the minutes (e.g. 45 for lunch). The stop is added to the trip's duration and every later arrival time; the waypoint table shows when you leave again. 0 removes it.</li>
         </ul>
       </details>
+      <details class="card help" id="helpSeamarks"><summary>Sea marks legend</summary>
+        <p>⚓ on the map (paddle trips) shows OpenSeaMap's buoys, beacons and lights, drawn as on a nautical chart. The US uses the IALA B system: <b>red right returning</b>. Coming in from the sea, up a river or into a harbour, keep red marks on your right and green on your left; going out, the other way round.</p>
+        <h3>Channel (lateral) marks</h3>
+        <div class="sm" id="smLateral"></div>
+        <h3>Cardinal marks: the safe water is on the named side</h3>
+        <p>Black and yellow, with two black cones on top. The cones point to where the black is: up for north, down for south.</p>
+        <div class="sm" id="smCardinal"></div>
+        <h3>Other marks</h3>
+        <div class="sm" id="smOther"></div>
+        <h3>Light codes</h3>
+        <p>The label by a light gives its pattern, colour, period and sometimes height and range, e.g. <b>Fl G 4s 15ft 5M</b>: flashing green every 4 seconds, 15 ft up, seen 5 nautical miles.</p>
+        <ul>
+          <li><b>F</b> fixed (steady) · <b>Fl</b> flashing (short on, long off) · <b>Fl(2)</b> groups of two flashes · <b>Q</b> quick, ~60 a minute · <b>VQ</b> very quick</li>
+          <li><b>Iso</b> isophase, equal on and off · <b>Oc</b> occulting, mostly on with short eclipses · <b>LFl</b> long flash · <b>Mo(A)</b> Morse code "A" (safe water)</li>
+          <li>Colours: <b style="color:#d40000">R</b> red, <b style="color:#00a000">G</b> green, <b style="color:#b38f00">Y</b> yellow, <b>W</b> white (the default when none is given) · <b>Al</b> alternating colours</li>
+          <li>Cardinal lights are white and quick: north continuous, east groups of 3, south 6 plus a long flash, west 9 (like a clock face).</li>
+        </ul>
+        <p class="muted">Simplified; the full list is NOAA's U.S. Chart No. 1 (nauticalcharts.noaa.gov). OpenSeaMap is volunteer-made: not every mark is mapped, and positions can be off. Not for navigation.</p>
+      </details>
       <details class="card help" id="helpShare"><summary>Sharing and printing a trip</summary>
         <ul>
           <li><b>Share plan</b> (Trip tab, under Tracks) writes the trip out as plain text anyone can read: day and start time, route, every waypoint with coordinates, leg, bearing and estimated arrival, your markers and the day's forecast. <b>Copy text</b> to paste it into a club forum or email; <b>Share…</b> sends it with the GPX file where the phone allows; <b>GPX file</b> is for people with a GPS or map app.</li>
@@ -543,7 +565,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-10s';
+const APP_VERSION = '2026-10-10t';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -555,7 +577,8 @@ settings.speedsKt = { paddle: 3, hike: 2.17, bike: 8.69, ...settings.speedsKt };
 const saveSettings = () => LS.set('settings', settings);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let toastT;
-function toast(msg, ms = 2800){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
+// help: a Help section the toast opens when tapped
+function toast(msg, ms = 2800, help = null){ const t = $('#toast'); t.textContent = msg; t.dataset.help = help || ''; t.classList.toggle('link', !!help); t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms); }
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 
 /* ---------- IndexedDB ---------- */
@@ -878,7 +901,7 @@ function setLayer(k){
   $('#layerBtn').textContent = LAYERS[k].name;
 }
 setLayer(settings.layer in LAYERS ? settings.layer : 'chart');
-$('#seaBtn').onclick = () => { settings.seamarks = !settings.seamarks; saveSettings(); seaState(); toast(settings.seamarks ? 'Sea marks on (OpenSeaMap): buoys, beacons, lights and harbours.' : 'Sea marks off.'); };
+$('#seaBtn').onclick = () => { settings.seamarks = !settings.seamarks; saveSettings(); seaState(); settings.seamarks ? toast('Sea marks on (OpenSeaMap). Tap here for the legend.', 4500, 'helpSeamarks') : toast('Sea marks off.'); };
 $('#layerBtn').onclick = () => setLayer(LAYER_ORDER[(LAYER_ORDER.indexOf(settings.layer) + 1) % LAYER_ORDER.length]);
 $('#tripChip').onclick = () => showView(1);
 $('#mini').onclick = () => showView(1);
@@ -2696,6 +2719,42 @@ function openHelp(id){
 const closeHelp = () => { if (!$('#helpPage').hidden) history.state?.help ? history.back() : ($('#helpPage').hidden = true); };
 addEventListener('popstate', () => { $('#helpPage').hidden = true; closePrint(); });
 document.addEventListener('click', e => { if (e.target.closest('[data-help]')) openHelp(); });
+$('#toast').addEventListener('click', e => { const h = e.currentTarget.dataset.help; if (h){ e.currentTarget.classList.remove('show', 'link'); openHelp(h); } });
+// Sea marks legend: the buoys and beacons drawn in their chart colours
+const SM_C = { R: '#d40000', G: '#00a000', Y: '#f0c000', B: '#111', W: '#fff', O: '#f07800' };
+function smSvg({ shape = 'pillar', bands = 'R', vert = false, top = '', n = '' }){
+  const body = { pillar: 'M14 40 L16.5 18 L23.5 18 L26 40 Z', can: 'M12 40 L12 21 L28 21 L28 40 Z', nun: 'M12 40 L12 27 L20 15 L28 27 L28 40 Z',
+    tri: 'M8 32 L20 11 L32 32 Z', sq: 'M10 12 L30 12 L30 32 L10 32 Z', spar: 'M18 40 L18.5 14 L21.5 14 L22 40 Z' }[shape];
+  const [y0, y1] = { pillar: [18, 40], can: [21, 40], nun: [17, 40], tri: [18, 32], sq: [12, 32], spar: [14, 40] }[shape], h = y1 - y0;
+  const id = 'sm' + Math.random().toString(36).slice(2, 8), k = bands.length;
+  const fills = [...bands].map((c, i) => vert ? `<rect x="${10 + i * 20 / k}" y="0" width="${20 / k + .2}" height="44" fill="${SM_C[c]}"/>`
+    : `<rect x="0" y="${y0 + i * h / k}" width="40" height="${h / k + .2}" fill="${SM_C[c]}"/>`).join('');
+  const tri = (up, y, c = '#111') => `<path d="${up ? `M20 ${y} L15 ${y + 6} L25 ${y + 6}Z` : `M15 ${y} L25 ${y} L20 ${y + 6}Z`}" fill="${c}"/>`;
+  const tops = { N: tri(1, 1) + tri(1, 8), S: tri(0, 1) + tri(0, 8), E: tri(1, 1) + tri(0, 8), W: tri(0, 1) + tri(1, 8),
+    balls: '<circle cx="20" cy="4" r="3" fill="#111"/><circle cx="20" cy="11.5" r="3" fill="#111"/>', ball: `<circle cx="20" cy="9" r="4" fill="${SM_C.R}"/>`,
+    x: `<path d="M15.5 4 L24.5 13 M24.5 4 L15.5 13" stroke="${SM_C.Y}" stroke-width="3" stroke-linecap="round"/>`, cone: tri(1, 6, SM_C.R), cyl: `<rect x="16" y="7" width="8" height="8" fill="${SM_C.G}"/>` }[top] || '';
+  return `<svg viewBox="0 0 40 44" aria-hidden="true">${top ? '<path d="M20 9 L20 18" stroke="#111" stroke-width="1.5"/>' : ''}${tops}
+    <clipPath id="${id}"><path d="${body}"/></clipPath><g clip-path="url(#${id})">${fills}</g><path d="${body}" fill="none" stroke="#333" stroke-width="1"/>
+    ${n ? `<text x="20" y="${shape === 'tri' ? 29 : shape === 'sq' ? 27 : 35}" text-anchor="middle" font-size="9" font-weight="700" fill="${bands === 'Y' || bands === 'W' ? '#111' : '#fff'}">${n}</text>` : ''}
+    ${['tri', 'sq'].includes(shape) ? '<path d="M20 32 L20 43" stroke="#555" stroke-width="2"/>' : '<path d="M7 41.5 L33 41.5" stroke="#7fb1d9" stroke-width="2"/>'}</svg>`;
+}
+const smLight = '<svg viewBox="0 0 40 44" aria-hidden="true"><path d="M20 30 C12 22 11 12 16 6 C21 2 27 6 25 14 C24 20 22 25 20 30Z" fill="#d1009b" opacity=".85"/><circle cx="20" cy="31" r="2.5" fill="#111"/><path d="M14 40 L26 40" stroke="#555" stroke-width="2"/></svg>';
+const smRow = (svgs, html) => `<div${svgs.length > 1 ? ' class="pair"' : ''}>${svgs.join('')}<span>${html}</span></div>`;
+$('#smLateral').innerHTML = [
+  smRow([smSvg({ shape: 'nun', bands: 'R', n: '2' }), smSvg({ shape: 'tri', bands: 'R', n: '4' })], '<b style="color:#d40000">Red</b>, even numbers: nun buoy or triangle beacon. Keep on your <b>right</b> coming in.'),
+  smRow([smSvg({ shape: 'can', bands: 'G', n: '1' }), smSvg({ shape: 'sq', bands: 'G', n: '3' })], '<b style="color:#00a000">Green</b>, odd numbers: can buoy or square beacon. Keep on your <b>left</b> coming in.'),
+  smRow([smSvg({ shape: 'nun', bands: 'RGR' }), smSvg({ shape: 'can', bands: 'GRG' })], 'Junction: the channel splits. The top band shows the main channel: red on top, treat it as red.'),
+  smRow([smSvg({ shape: 'pillar', bands: 'R', top: 'cone' }), smSvg({ shape: 'pillar', bands: 'G', top: 'cyl' })], 'Pillar or spar buoys work the same: the colour and topmark (cone red, cylinder green) give the side.')
+].join('');
+$('#smCardinal').innerHTML = [['N', 'BY', 'North: pass north of it'], ['E', 'BYB', 'East: pass east of it'], ['S', 'YB', 'South: pass south of it'], ['W', 'YBY', 'West: pass west of it']]
+  .map(([t, b, s]) => smRow([smSvg({ bands: b, top: t })], `<b>${s}</b>`)).join('');
+$('#smOther').innerHTML = [
+  smRow([smSvg({ bands: 'BRB', top: 'balls' })], '<b>Isolated danger</b>: a rock or wreck right at the mark, open water around it. Keep well off.'),
+  smRow([smSvg({ bands: 'RWRW', vert: true, top: 'ball' })], '<b>Safe water</b>: red and white stripes, red ball. Fairway or channel entrance; water all around.'),
+  smRow([smSvg({ bands: 'Y', top: 'x' })], '<b style="color:#b38f00">Special mark</b>: yellow, X on top. A zone (swim area, speed limit, cable, outfall, race course); check the chart or signs.'),
+  smRow([smSvg({ shape: 'can', bands: 'WOW' })], '<b>White with orange</b>: regulatory (no wake, keep out, danger). Read the sign on it.'),
+  smRow([smLight], '<b style="color:#d1009b">Magenta flare</b>: the mark has a light; the label gives its code (below).')
+].join('');
 document.addEventListener('click', e => {
   const a = e.target.closest('[data-wtstart]'); if (!a) return; e.preventDefault();
   const w = waterTrail.sites?.find(x => x.id === a.dataset.wtstart); if (!w) return;

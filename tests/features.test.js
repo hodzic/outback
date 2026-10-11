@@ -238,7 +238,7 @@ module.exports = async (browser, url, check) => {
   { // Help: its own page from the ? buttons
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);
-    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll('#helpPage .help').length === 7));
+    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll('#helpPage .help').length === 8));
     c('? button at the top of Trips and Trip', await page.evaluate(() => ['#vTrips', '#vTrip'].every(v => document.querySelector(v + ' [data-help]'))));
     for (const v of [1, 0]){
       await view(page, v); await page.locator(['#vTrips', '#vTrip'][v] + ' [data-help]').click();
@@ -483,6 +483,13 @@ module.exports = async (browser, url, check) => {
     await page.click('#seaBtn'); await page.waitForTimeout(400);
     c('⚓ shows OpenSeaMap sea marks and is remembered', sea.length > 0 && await page.evaluate(() => settings.seamarks === true && map.hasLayer(seaLayer) && document.querySelector('#seaBtn').classList.contains('on'))
       && /OpenSeaMap/.test(await page.text('.leaflet-control-attribution')), sea[0]);
+    c('⚓ toast offers the legend', /Tap here for the legend/.test(await page.text('#toast')));
+    await page.click('#toast'); await page.waitForTimeout(400);
+    const lg = await page.evaluate(() => ({ open: !$('#helpPage').hidden && $('#helpSeamarks').open, svgs: document.querySelectorAll('#helpSeamarks .sm svg').length,
+      red: !!document.querySelector('#smLateral svg rect[fill="#d40000"]'), cones: document.querySelectorAll('#smCardinal svg path[fill="#111"]').length }));
+    c('tapping it opens the sea marks legend with drawn symbols in colour', lg.open && lg.svgs >= 15 && lg.red && lg.cones === 8, JSON.stringify(lg));
+    await page.locator('#helpSeamarks').screenshot({ path: path.join(OUT, 'feat-seamark-legend.png') });
+    await page.click('#helpClose'); await page.waitForTimeout(300);
     await page.click('#layerBtn'); await page.waitForTimeout(200);
     c('sea marks stay on when the base layer changes', await page.evaluate(() => map.hasLayer(seaLayer)));
     await page.screenshot({ path: path.join(OUT, 'feat-seamarks.png') });
