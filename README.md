@@ -49,7 +49,8 @@ Three views; swipe between them or use the tabs at the bottom.
   3. blue dot and large coordinates (decimal degrees and accuracy) for an emergency call; tap them to copy;
   4. blue dot only.
 
-  The dot draws above waypoints. A waypoint's popup shows its distance, time and ETA from you along the route;
+  On loops and out-and-backs, where legs overlap, your progress along the route decides which pass you're on (kept
+  across restarts, reset after 12 hours without a fix). The dot draws above waypoints. A waypoint's popup shows its distance, time and ETA from you along the route;
   hiking and biking elevation graphs show you as a blue dot.
 
   Hold the button to turn location off; the next tap brings back the mode you had.
