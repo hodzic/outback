@@ -102,6 +102,21 @@ module.exports = async (browser, url, check) => {
     c('loop: at the launch the next checkpoint is the first one, not the finish', (await page.text('#toNext')).startsWith('⚑ 2 Island'), await page.text('#toNext'));
     for (const [la, lo] of [[37.805, -122.44], [37.8101, -122.4301], [37.805, -122.425], [37.8, -122.43], [37.80003, -122.4460]]){ await ctx.setGeolocation({ latitude: la, longitude: lo }); await page.waitForTimeout(500); }
     c('loop: coming back to the launch, the finish is next', (await page.text('#toNext')).startsWith('⚑ Finish Launch'), await page.text('#toNext'));
+    // out-and-back: the return retraces the way out; after the turn-around the return checkpoint is next
+    await page.evaluate(() => { trip.route = [[37.80, -122.45], [37.81, -122.43, 'Buoy', 0, 1], [37.82, -122.41, 'Turn'], [37.81, -122.43, 'Buoy back', 0, 1], [37.80, -122.45, 'Home']]; changed(); });
+    const goTo = async pts => { for (const [la, lo] of pts){ await ctx.setGeolocation({ latitude: la, longitude: lo }); await page.waitForTimeout(450); } };
+    await goTo([[37.8001, -122.4499], [37.805, -122.44]]);
+    c('out-and-back: on the way out the outbound checkpoint is next', (await page.text('#toNext')).startsWith('⚑ 2 Buoy ·'), await page.text('#toNext'));
+    await goTo([[37.8101, -122.4301], [37.815, -122.42], [37.8199, -122.4101], [37.815, -122.42], [37.8101, -122.4301], [37.805, -122.44]]);
+    c('out-and-back: past the return checkpoint, on the stretch both ways share, the finish is next', (await page.text('#toNext')).startsWith('⚑ Finish Home'), await page.text('#toNext'));
+    await page.reload(); await ready(page); await view(page, 2); await page.waitForTimeout(300);
+    if (await page.evaluate(() => state.locMode !== 4)) await page.evaluate(() => setLocMode(4));
+    await goTo([[37.8049, -122.4401]]);
+    c('out-and-back: progress survives a restart', (await page.text('#toNext')).startsWith('⚑ Finish Home'), await page.text('#toNext'));
+    c('progress is left out of backups', await page.evaluate(() => SKIP_SETTINGS.includes('prog') && !!settings.prog));
+    await page.evaluate(() => { state.prog.at -= 13 * 36e5; });
+    await goTo([[37.8048, -122.4402]]);
+    c('out-and-back: progress older than 12 hours starts over (the way out)', (await page.text('#toNext')).startsWith('⚑ 2 Buoy ·'), await page.text('#toNext'));
     await page.evaluate(() => { trip.route = [[37.80, -122.45], [37.81, -122.42, 'Pier', 20, 1], [37.82, -122.40]]; changed(); });
     await page.click('#locBtn'); await page.waitForTimeout(300);
     c('third tap: large coordinates', await page.evaluate(() => state.locMode === 2) && await page.isVisible('#coords.big .cbig')

@@ -512,6 +512,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
             <b>→</b> the next waypoint with distance and magnetic bearing; <b>⚑</b> the next checkpoint with the distance, time and arrival time along the route; <b>XY</b> large coordinates for an emergency call (tap them to copy); <b>•</b> the dot only. Hold the button to turn location off.</li>
           <li><b>Checkpoints</b>: tap a waypoint, then <b>⚑ Checkpoint</b> (a crossing, a turn-around point, the lunch beach). Checkpoints are drawn as rounded squares. With no checkpoint ahead, ⚑ counts to the finish.</li>
           <li>Times from your location use the trip's speed plus the stops on the way, and the time to get back onto the route if you're off it.</li>
+          <li>On a loop back to the launch or an out-and-back, where the way back passes the same spots, the app goes by how far along the route you've got, so the checkpoints come in order. It remembers your progress if the app restarts, and starts over after 12 hours without location.</li>
           <li>Tap any waypoint to see how far it is from you along the route, how long it takes and when you'd get there (or how far back it is once passed).</li>
           <li>On hikes and rides the elevation graph shows you as a blue dot while location is on and you're near the route.</li>
         </ul>
@@ -587,7 +588,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-11f';
+const APP_VERSION = '2026-10-11g';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -823,7 +824,7 @@ const MOON = (() => {
 
 /* ---------- state ---------- */
 const state = { legs: new Set(), undo: [], tMin: 600, drawing: false, pos: null, watch: null,
-  locating: false, locMode: 0, showStations: false, nextWp: null, view: -1 };
+  locating: false, locMode: 0, showStations: false, nextWp: null, view: -1, prog: settings.prog || null };
 let trip;
 function newTrip(activity = 'paddle'){
   return { id: 't' + Date.now().toString(36), name: `New ${ACT[activity].name.toLowerCase()}`, activity, env: ACT[activity].detect ? null : ACT[activity].envs[0], envSet: !ACT[activity].detect, date: ymd(new Date()), start: settings.start ?? START, route: [], tracks: [], marks: [], parking: null,
@@ -2067,8 +2068,10 @@ function onPos(p){
 // Where you are on the route: the leg you're closest to (i = its end), how far along it (f), the point
 // on it (at), the distance from the start along the route and how far off the route you are (nm).
 // Where legs pass about as close (a loop back to the launch, an out-and-back), the one nearest your last
-// progress along this route wins; with none yet (location just turned on), the earliest.
-const NEAR_M = 25, TIE_M = 30;
+// progress along this route wins, never one back behind the furthest you've got (beyond GPS jitter) while
+// one ahead fits; with no progress yet, the earliest. Progress is kept per route, across restarts, until 12 hours
+// without a fix (the same route paddled another day starts over).
+const NEAR_M = 25, TIE_M = 30, BACK_NM = 60 / 1852;
 function routePos(pos, r){
   if (!pos || r.length < 2) return null;
   const k = Math.cos(toR(pos[0])), xy = p => [p[1] * k * 60 * 1852, p[0] * 60 * 1852]; // metres, flat
@@ -2080,15 +2083,20 @@ function routePos(pos, r){
     const d = Math.hypot(px - ax - f * dx, py - ay - f * dy), len = distNm(r[i-1], r[i]);
     legs.push({ i, f, d, along: cum + f * len }); cum += len; bd = Math.min(bd, d);
   }
-  const prog = state.prog?.key === routeKey(r) ? state.prog.along : null, near = legs.filter(l => l.d <= bd + TIE_M);
-  const g = prog == null ? near[0] : near.reduce((a, b) => Math.abs(b.along - prog) < Math.abs(a.along - prog) ? b : a);
+  const P = progFor(r), near = legs.filter(l => l.d <= bd + TIE_M);
+  const fwd = P && near.filter(l => l.along >= P.max - BACK_NM);
+  const g = !P ? near[0] : (fwd.length ? fwd : near).reduce((a, b) => Math.abs(b.along - P.along) < Math.abs(a.along - P.along) ? b : a);
   const a = r[g.i - 1], b = r[g.i];
   return { i: g.i, f: g.f, at: [a[0] + (b[0] - a[0]) * g.f, a[1] + (b[1] - a[1]) * g.f], along: g.along, off: g.d / 1852 };
 }
 // your progress along the route, kept from fix to fix
+const PROG_MS = 12 * 36e5;
+const progFor = r => state.prog && state.prog.key === routeKey(r) && Date.now() - state.prog.at < PROG_MS ? state.prog : null;
 function trackProgress(){
-  const r = trip?.route || [], rp = routePos(state.pos, r);
-  state.prog = rp ? { key: routeKey(r), along: rp.along } : null;
+  const r = trip?.route || [], rp = routePos(state.pos, r); if (!rp) return;
+  const was = progFor(r);
+  state.prog = { key: routeKey(r), along: rp.along, max: Math.max(was?.max ?? 0, rp.along), at: Date.now() };
+  if (!was || Math.abs(was.along - rp.along) > 0.005 || Date.now() - (settings.prog?.at || 0) > 6e5){ settings.prog = state.prog; saveSettings(); }
 }
 // Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.
 function nextWaypoint(pos, r){
@@ -3072,7 +3080,7 @@ $('#file').onchange = async e => {
 /* ---------- backup ---------- */
 // One file with every trip, PDF map and setting. Restore merges: newer copies of a trip win, maps are added.
 const DAY = 864e5, NAG_DAYS = 14;
-const SKIP_SETTINGS = ['view', 'shownMaps', 'lastBackup', 'backupNag', 'firstRun'];
+const SKIP_SETTINGS = ['view', 'shownMaps', 'lastBackup', 'backupNag', 'firstRun', 'prog'];
 const toDataUrl = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
 function fromDataUrl(u){
   const [h, d] = String(u).split(','), bin = atob(d), a = new Uint8Array(bin.length);
