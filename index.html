@@ -289,7 +289,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
       </details>
@@ -322,6 +322,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <div class="cell wide tempc"><div class="k">Temperature</div><div class="v" id="tempV">–</div><div class="s" id="tempS">&nbsp;</div></div>
           <div class="cell tidal"><div class="k" id="tideK">Tide</div><div class="v" id="tideV">–</div><div class="s" id="tideS">&nbsp;</div></div>
           <div class="cell curc"><div class="k" id="curK">Current</div><div class="v" id="curV">–</div><div class="s" id="curS">&nbsp;</div></div>
+          <div class="cell waterc"><div class="k" id="waterK">Water</div><div class="v" id="waterV">–</div><div class="s" id="waterS">&nbsp;</div></div>
           <div class="cell elevc"><div class="k">Elevation</div><div class="v" id="elevV">–</div><div class="s" id="elevS">&nbsp;</div></div>
           <div class="cell"><div class="k" id="windK">Wind</div><div class="v" id="windV">–</div></div>
           <div class="cell"><div class="k">Pressure · mb</div><div class="v" id="presV">–</div><div class="s" id="presS">&nbsp;</div></div>
@@ -586,7 +587,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-11e';
+const APP_VERSION = '2026-10-11f';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1142,6 +1143,37 @@ async function fetchWx(c){
   const h = j.hourly, off = (j.utc_offset_seconds || 0) * 1000;
   return { tz: j.timezone, t: h.time.map(s => Date.parse(s + 'Z') - off), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
 }
+// Water temperature (paddle trips): the nearest NOAA station that measures it (readings on the trip day, or
+// the latest one for a day ahead), and Open-Meteo's sea surface model for the day (coarse, open water only).
+const COLD_F = 60;
+async function fetchWater(c){
+  const [n, m] = await Promise.allSettled([waterNoaa(c), waterModel(c)]);
+  const noaa = n.status === 'fulfilled' ? n.value : null, model = m.status === 'fulfilled' ? m.value : null;
+  if (!noaa && !model) throw new Error('none nearby');
+  return { noaa, model };
+}
+async function waterNoaa(c){
+  const s = (await stationList('watertemp')).map(s => ({ s, d: distNm(c, [s.lat, s.lng]) })).filter(x => x.d < 15).sort((a, b) => a.d - b.d)[0]?.s;
+  if (!s) return null;
+  const out = { id: s.id, name: s.name, lat: s.lat, lng: s.lng };
+  if (trip.date <= todayIso()){ // what it measured on the trip day
+    const j = await noaa({ product: 'water_temperature', station: s.id }), a = dayStart(), b = a + 864e5;
+    const vs = (j.data || []).map(x => ({ t: gmt(x.t), v: parseFloat(x.v) })).filter(x => isFinite(x.v) && x.t >= a && x.t < b);
+    if (vs.length) return { ...out, lo: Math.min(...vs.map(x => x.v)), hi: Math.max(...vs.map(x => x.v)), v: vs[vs.length - 1].v, at: vs[vs.length - 1].t };
+  }
+  const q = new URLSearchParams({ product: 'water_temperature', station: s.id, date: 'latest', time_zone: 'gmt', units: 'english', format: 'json', application: 'Outback' });
+  const j = await (await fetch('https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?' + q)).json(), x = j.data?.[0];
+  if (!x || !isFinite(parseFloat(x.v))) return null;
+  return { ...out, v: parseFloat(x.v), at: gmt(x.t) };
+}
+async function waterModel(c){
+  const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4), hourly: 'sea_surface_temperature', temperature_unit: 'fahrenheit', timezone: 'GMT', start_date: shiftDay(trip.date, -1), end_date: shiftDay(trip.date, 1) });
+  const j = await (await fetch('https://marine-api.open-meteo.com/v1/marine?' + q)).json();
+  if (j.error || !j.hourly) return null;
+  const a = dayStart() + 6 * 36e5, b = dayStart() + 20 * 36e5; // daytime
+  const vs = j.hourly.time.map((t, i) => [Date.parse(t + 'Z'), j.hourly.sea_surface_temperature[i]]).filter(([t, v]) => v != null && t >= a && t <= b).map(x => x[1]);
+  return vs.length ? { lo: Math.min(...vs), hi: Math.max(...vs) } : null;
+}
 // Elevation profile along the route (Open-Meteo, 90 m DEM), up to 100 samples.
 const routeKey = r => r.map(p => p[0] + ',' + p[1]).join(';');
 const ll2 = p => [p[0], p[1]];
@@ -1205,12 +1237,13 @@ async function getForecast(){
     }
     const data = trip.data || {};
     const none = () => Promise.reject(new Error('none nearby'));
-    const [t, cu, w, th, el] = await Promise.allSettled([
+    const [t, cu, w, th, el, wa] = await Promise.allSettled([
       !isTidal() ? null : trip.tide ? fetchTide(trip.tide) : none(),
       !hasCurrents() ? null : trip.current ? fetchCurrent(trip.current) : none(),
       fetchWx(c),
       fetchThunder(c),
-      hasElev() && trip.route.length > 1 ? fetchElev(trip.route) : null
+      hasElev() && trip.route.length > 1 ? fetchElev(trip.route) : null,
+      trip.activity === 'paddle' ? fetchWater(c) : null
     ]);
     if (t.status === 'fulfilled') data.tide = t.value; else { data.tide = null; errs.push('tides (' + t.reason.message + ')'); }
     if (cu.status === 'fulfilled'){ if (cu.value) Object.assign(data, cu.value); else data.current = null; } else { data.current = null; errs.push('currents (' + cu.reason.message + ')'); }
@@ -1218,6 +1251,7 @@ async function getForecast(){
     else { data.wx = null; errs.push('weather (' + w.reason.message + ')'); }
     data.thunder = th.status === 'fulfilled' ? th.value : null;
     if (el.status === 'fulfilled'){ if (el.value) data.elev = el.value; } else errs.push('elevation (' + el.reason.message + ')');
+    data.water = wa.status === 'fulfilled' ? wa.value : null;
     trip.data = data; trip.fetchedAt = Date.now();
     if (!trip.route.length || !map.getBounds().contains(centroid())) fitTrip(true); // keep the view you set up, if it shows the trip
     trip.anchor = { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() };
@@ -1358,6 +1392,20 @@ function dayFacts(sun){
   if (th.length){ const m = th.reduce((a, x) => x.v > a.v ? x : a, th[0]); o.th = { v: m.v, t: Math.max(m.t, lit0) }; }
   return o;
 }
+// The day's water temperature: measured that day, else the model forecast, else the latest reading
+function renderWater(){
+  const cell = $('.cell.waterc'), w = trip.data?.water, n = w?.noaa, m = w?.model;
+  cell.hidden = trip.activity !== 'paddle';
+  const range = (lo, hi) => (temp(lo) === temp(hi) ? temp(lo) : `${temp(lo)} – ${temp(hi)}`) + tUnit();
+  const ago = t => { const h = (Date.now() - t) / 36e5; return h < 1 ? 'just now' : h < 36 ? Math.round(h) + ' h ago' : Math.round(h / 24) + ' days ago'; };
+  let v = '–', src = trip.data ? (trip.activity === 'paddle' ? 'No reading or forecast here' : ' ') : ' ', lo = null;
+  if (n?.lo != null){ v = range(n.lo, n.hi); src = `Measured at ${n.name} (NOAA)`; lo = n.lo; }
+  else if (m){ v = range(m.lo, m.hi); src = `Forecast (Open-Meteo model)${n ? ` · ${temp(n.v)} at ${n.name} ${ago(n.at)}` : ''}`; lo = m.lo; }
+  else if (n){ v = temp(n.v) + tUnit(); src = `At ${n.name} ${ago(n.at)} (NOAA)`; lo = n.v; }
+  const cold = lo != null && lo < COLD_F;
+  $('#waterV').textContent = v; $('#waterV').classList.toggle('warn', cold);
+  $('#waterS').textContent = src + (cold ? ' · cold: dress for immersion' : '');
+}
 function render(){
   const t = tAt(), nm = routeNm(trip.route), legs = Math.max(0, trip.route.length - 1), es = elevStats();
   const tidal = isTidal(), hike = hasElev();
@@ -1429,6 +1477,7 @@ function render(){
   const top = es => es.reduce((a, e) => Math.abs(e.v) > Math.abs(a.v) ? e : a, es[0]);
   cv.innerHTML = fl.length || eb.length ? [fl.length && `<span class="flood">${Math.abs(top(fl).v).toFixed(1)}</span>`, eb.length && `<span class="ebb">-${Math.abs(top(eb).v).toFixed(1)}</span>`].filter(Boolean).join(' / ') + ' kt' : '–';
   $('#curS').innerHTML = dy.cur.length ? `<div class="tl">${dy.cur.map(e => `<span>${hmS(e.t)}</span><span class="${e.type}">${e.type === 'slack' ? 'Slack' : `${e.type === 'flood' ? 'Flood' : 'Ebb'} ${e.v.toFixed(1)}`}</span>`).join('')}</div>` : ' ';
+  renderWater();
   $('#elevV').textContent = es ? `+${ft(es.up)} / −${ft(es.down)}` : '–';
   $('#elevS').textContent = es ? `High ${ft(es.hi)} · low ${ft(es.lo)}` : (trip.route.length > 1 ? 'Tap Get forecast for the profile' : ' ');
 
@@ -2010,27 +2059,36 @@ function onPos(p){
   state.pos = [c.latitude, c.longitude];
   showMe(state.pos, c.accuracy);
   state.fix = { lat: c.latitude, lng: c.longitude, acc: c.accuracy };
-  showCoords(); showToNext();
+  trackProgress(); showCoords(); showToNext();
   locBtnState();
   if (trip && state.view === 1 && curGraph() === 'elev') drawChart(sunTimes(trip.date, ...centroid()));
   if (ais.on) drawShipsSoon();
 }
 // Where you are on the route: the leg you're closest to (i = its end), how far along it (f), the point
 // on it (at), the distance from the start along the route and how far off the route you are (nm).
-const NEAR_M = 25;
+// Where legs pass about as close (a loop back to the launch, an out-and-back), the one nearest your last
+// progress along this route wins; with none yet (location just turned on), the earliest.
+const NEAR_M = 25, TIE_M = 30;
 function routePos(pos, r){
   if (!pos || r.length < 2) return null;
   const k = Math.cos(toR(pos[0])), xy = p => [p[1] * k * 60 * 1852, p[0] * 60 * 1852]; // metres, flat
-  const [px, py] = xy(pos);
-  let best = 1, bd = Infinity, bf = 0;
+  const [px, py] = xy(pos), legs = [];
+  let cum = 0, bd = Infinity;
   for (let i = 1; i < r.length; i++){
     const [ax, ay] = xy(r[i-1]), [bx, by] = xy(r[i]), dx = bx - ax, dy = by - ay, L2 = dx*dx + dy*dy;
     const f = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / L2)) : 0;
-    const d = Math.hypot(px - ax - f * dx, py - ay - f * dy);
-    if (d < bd - 1e-9){ bd = d; best = i; bf = f; }
+    const d = Math.hypot(px - ax - f * dx, py - ay - f * dy), len = distNm(r[i-1], r[i]);
+    legs.push({ i, f, d, along: cum + f * len }); cum += len; bd = Math.min(bd, d);
   }
-  const a = r[best - 1], b = r[best];
-  return { i: best, f: bf, at: [a[0] + (b[0] - a[0]) * bf, a[1] + (b[1] - a[1]) * bf], along: routeNm(r.slice(0, best)) + bf * distNm(a, b), off: bd / 1852 };
+  const prog = state.prog?.key === routeKey(r) ? state.prog.along : null, near = legs.filter(l => l.d <= bd + TIE_M);
+  const g = prog == null ? near[0] : near.reduce((a, b) => Math.abs(b.along - prog) < Math.abs(a.along - prog) ? b : a);
+  const a = r[g.i - 1], b = r[g.i];
+  return { i: g.i, f: g.f, at: [a[0] + (b[0] - a[0]) * g.f, a[1] + (b[1] - a[1]) * g.f], along: g.along, off: g.d / 1852 };
+}
+// your progress along the route, kept from fix to fix
+function trackProgress(){
+  const r = trip?.route || [], rp = routePos(state.pos, r);
+  state.prog = rp ? { key: routeKey(r), along: rp.along } : null;
 }
 // Next waypoint = end of the route leg you're closest to; within a few metres of it, the one after.
 function nextWaypoint(pos, r){

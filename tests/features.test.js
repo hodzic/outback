@@ -50,6 +50,36 @@ module.exports = async (browser, url, check) => {
     await page.screenshot({ path: path.join(OUT, 'feat-hike.png') });
     c('no page errors (hike)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
+  { // water temperature on paddle trips: NOAA readings that day, else the model forecast, else the latest reading
+    const SF = [[37.8321, -122.4762], [37.8110, -122.4200]];
+    const water = async (mock, date) => {
+      const { ctx, page, errors } = await open(browser, url, {}, mock);
+      await page.goto(url); await ready(page); await seedRoute(page, SF);
+      if (date) await page.evaluate(d => { trip.date = d; changed(); }, date);
+      await view(page, 1); await page.click('#fcBtn'); await waitForecast(page);
+      const r = { v: await page.text('#waterV'), s: await page.text('#waterS'), warn: await page.evaluate(() => $('#waterV').classList.contains('warn')), shown: await page.isVisible('#waterV'), page, ctx, errors };
+      return r; };
+    let w = await water({});
+    c('water: measured at the NOAA station on the trip day, cold warning', /^5[6-8]° – 5[6-8]°F$/.test(w.v) && /Measured at San Francisco \(NOAA\) · cold: dress for immersion/.test(w.s) && w.warn, `${w.v} | ${w.s}`);
+    const txt = await w.page.evaluate(() => planText());
+    c('Share plan includes the water temperature', /Water: 5\d° – 5\d°F; Measured at San Francisco/.test(txt), txt.split('\n').filter(l => /Water/.test(l)).join());
+    await w.page.click('#actSel [data-act=hike]');
+    c('no water cell on a hike', !(await w.page.isVisible('#waterV')));
+    c('no page errors (water)', w.errors.length === 0, w.errors.join(' | ')); await w.ctx.close();
+    const ahead = await (async () => { const d = new Date(Date.now() + 3 * 864e5); return d.toISOString().slice(0, 10); })();
+    w = await water({}, ahead);
+    c('water a few days ahead: the model forecast, with the latest reading', /^6[1-3]° – 6[1-3]°F$/.test(w.v) && /^Forecast \(Open-Meteo model\) · 57° at San Francisco 2 h ago$/.test(w.s) && !w.warn, `${w.v} | ${w.s}`);
+    await w.ctx.close();
+    w = await water({ water: 'nomodel' }, ahead);
+    c('model has no data there: the latest NOAA reading', w.v === '57°F' && /^At San Francisco 2 h ago \(NOAA\) · cold/.test(w.s), `${w.v} | ${w.s}`);
+    await w.ctx.close();
+    w = await water({ water: 'model' });
+    c('no NOAA water station nearby: the model', /^6[1-3]° – 6[1-3]°F$/.test(w.v) && w.s === 'Forecast (Open-Meteo model)', `${w.v} | ${w.s}`);
+    await w.ctx.close();
+    w = await water({ water: 'none' });
+    c('neither: says so, and the forecast still saves', w.v === '–' && w.s === 'No reading or forecast here' && /Forecast saved/.test(await w.page.text('#toast')), `${w.v} | ${w.s} | ${await w.page.text('#toast')}`);
+    await w.ctx.close(); }
+
   { // coastal hike gets tides but no currents; paddle water choices in the Trip view
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page);

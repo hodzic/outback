@@ -96,6 +96,13 @@ module.exports = async (browser, url, check) => {
     pop = await page.text('.leaflet-popup-content');
     c('a passed waypoint says how far back it is', /Passed: [\d.]+ nm back along the route/.test(pop), pop);
     await page.evaluate(() => map.closePopup());
+    // a loop back to the launch: at the start the checkpoint comes first, not the finish next to you
+    await page.evaluate(() => { trip.route = [[37.800, -122.450], [37.810, -122.430, 'Island', 0, 1], [37.800, -122.420], [37.8001, -122.4498, 'Launch']]; changed(); });
+    await ctx.setGeolocation({ latitude: 37.80005, longitude: -122.44966 }); await page.waitForTimeout(700);
+    c('loop: at the launch the next checkpoint is the first one, not the finish', (await page.text('#toNext')).startsWith('⚑ 2 Island'), await page.text('#toNext'));
+    for (const [la, lo] of [[37.805, -122.44], [37.8101, -122.4301], [37.805, -122.425], [37.8, -122.43], [37.80003, -122.4460]]){ await ctx.setGeolocation({ latitude: la, longitude: lo }); await page.waitForTimeout(500); }
+    c('loop: coming back to the launch, the finish is next', (await page.text('#toNext')).startsWith('⚑ Finish Launch'), await page.text('#toNext'));
+    await page.evaluate(() => { trip.route = [[37.80, -122.45], [37.81, -122.42, 'Pier', 20, 1], [37.82, -122.40]]; changed(); });
     await page.click('#locBtn'); await page.waitForTimeout(300);
     c('third tap: large coordinates', await page.evaluate(() => state.locMode === 2) && await page.isVisible('#coords.big .cbig')
       && /^37\.\d{5}, -122\.\d{5}$/.test(await page.text('#coords .cbig')), await page.text('#coords'));

@@ -27,13 +27,22 @@ async function install(ctx, opts = {}){
       if (u.searchParams.get('type') === 'tidepredictions') return json(r, { stations: [
         { id: 9414290, name: 'San Francisco', lat: 37.8063, lng: -122.4659 },
         { id: 9414750, name: 'Alameda', lat: 37.7717, lng: -122.3 }] });
+      if (u.searchParams.get('type') === 'watertemp') return json(r, { stations: opts.water === 'model' || opts.water === 'none' ? [] : [{ id: 9414290, name: 'San Francisco', lat: 37.8063, lng: -122.4659 }] });
       return json(r, { stations: [
         { id: 'SFB1201', name: 'Golden Gate Bridge', lat: 37.8117, lng: -122.4717, currbin: 1, depth: 30 },
         { id: 'SFB1201', name: 'Golden Gate Bridge', lat: 37.8117, lng: -122.4717, currbin: 2, depth: 10 },
         { id: 'SFB1203', name: 'Alcatraz N', lat: 37.83, lng: -122.42, currbin: 1, depth: 15 }] });
     }
     if (opts.noaaErr) return json(r, { error: { message: 'No data was found' } });
-    const p = u.searchParams, b = ymdToMs(p.get('begin_date')), e = ymdToMs(p.get('end_date')) + 864e5;
+    const p = u.searchParams;
+    if (p.get('product') === 'water_temperature'){ // 56–58 °F through the day, 6-minute readings; or just the latest
+      ctx.waterHits = (ctx.waterHits || 0) + 1;
+      if (p.get('date') === 'latest') return json(r, { data: [{ t: gmtStr(Date.now() - 2 * 36e5), v: '57.2', f: '0,0,0' }] });
+      const out = [], b0 = ymdToMs(p.get('begin_date')), e0 = Math.min(ymdToMs(p.get('end_date')) + 864e5, Date.now());
+      for (let t = b0; t < e0; t += 6 * 6e4) out.push({ t: gmtStr(t), v: (57 + Math.sin(t / 864e5 * 2 * Math.PI)).toFixed(1), f: '0,0,0' });
+      return json(r, { data: out });
+    }
+    const b = ymdToMs(p.get('begin_date')), e = ymdToMs(p.get('end_date')) + 864e5;
     if (p.get('product') === 'predictions'){
       const out = []; let hi = true;
       for (let t = b + 2*36e5; t < e; t += 6.2*36e5, hi = !hi) out.push({ t: gmtStr(t), v: (hi ? 5.8 : 0.4).toFixed(3), type: hi ? 'H' : 'L' });
@@ -63,6 +72,13 @@ async function install(ctx, opts = {}){
     json(r, { timezone: zone, utc_offset_seconds: off, hourly: h });
   });
 
+  // Open-Meteo Marine: sea surface 61–63 °F (opts.water 'none' or 'nomodel': no data, as in a slough; 'model': no NOAA water station)
+  await ctx.route('https://marine-api.open-meteo.com/**', r => {
+    const u = new URL(r.request().url()), s = Date.parse(u.searchParams.get('start_date') + 'T00:00Z'), e = Date.parse(u.searchParams.get('end_date') + 'T23:00Z');
+    const h = { time: [], sea_surface_temperature: [] };
+    for (let t = s, i = 0; t <= e; t += 36e5, i++){ h.time.push(new Date(t).toISOString().slice(0, 16)); h.sea_surface_temperature.push(opts.water === 'none' || opts.water === 'nomodel' ? null : 62 + Math.sin(i / 4)); }
+    json(r, { timezone: 'GMT', hourly: h });
+  });
   await ctx.route('https://api.weather.gov/**', r => {
     const u = r.request().url();
     if (u.includes('/points/')) return json(r, { properties: { forecastGridData: 'https://api.weather.gov/gridpoints/MTR/85,105' } });
