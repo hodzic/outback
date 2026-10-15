@@ -591,7 +591,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li><b>Share or print</b> (bottom of the Trip tab) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast, plus a map image of the route on the current map layer (numbered waypoints with names, markers and parking). <b>Copy text</b> and <b>Copy image</b> to paste them into a club forum, email or chat; press and hold the map to save it to your photos.</li>
           <li><b>Share a file</b> in the same sheet: <b>1-page sheet</b> (a one-page trip sheet, see below), <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback file</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…). Each opens the phone's share sheet: send it straight on (Messages, Mail, AirDrop, another app), or pick Save to Files to keep it. A note at the bottom of the screen says when it's done.</li>
-          <li><b>1-page sheet</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Tap <b>Print</b> there, and pick a printer or save it as a PDF. With <b>1-page sheet as an image</b> ticked the button is <b>Copy image</b> instead: a sharp PNG of the same page, copied to paste into a spreadsheet or doc (saved as a file where copying isn't allowed) (the map needs its tiles to allow it; the Street layer always does).</li>
+          <li><b>1-page sheet</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Tap <b>Print</b> there, and pick a printer or save it as a PDF. With <b>1-page sheet as an image</b> ticked the button is <b>Copy image</b> instead: a PNG of the same page, copied to paste into a spreadsheet or doc (shared as a file where copying isn't allowed). Pick its <b>Size</b> under the tick box: <b>Small</b> pastes at a sensible size in Google Sheets or Docs (they show images pixel for pixel and blur them when you drag them smaller); <b>Large</b> is sharp enough to print (the map needs its tiles to allow it; the Street layer always does).</li>
           <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping 1-page sheet.</li>
           <li>Tick <b>☀ Large, bold print for reading outdoors</b> in Share or print for a sheet you can read in sun spray: bigger, bolder text, heavier lines, bigger waypoint labels and graphs. It still fits one page (the map gets smaller if needed).</li>
@@ -623,7 +623,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15i';
+const APP_VERSION = '2026-10-15j';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2899,6 +2899,7 @@ function sharePlanSheet(again){
     <h3 style="margin:14px 0 4px;font-size:14px">Share a file</h3>
     <div class="row" style="flex-wrap:wrap"><button class="btn" id="printPlan">1-page sheet</button>${gpx ? '<button class="btn" id="planGpx">GPX</button>' : ''}<button class="btn" id="planJson">Outback file</button></div>
     <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:14px"><input type="checkbox" id="sheetPng"${settings.sheetPng ? ' checked' : ''}> 1-page sheet as an image (PNG) instead of PDF</label>
+    <label style="display:flex;align-items:center;gap:6px;margin:4px 0 0 26px;font-size:14px">Size <select id="sheetScale" class="f" style="flex:1;min-width:0">${SHEET_SCALES.map(([v, t]) => `<option value="${v}"${(settings.sheetScale || 1) === v ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
     <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:14px"><input type="checkbox" id="sheetSun"${settings.sheetSun ? ' checked' : ''}> ☀ Large, bold print for reading outdoors</label>
     <p class="muted" style="margin-top:6px">1-page sheet: map, waypoints, forecast and graphs, to print, save as a PDF, or as an image for a spreadsheet or doc. ${gpx ? `GPX: ${[trip.route.length && 'route', trip.marks.length && 'markers', trip.tracks.length && 'tracks'].filter(Boolean).join(', ')}, for map and GPS apps. ` : ''}Outback file: everything, to open in Outback on another phone (Trips, Import trip or GPX…).</p>
     <div class="row" style="margin-top:8px"><span class="grow"></span><button class="btn" data-close>Close</button></div>`);
@@ -2950,9 +2951,7 @@ async function openPrint(){
   const over = doc.offsetHeight - 10.1 * 96; if (over > 0) pm.style.height = Math.max(2.2 * 96, pm.offsetHeight - over) + 'px';
   fitW();
   // graphs with the cursor at the planned start
-  const tMin = state.tMin; state.tMin = trip.start;
-  $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr: 3, zoom: big ? 1.3 : 1 }));
-  state.tMin = tMin;
+  sheetGraphs(3);
   // the map: the selected layer, the route with numbered waypoints, markers and sea marks
   const L0 = LAYERS[settings.layer];
   pMap = L.map('pMap', { preferCanvas: true, zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false });
@@ -2982,12 +2981,24 @@ async function openPrint(){
   sheetPng = b; btn.disabled = !b; if (!b) toast('Could not make the image (offline the first time?). Untick image to print instead.', 5000);
 }
 let sheetPng = null;
-// The trip sheet as a PNG at 3× (about 2300 px wide), for a spreadsheet, doc or chat; html2canvas loads on first use.
+// The trip sheet as a PNG at the chosen size, for a spreadsheet, doc or chat; html2canvas loads on first use.
+// the sheet's graphs with the cursor at the planned start, at dpr pixels per CSS pixel (3 for paper, the image's own scale for it)
+function sheetGraphs(dpr){
+  const sun = sunTimes(trip.date, ...centroid()), tMin = state.tMin; state.tMin = trip.start;
+  $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr, zoom: settings.sheetSun ? 1.3 : 1 }));
+  state.tMin = tMin;
+}
+// image sizes: 1× fits a spreadsheet or doc at 100% (Sheets shows images pixel for pixel and shrinks them poorly)
+const SHEET_SCALES = [[1, 'Small: fits a spreadsheet or doc (800 px)'], [2, 'Medium (1600 px)'], [3, 'Large: for printing (2400 px)']];
 async function sheetImage(){
   if (!window.html2canvas) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'vendor/html2canvas.min.js'; s.onload = res; s.onerror = () => rej(new Error('html2canvas')); document.head.append(s); });
-  const c = await html2canvas($('#printDoc'), { scale: 3, useCORS: true, backgroundColor: '#fff', logging: false,
-    onclone: d => { const e = d.getElementById('printDoc'); e.style.zoom = 1; e.style.padding = '20px'; e.style.width = 'calc(7.6in + 40px)'; e.style.boxSizing = 'border-box'; } });
-  return new Promise(res => c.toBlob(res, 'image/png'));
+  const scale = settings.sheetScale || 1;
+  sheetGraphs(scale);   // drawn at the image's own scale: no blurry shrinking of the paper-sharp ones
+  try{
+    const c = await html2canvas($('#printDoc'), { scale, useCORS: true, backgroundColor: '#fff', logging: false,
+      onclone: d => { const e = d.getElementById('printDoc'); e.style.zoom = 1; e.style.padding = '20px'; e.style.width = 'calc(7.6in + 40px)'; e.style.boxSizing = 'border-box'; } });
+    return await new Promise(res => c.toBlob(res, 'image/png'));
+  }finally{ sheetGraphs(3); }
 }
 // as an image it's copied, like Copy image in Share or print; saved as a file where the clipboard won't take it
 $('#pPrint').onclick = async () => { if (!settings.sheetPng) return print(); if (!sheetPng) return;
@@ -3070,7 +3081,8 @@ document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (
 /* ---------- sheet (PDF maps) ---------- */
 const sheet = $('#sheet');
 function openSheet(html){ sheet.innerHTML = `<div class="sh">${html}</div>`; if (!sheet.open) sheet.showModal(); }
-sheet.addEventListener('change', e => { if (e.target.id === 'sheetPng' || e.target.id === 'sheetSun'){ settings[e.target.id] = e.target.checked; saveSettings(); } });
+sheet.addEventListener('change', e => { if (e.target.id === 'sheetPng' || e.target.id === 'sheetSun'){ settings[e.target.id] = e.target.checked; saveSettings(); }
+  if (e.target.id === 'sheetScale'){ settings.sheetScale = +e.target.value; saveSettings(); } });
 sheet.addEventListener('click', async e => {
   if (e.target === sheet || e.target.closest('[data-close]')) return sheet.close();
   if (e.target.id === 'pdfHelp'){ e.preventDefault(); sheet.close(); return openHelp('helpPdf'); }

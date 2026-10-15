@@ -85,7 +85,8 @@ Three views; swipe between them or use the tabs at the bottom.
 - **1-page sheet** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
   numbered, named waypoints, the waypoint table, the day's forecast, and the tide/current and wind graphs with the planned
   start marked. Shows a preview first; *Print* opens the phone's print dialog (or save as PDF). Tick *as an image*
-  for *Copy image*: a 3× PNG of the page on the clipboard (saved as a file if copying isn't allowed) (html2canvas, vendored, loaded on first use).
+  for *Copy image*: a PNG of the page on the clipboard, Small (800 px, pastes at a sensible size in Sheets/Docs), Medium or
+  Large (2400 px, for printing), (saved as a file if copying isn't allowed) (html2canvas, vendored, loaded on first use).
 - **Parking** (Trip tab, under the route): where you'll leave the car, saved with the trip. *Find nearby* lists the
   closest public OpenStreetMap lots to the route start (walk distance, fee, spaces); or *Park here* from a P or Water
   Trail popup, or *Set on map*. *Drive there* opens Google Maps navigation (Apple Maps on iPhone/iPad). Shown on the

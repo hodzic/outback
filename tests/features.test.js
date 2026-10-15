@@ -488,9 +488,18 @@ module.exports = async (browser, url, check) => {
     await page.click('#pPrint'); await page.waitForTimeout(300);
     const cp = await page.evaluate(async () => { const [it] = await navigator.clipboard.read(); const b = await it.getType('image/png'); return [...new Uint8Array(await b.arrayBuffer())]; }).catch(() => null);
     const pb = cp && Buffer.from(cp);
-    c('1-page sheet copied as a sharp PNG', pb && pb.readUInt32BE(16) > 2200 && pb.readUInt32BE(20) > 1500 && /sheet copied/.test(await page.text('#toast')),
+    c('1-page sheet copied, Small by default: fits a spreadsheet', pb && pb.readUInt32BE(16) > 740 && pb.readUInt32BE(16) < 820 && /sheet copied/.test(await page.text('#toast')),
       pb ? `${pb.readUInt32BE(16)}x${pb.readUInt32BE(20)} ${await page.text('#toast')}` : await page.text('#toast'));
-    if (pb) fs.writeFileSync(path.join(OUT, 'feat-sheet.png'), pb);
+    c('graphs back to paper-sharp after the image', await page.evaluate(() => [...document.querySelectorAll('#printDoc canvas[data-kind]')].every(c => c.width >= c.clientWidth * 3 - 1)));
+    await page.click('#pClose'); await page.waitForTimeout(300);
+    await page.selectOption('#sheetScale', '3'); await page.click('#printPlan');
+    await page.waitForFunction(() => !document.querySelector('#pPrint').disabled && sheetPng, null, { timeout: 20000 }).catch(() => {});
+    const lg = await page.evaluate(async () => { const b = new Uint8Array(await sheetPng.arrayBuffer()); return [new DataView(b.buffer).getUint32(16), settings.sheetScale]; });
+    c('Large: sharp enough to print, remembered', lg[0] > 2200 && lg[1] === 3, JSON.stringify(lg));
+    await page.click('#pPrint'); await page.waitForTimeout(300);
+    const cl = await page.evaluate(async () => { const [it] = await navigator.clipboard.read(); return [...new Uint8Array(await (await it.getType('image/png')).arrayBuffer())]; }).catch(() => null);
+    if (cl) fs.writeFileSync(path.join(OUT, 'feat-sheet.png'), Buffer.from(cl));
+    await page.click('#pClose'); await page.waitForTimeout(300); await page.selectOption('#sheetScale', '1'); await page.click('#printPlan'); await page.waitForTimeout(300);
     await page.click('#pClose'); await page.waitForTimeout(300);
     await page.uncheck('#sheetPng'); await page.click('#printPlan'); await page.waitForTimeout(500);
     c('unticked: back to Print', await page.text('#pPrint') === 'Print' && await page.isEnabled('#pPrint'));
