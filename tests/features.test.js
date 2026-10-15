@@ -396,6 +396,10 @@ module.exports = async (browser, url, check) => {
     await page.click('#pNamed'); await page.waitForTimeout(1200);
     c('unticked: every waypoint, remembered', await page.locator('#printDoc table tr').count() === 17 && await page.evaluate(() => settings.printNamed === false && !!pMap));
     await page.click('#pClose'); await page.waitForTimeout(200);
+    await page.evaluate(() => { trip.route = trip.route.map(p => p.slice(0, 2)); settings.printNamed = true; changed(); });
+    await page.click('#printPlan'); await page.waitForTimeout(1200);
+    c('no named waypoints: the toggle still offers just the start and finish', await page.isVisible('#pNamed') && await page.locator('#printDoc table tr').count() === 3, await page.locator('#printDoc table tr').count());
+    await page.click('#pClose'); await page.waitForTimeout(200);
     c('no page errors (share, print)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // Restrooms: 🚻 shows OpenStreetMap toilets in view, with details and directions; kept for offline

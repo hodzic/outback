@@ -588,7 +588,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-14a';
+const APP_VERSION = '2026-10-15a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2876,7 +2876,7 @@ async function openPrint(){
   if (pMap){ pMap.remove(); pMap = null; }
   const r = trip.route, all = legsOf(), fc = planForecast(), sun = sunTimes(trip.date, ...centroid());
   // long routes: the start, the finish and the named or stop waypoints are enough for the sheet (auto above 10 waypoints)
-  const named = namedLegs(all, r), canNamed = named.length > 2 && named.length < all.length;
+  const named = namedLegs(all, r), canNamed = named.length < all.length;
   const onlyNamed = canNamed && (settings.printNamed ?? r.length > 10);
   $('#pNamedL').hidden = !canNamed; $('#pNamed').checked = onlyNamed;
   const legs = onlyNamed ? named : all;
