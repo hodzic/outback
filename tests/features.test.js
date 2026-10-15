@@ -375,7 +375,7 @@ module.exports = async (browser, url, check) => {
       const im = await page.evaluate(() => { const d = document.querySelector('#pMap div.leaflet-image-layer'), e = d?.querySelector('img'); return e && { op: d.style.opacity, src: e.src.slice(0, 14) }; });
       c('overlay PDF map that is on is printed on the map, at its opacity', im && im.op === '0.6' && im.src === 'data:image/png', JSON.stringify(im));
       await page.evaluate(() => { map.removeLayer(shownMaps.get('t').layer); shownMaps.delete('t'); }); }
-    c('graphs drawn sharp for paper', await page.evaluate(() => [...document.querySelectorAll('#printDoc canvas')].every(c => c.width >= c.clientWidth * 3 - 1)));
+    c('graphs drawn sharp for paper', await page.evaluate(() => [...document.querySelectorAll('#printDoc canvas[data-kind]')].every(c => c.width >= c.clientWidth * 3 - 1)));
     await page.click('#pPrint');
     c('Print button prints', await page.evaluate(() => window.__printed === 1));
     c('PDF named after the trip', await page.evaluate(() => document.title) === await page.evaluate(() => fileName('pdf').slice(0, -4)) && /^Club-paddle_\d{4}-\d\d-\d\d$/.test(await page.evaluate(() => document.title)), await page.evaluate(() => document.title));
@@ -475,6 +475,20 @@ module.exports = async (browser, url, check) => {
     c('Print shows the parking line and its P on the map', /Parking: Horseshoe Cove lot/.test(await page.text('#printDoc')) && await page.locator('#pMap .poi.pk.mine').count() === 1);
     await page.click('#pClose'); await page.waitForTimeout(300);
     c('Close returns to Share or print', await page.isHidden('#printView') && await page.isVisible('#sheet #printPlan'));
+    await page.check('#sheetPng');
+    c('image option remembered', await page.evaluate(() => settings.sheetPng === true));
+    await page.click('#printPlan');
+    c('as an image: Save image, ready once made', await page.text('#pPrint') === 'Save image');
+    await page.waitForFunction(() => !document.querySelector('#pPrint').disabled && sheetPng, null, { timeout: 20000 }).catch(() => {});
+    const [png] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#pPrint')]);
+    const pb = png && fs.readFileSync(await png.path());
+    c('1-page sheet as a sharp PNG named after the trip', png && png.suggestedFilename() === await page.evaluate(() => fileName('png')) && pb.readUInt32BE(16) > 2200 && pb.readUInt32BE(20) > 1500 && /Saved .*png/.test(await page.text('#toast')),
+      png && `${png.suggestedFilename()} ${pb.readUInt32BE(16)}x${pb.readUInt32BE(20)}`);
+    if (pb) fs.writeFileSync(path.join(OUT, 'feat-sheet.png'), pb);
+    await page.click('#pClose'); await page.waitForTimeout(300);
+    await page.uncheck('#sheetPng'); await page.click('#printPlan'); await page.waitForTimeout(500);
+    c('unticked: back to Print', await page.text('#pPrint') === 'Print' && await page.isEnabled('#pPrint'));
+    await page.click('#pClose'); await page.waitForTimeout(300);
     await page.click('#sheet [data-close]');
     // Park here from a P popup
     await view(page, 2); await page.evaluate(() => { settings.parking = true; poiState(POI.parking); poiRefresh(POI.parking); map.setView([37.82, -122.44], 13, { animate: false }); });

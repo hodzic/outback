@@ -528,7 +528,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li><b>Parking</b> (Trip tab, under the route) is where you'll leave the car. <b>Find nearby</b> lists the closest public lots to the route's start from OpenStreetMap, with the walk to the start, fees and spaces; tap <b>Use</b>. Or tap <b>Park here</b> in a <b>P</b> or 🛶 Water Trail popup on the map, or <b>Set on map</b> and tap the spot (a pullout, a friend's driveway).</li>
           <li><b>Drive there</b> opens navigation in Google Maps (Apple Maps on iPhone and iPad). The parking shows on the map as a pink P with a dashed line to the start; drag it while editing the route.</li>
-          <li>The shared text and the PDF include the parking with a driving-directions link, so your group knows where to meet.</li>
+          <li>The shared text and the 1-page sheet include the parking with a driving-directions link, so your group knows where to meet.</li>
           <li><b>Stops</b>: tap a waypoint, then <b>Stop here</b>, and enter the minutes (e.g. 45 for lunch). The stop is added to the trip's duration and every later arrival time; the waypoint table shows when you leave again. 0 removes it.</li>
         </ul>
       </details>
@@ -556,10 +556,10 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card help" id="helpShare"><summary>Sharing and printing a trip</summary>
         <ul>
           <li><b>Share or print</b> (bottom of the Trip tab) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast, plus a map image of the route on the current map layer (numbered waypoints with names, markers and parking). <b>Copy text</b> and <b>Copy image</b> to paste them into a club forum, email or chat; press and hold the map to save it to your photos.</li>
-          <li><b>Save a file</b> in the same sheet: <b>PDF</b> (a one-page trip sheet, see below), <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback file</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…). On a phone the share sheet opens: pick Save to Files, or send it straight on. A note at the bottom of the screen says when it's done.</li>
-          <li><b>PDF</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Tap <b>Print</b> there, and pick a printer or save it as a PDF.</li>
+          <li><b>Save a file</b> in the same sheet: <b>1-page sheet</b> (a one-page trip sheet, see below), <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback file</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…). On a phone the share sheet opens: pick Save to Files, or send it straight on. A note at the bottom of the screen says when it's done.</li>
+          <li><b>1-page sheet</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Tap <b>Print</b> there, and pick a printer or save it as a PDF. With <b>1-page sheet as an image</b> ticked the button is <b>Save image</b> instead: a sharp PNG of the same page to paste into a spreadsheet or doc (the map needs its tiles to allow it; the Street layer always does).</li>
           <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
-          <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping PDF.</li>
+          <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping 1-page sheet.</li>
           <li>Turn on <b>🚻</b> and <b>P</b> on the map first to have restrooms and parking on the printed map.</li>
           <li>For a waterproof case: print in colour if you can, fold once, and carry a proper chart or map too.</li>
         </ul>
@@ -588,7 +588,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15e';
+const APP_VERSION = '2026-10-15f';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2861,8 +2861,9 @@ function sharePlanSheet(again){
     <img id="planPrev" alt="Route map" hidden style="display:block;width:100%;max-height:200px;object-fit:contain;margin-top:8px;border:1px solid var(--line,#ddd);border-radius:8px">
     <div class="row" style="flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="planCopy">Copy text</button><button class="btn primary" id="planCopyImg" disabled>Copy image</button></div>
     <h3 style="margin:14px 0 4px;font-size:14px">Save a file</h3>
-    <div class="row" style="flex-wrap:wrap"><button class="btn" id="printPlan">PDF</button>${gpx ? '<button class="btn" id="planGpx">GPX</button>' : ''}<button class="btn" id="planJson">Outback file</button></div>
-    <p class="muted" style="margin-top:6px">PDF: a one-page trip sheet to print or save. ${gpx ? `GPX: ${[trip.route.length && 'route', trip.marks.length && 'markers', trip.tracks.length && 'tracks'].filter(Boolean).join(', ')}, for map and GPS apps. ` : ''}Outback file: everything, to open in Outback on another phone (Trips, Import trip or GPX…).</p>
+    <div class="row" style="flex-wrap:wrap"><button class="btn" id="printPlan">1-page sheet</button>${gpx ? '<button class="btn" id="planGpx">GPX</button>' : ''}<button class="btn" id="planJson">Outback file</button></div>
+    <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:14px"><input type="checkbox" id="sheetPng"${settings.sheetPng ? ' checked' : ''}> 1-page sheet as an image (PNG) instead of PDF</label>
+    <p class="muted" style="margin-top:6px">1-page sheet: map, waypoints, forecast and graphs, to print, save as a PDF, or as an image for a spreadsheet or doc. ${gpx ? `GPX: ${[trip.route.length && 'route', trip.marks.length && 'markers', trip.tracks.length && 'tracks'].filter(Boolean).join(', ')}, for map and GPS apps. ` : ''}Outback file: everything, to open in Outback on another phone (Trips, Import trip or GPX…).</p>
     <div class="row" style="margin-top:8px"><span class="grow"></span><button class="btn" data-close>Close</button></div>`);
   $('#planTxt').value = planText();
   if (again === true && planImg){ $('#planPrev').src = URL.createObjectURL(planImg); $('#planPrev').hidden = false; $('#planCopyImg').disabled = false; return; }
@@ -2916,8 +2917,9 @@ async function openPrint(){
   state.tMin = tMin;
   // the map: the selected layer, the route with numbered waypoints, markers and sea marks
   const L0 = LAYERS[settings.layer];
-  pMap = L.map('pMap', { zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false });
-  (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', L0.opt) : L.tileLayer(L0.url, L0.opt)).addTo(pMap);
+  pMap = L.map('pMap', { preferCanvas: true, zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false });
+  const base = (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', L0.opt) : L.tileLayer(L0.url, L0.opt)).addTo(pMap);
+  const tilesIn = new Promise(res => { base.once('load', res); setTimeout(res, 6000); });
   // overlay PDF maps that are on, where they're placed now, at the on-screen opacity
   shownMaps.forEach(({ layer: o }) => L.imageOverlay.rotated(o._url, o._topLeft, o._topRight, o._bottomLeft, { opacity: o.options.opacity, interactive: false }).addTo(pMap));
   if (seaLayer) L.tileLayer(SEAMARKS.url, SEAMARKS.opt).addTo(pMap);
@@ -2931,8 +2933,25 @@ async function openPrint(){
   for (const k of trip.marks) L.marker([k.lat, k.lng], { icon: MARK_ICON }).bindTooltip(esc(k.name), { permanent: true, direction: 'right', offset: [8, -9], className: 'mkname' }).addTo(pMap);
   pts.length ? pMap.fitBounds(L.latLngBounds(pts), { padding: [24, 24], maxZoom: 15 }) : pMap.setView(map.getCenter(), map.getZoom());
   for (const P of Object.values(POI)) if (settings[P.key]) poiMarkers(P, pMap.getBounds(), pMap);
+  // as an image: made once the map's tiles are in, so Save image can share it straight from the tap
+  const btn = $('#pPrint'), my = pMap; sheetPng = null;
+  btn.textContent = settings.sheetPng ? 'Save image' : 'Print'; btn.disabled = !!settings.sheetPng;
+  if (!settings.sheetPng) return;
+  await tilesIn; await new Promise(r => setTimeout(r, 300));
+  if (pMap !== my) return;
+  const b = await sheetImage().catch(() => null);
+  if (pMap !== my) return;
+  sheetPng = b; btn.disabled = !b; if (!b) toast('Could not make the image (offline the first time?). Untick image to print instead.', 5000);
 }
-$('#pPrint').onclick = () => print();
+let sheetPng = null;
+// The trip sheet as a PNG at 3× (about 2300 px wide), for a spreadsheet, doc or chat; html2canvas loads on first use.
+async function sheetImage(){
+  if (!window.html2canvas) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'vendor/html2canvas.min.js'; s.onload = res; s.onerror = () => rej(new Error('html2canvas')); document.head.append(s); });
+  const c = await html2canvas($('#printDoc'), { scale: 3, useCORS: true, backgroundColor: '#fff', logging: false,
+    onclone: d => { const e = d.getElementById('printDoc'); e.style.zoom = 1; e.style.padding = '20px'; e.style.width = 'calc(7.6in + 40px)'; e.style.boxSizing = 'border-box'; } });
+  return new Promise(res => c.toBlob(res, 'image/png'));
+}
+$('#pPrint').onclick = () => settings.sheetPng ? sheetPng && shareFile(fileName('png'), sheetPng, 'image/png') : print();
 $('#pNamed').onchange = e => { settings.printNamed = e.target.checked; saveSettings(); openPrint(); };
 $('#pClose').onclick = () => history.state?.print ? history.back() : closePrint();
 
@@ -3006,6 +3025,7 @@ document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (
 /* ---------- sheet (PDF maps) ---------- */
 const sheet = $('#sheet');
 function openSheet(html){ sheet.innerHTML = `<div class="sh">${html}</div>`; if (!sheet.open) sheet.showModal(); }
+sheet.addEventListener('change', e => { if (e.target.id === 'sheetPng'){ settings.sheetPng = e.target.checked; saveSettings(); } });
 sheet.addEventListener('click', async e => {
   if (e.target === sheet || e.target.closest('[data-close]')) return sheet.close();
   if (e.target.id === 'pdfHelp'){ e.preventDefault(); sheet.close(); return openHelp('helpPdf'); }
