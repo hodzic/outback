@@ -17,7 +17,7 @@ Three views; swipe between them or use the tabs at the bottom.
    - route: one line with length, duration, speed and legs; the waypoint table and the markers fold out below it. Draw, undo and clear the route on the map; while editing, long-press a leg to insert a waypoint on it, and Undo steps back through each edit.
    - forecast: first the whole day, which stays put as the time changes: low and high temperature (large, at the top) with daylight sky and rain, tide range with every high and low, and every max flood, max ebb and slack, one per line in time order, water temperature on paddle trips (the nearest NOAA station's readings that day or its latest, else the Open-Meteo Marine model; below 60°F it says to dress for immersion), wind and gusts for morning and afternoon, pressure over daylight, the day's thunder chance, sun, moon (rise and set, phase and % lit, spring or neap tides on tidal water, computed on the phone), elevation for hikes. At the bottom: the picked time with *Now*, a fixed-size box with everything at that time (tide, current, wind and gusts, temperature and sky, pressure, lightning), then the tide/wind graph with every high and low tide and every max flood and ebb labelled, and the strongest wind and gust in daylight (plus the night's when stronger); tap or drag it to pick a time. The Tide / Wind / Elevation buttons sit right under the graph; on the elevation graph, tap or drag for the elevation, distance and time from the start at that spot.
      *Get forecast* also saves the map around the route for offline use.
-   - tracks from imported GPX files (show on map, use as route, delete), export GPX or trip file, delete trip
+   - tracks from imported GPX files (show on map, use as route, delete), delete trip
 3. **Map**: the route, and a top bar with the map layer (Chart / Street / Topo / Sat: USGS satellite imagery) and a scale bar in the trip's unit, *Route* (edit the route), **PDF** map overlays
    and live location ◎ (with distance and magnetic bearing to the next waypoint).
    On the map a horizontal swipe pans the map; use the tabs or the trip name to leave it.
@@ -75,16 +75,17 @@ Three views; swipe between them or use the tabs at the bottom.
   Name, type and size (sent only every ~6 minutes) are remembered on the device, so known ships show them at once.
 - **Help** (the **?** button at the top of the Trips and Trip tabs) opens its own page: installing, offline use, AIS ships,
   overlay PDF maps, and Tomales Bay / San Francisco Bay links. Close or the phone's back button returns.
-- **Share plan** (Trip tab): a route map image and a plain-text plan for a club forum, email or chat (name, day, start, route, the start, finish and named waypoints
+- **Share or print** (Trip tab): one sheet for everything that leaves the app. A route map image and a plain-text plan for a club forum, email or chat (name, day, start, route, the start, finish and named waypoints
   with coordinates, legs, bearings and estimated arrivals, points of interest, the day's forecast, a map link to the
-  start); *Copy text*, *Share…* (with the GPX attached where the phone allows) or *GPX file*.
-- **Print** (Trip tab): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
-  numbered waypoints, the waypoint table, the day's forecast, and the tide/current and wind graphs with the planned
+  start); *Copy text* and *Copy image*. *Save a file*: *PDF* (below), *GPX* (route, markers, tracks) or *Outback file*
+  (the trip, to open on another phone). Saving says when it's done (share sheet on phones, else a download).
+- **PDF** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
+  numbered, named waypoints, the waypoint table, the day's forecast, and the tide/current and wind graphs with the planned
   start marked. Shows a preview first; *Print* opens the phone's print dialog (or save as PDF).
 - **Parking** (Trip tab, under the route): where you'll leave the car, saved with the trip. *Find nearby* lists the
   closest public OpenStreetMap lots to the route start (walk distance, fee, spaces); or *Park here* from a P or Water
   Trail popup, or *Set on map*. *Drive there* opens Google Maps navigation (Apple Maps on iPhone/iPad). Shown on the
-  map with a dashed line to the start, and in Share plan (with a driving link) and Print.
+  map with a dashed line to the start, and in the shared text (with a driving link) and the PDF.
 - **Stops**: tap a waypoint, *Stop here*, and enter minutes (lunch, a rest). Stops add to the duration and push back
   every later arrival; the waypoint table shows the leave time. Saved as the waypoint's 4th value, in minutes.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.

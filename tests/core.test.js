@@ -157,11 +157,13 @@ module.exports = async (browser, url, check) => {
   await page.fill('#tripName', 'Golden Gate loop'); await page.press('#tripName', 'Enter');
   c('rename inline', await page.evaluate(() => trip.name) === 'Golden Gate loop' && (await page.text('#tabTrip')) === 'Golden Gate loop');
 
-  for (const [id, ext] of [['#exportJson', 'json'], ['#exportGpx', 'gpx']]){
+  await page.click('#sharePlan'); await page.waitForSelector('#planTxt');
+  for (const [id, ext] of [['#planJson', 'json'], ['#planGpx', 'gpx']]){
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click(id)]);
     c('export ' + ext, !!dl, dl?.suggestedFilename());
     if (dl) await dl.saveAs(path.join(OUT, 'export.' + ext));
   }
+  await page.click('#sheet [data-close]');
 
   await page.waitForTimeout(400); await page.reload(); await ready(page);
   c('reload restores trip and view', (await page.text('#tabTrip')) === 'Golden Gate loop' && await page.evaluate(() => state.view) === 1 && await page.locator('.wp').count() === 3);
