@@ -77,8 +77,9 @@ Three views; swipe between them or use the tabs at the bottom.
   overlay PDF maps, and Tomales Bay / San Francisco Bay links. Close or the phone's back button returns.
 - **Share or print** (Trip tab): one sheet for everything that leaves the app. A route map image and a plain-text plan for a club forum, email or chat (name, day, start, route, the start, finish and named waypoints
   with coordinates, legs, bearings and estimated arrivals, points of interest, the day's forecast, a map link to the
-  start); *Copy text* and *Copy image*. *Save a file*: *1-page sheet* (below), *GPX* (route, markers, tracks) or *Outback file*
-  (the trip, to open on another phone). Saving says when it's done (share sheet on phones, else a download).
+  start); *Copy text* and *Copy image*. *Share a file*: *1-page sheet* (below), *GPX* (route, markers, tracks) or *Outback file*
+  (the trip, to open on another phone). Files go through the phone's share sheet (Save to Files to keep one; GPX retried as plain data where a phone
+  turns down the type), else a download; a note says which.
 - **☀ Sun mode** (next to ? on the Trips and Trip tabs): high contrast for bright daylight, remembered. The 1-page sheet
   has its own *☀ Large, bold print for reading outdoors* option.
 - **1-page sheet** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
