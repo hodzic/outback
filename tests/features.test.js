@@ -351,7 +351,7 @@ module.exports = async (browser, url, check) => {
     await page.click('#planCopy'); await page.waitForTimeout(150);
     c('Copy text puts the plan on the clipboard', (await page.evaluate(() => navigator.clipboard.readText())) === t && /copied/.test(await page.text('#toast')));
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#planGpx')]);
-    c('saving a file says so', new RegExp('Saved Club-paddle_.*\\.gpx to your downloads').test(await page.text('#toast')), await page.text('#toast'));
+    c('saving a file says so', new RegExp('saved Club-paddle_.*\\.gpx to your downloads', 'i').test(await page.text('#toast')), await page.text('#toast'));
     c('GPX file from the share sheet', dl && /^Club-paddle_\d{4}-\d\d-\d\d\.gpx$/.test(dl.suggestedFilename()), dl && dl.suggestedFilename());
     const [jl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#planJson')]);
     c('Outback trip file from the share sheet', jl && /^Club-paddle_.*\.json$/.test(jl.suggestedFilename()) && /markers, for map/.test(await page.text('#sheet')), jl && jl.suggestedFilename());
@@ -359,7 +359,17 @@ module.exports = async (browser, url, check) => {
     await page.click('#planGpx'); await page.waitForTimeout(200);
     c('GPX goes to the share sheet, as plain text where the phone turns down GPX', await page.evaluate(() => __sh.length === 1 && /\.gpx\|text\/plain$/.test(__sh[0][0])) && /^Done: .*\.gpx/.test(await page.text('#toast')),
       await page.evaluate(() => JSON.stringify(__sh)));
+    await page.evaluate(() => { __sh = []; navigator.canShare = d => d.files.every(f => /\.txt$/.test(f.name)); });
+    await page.click('#planJson'); await page.waitForTimeout(200);
+    const shared = await page.evaluate(() => __sh[0]?.[0]);
+    c('Outback file shared (as .json.txt where only text goes), e.g. to Google Drive', /^Club-paddle_.*\.json\.txt\|text\/plain$/.test(shared || ''), shared);
+    await page.evaluate(() => { __sh = []; let n = 0; navigator.canShare = () => true;
+      navigator.share = async d => { if (!n++) throw new DOMException('no tap', 'NotAllowedError'); __sh.push(d.files.map(f => f.name)); }; });
+    await page.click('#planJson'); await page.waitForSelector('#shareReady');
+    await page.click('#shareReady'); await page.waitForTimeout(200);
+    c('permission ran out: Ready to share, one more tap shares it', await page.evaluate(() => __sh.length === 1 && /\.json$/.test(__sh[0][0])) && /^Done/.test(await page.text('#toast')), await page.evaluate(() => JSON.stringify(__sh)));
     await page.evaluate(() => { delete navigator.canShare; delete navigator.share; });
+    await page.click('#sharePlan'); await page.waitForSelector('#planJson');
     c('no separate export buttons on the Trip tab', !(await page.$('#exportGpx')) && !(await page.$('#exportJson')));
     await page.click('#sheet [data-close]');
     const keep = await page.evaluate(() => { const k = { r: trip.route, m: trip.marks }; trip.route = []; trip.marks = []; return k; });
