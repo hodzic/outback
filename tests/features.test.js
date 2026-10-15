@@ -454,7 +454,7 @@ module.exports = async (browser, url, check) => {
     c('no page errors (restrooms)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // Trip parking: nearest OSM lots to the route start, Park here from a popup, set by hand; Drive there; in Share and Print
-    const { ctx, page, errors } = await open(browser, url);
+    const { ctx, page, errors } = await open(browser, url, { permissions: ['geolocation', 'clipboard-read', 'clipboard-write'] });
     await page.goto(url); await ready(page);
     await seedRoute(page, [[37.8320, -122.4760], [37.8250, -122.4600], [37.8150, -122.4500]]);
     await view(page, 1);
@@ -478,12 +478,13 @@ module.exports = async (browser, url, check) => {
     await page.check('#sheetPng');
     c('image option remembered', await page.evaluate(() => settings.sheetPng === true));
     await page.click('#printPlan');
-    c('as an image: Save image, ready once made', await page.text('#pPrint') === 'Save image');
+    c('as an image: Copy image, ready once made', await page.text('#pPrint') === 'Copy image');
     await page.waitForFunction(() => !document.querySelector('#pPrint').disabled && sheetPng, null, { timeout: 20000 }).catch(() => {});
-    const [png] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#pPrint')]);
-    const pb = png && fs.readFileSync(await png.path());
-    c('1-page sheet as a sharp PNG named after the trip', png && png.suggestedFilename() === await page.evaluate(() => fileName('png')) && pb.readUInt32BE(16) > 2200 && pb.readUInt32BE(20) > 1500 && /Saved .*png/.test(await page.text('#toast')),
-      png && `${png.suggestedFilename()} ${pb.readUInt32BE(16)}x${pb.readUInt32BE(20)}`);
+    await page.click('#pPrint'); await page.waitForTimeout(300);
+    const cp = await page.evaluate(async () => { const [it] = await navigator.clipboard.read(); const b = await it.getType('image/png'); return [...new Uint8Array(await b.arrayBuffer())]; }).catch(() => null);
+    const pb = cp && Buffer.from(cp);
+    c('1-page sheet copied as a sharp PNG', pb && pb.readUInt32BE(16) > 2200 && pb.readUInt32BE(20) > 1500 && /sheet copied/.test(await page.text('#toast')),
+      pb ? `${pb.readUInt32BE(16)}x${pb.readUInt32BE(20)} ${await page.text('#toast')}` : await page.text('#toast'));
     if (pb) fs.writeFileSync(path.join(OUT, 'feat-sheet.png'), pb);
     await page.click('#pClose'); await page.waitForTimeout(300);
     await page.uncheck('#sheetPng'); await page.click('#printPlan'); await page.waitForTimeout(500);

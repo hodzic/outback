@@ -591,7 +591,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li><b>Share or print</b> (bottom of the Trip tab) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast, plus a map image of the route on the current map layer (numbered waypoints with names, markers and parking). <b>Copy text</b> and <b>Copy image</b> to paste them into a club forum, email or chat; press and hold the map to save it to your photos.</li>
           <li><b>Save a file</b> in the same sheet: <b>1-page sheet</b> (a one-page trip sheet, see below), <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback file</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…). On a phone the share sheet opens: pick Save to Files, or send it straight on. A note at the bottom of the screen says when it's done.</li>
-          <li><b>1-page sheet</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Tap <b>Print</b> there, and pick a printer or save it as a PDF. With <b>1-page sheet as an image</b> ticked the button is <b>Save image</b> instead: a sharp PNG of the same page to paste into a spreadsheet or doc (the map needs its tiles to allow it; the Street layer always does).</li>
+          <li><b>1-page sheet</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Tap <b>Print</b> there, and pick a printer or save it as a PDF. With <b>1-page sheet as an image</b> ticked the button is <b>Copy image</b> instead: a sharp PNG of the same page, copied to paste into a spreadsheet or doc (saved as a file where copying isn't allowed) (the map needs its tiles to allow it; the Street layer always does).</li>
           <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping 1-page sheet.</li>
           <li>Tick <b>☀ Large, bold print for reading outdoors</b> in Share or print for a sheet you can read in sun spray: bigger, bolder text, heavier lines, bigger waypoint labels and graphs. It still fits one page (the map gets smaller if needed).</li>
@@ -623,7 +623,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15g';
+const APP_VERSION = '2026-10-15h';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2971,9 +2971,9 @@ async function openPrint(){
   for (const k of trip.marks) L.marker([k.lat, k.lng], { icon: MARK_ICON }).bindTooltip(esc(k.name), { permanent: true, direction: 'right', offset: [8, -9], className: 'mkname' }).addTo(pMap);
   pts.length ? pMap.fitBounds(L.latLngBounds(pts), { padding: [24, 24], maxZoom: 15 }) : pMap.setView(map.getCenter(), map.getZoom());
   for (const P of Object.values(POI)) if (settings[P.key]) poiMarkers(P, pMap.getBounds(), pMap);
-  // as an image: made once the map's tiles are in, so Save image can share it straight from the tap
+  // as an image: made once the map's tiles are in, so Copy image works straight from the tap
   const btn = $('#pPrint'), my = pMap; sheetPng = null;
-  btn.textContent = settings.sheetPng ? 'Save image' : 'Print'; btn.disabled = !!settings.sheetPng;
+  btn.textContent = settings.sheetPng ? 'Copy image' : 'Print'; btn.disabled = !!settings.sheetPng;
   if (!settings.sheetPng) return;
   await tilesIn; await new Promise(r => setTimeout(r, 300));
   if (pMap !== my) return;
@@ -2989,7 +2989,10 @@ async function sheetImage(){
     onclone: d => { const e = d.getElementById('printDoc'); e.style.zoom = 1; e.style.padding = '20px'; e.style.width = 'calc(7.6in + 40px)'; e.style.boxSizing = 'border-box'; } });
   return new Promise(res => c.toBlob(res, 'image/png'));
 }
-$('#pPrint').onclick = () => settings.sheetPng ? sheetPng && shareFile(fileName('png'), sheetPng, 'image/png') : print();
+// as an image it's copied, like Copy image in Share or print; saved as a file where the clipboard won't take it
+$('#pPrint').onclick = async () => { if (!settings.sheetPng) return print(); if (!sheetPng) return;
+  try{ await navigator.clipboard.write([new ClipboardItem({ 'image/png': sheetPng })]); toast('1-page sheet copied. Paste it into the spreadsheet or doc.'); }
+  catch{ shareFile(fileName('png'), sheetPng, 'image/png'); } };
 $('#pNamed').onchange = e => { settings.printNamed = e.target.checked; saveSettings(); openPrint(); };
 $('#pClose').onclick = () => history.state?.print ? history.back() : closePrint();
 
