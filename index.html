@@ -131,6 +131,39 @@ table.acts td,table.acts th{padding:5px 3px}
 #printDoc .pgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(3in,1fr));gap:0 14px}
 #printDoc canvas{width:100%;height:1.35in;display:block;border:1px solid #999}
 #printDoc .pfoot{margin-top:10px;font-size:10px;color:#333}
+/* Sun: the 1-page sheet in large, bold print for reading outdoors */
+#printDoc.sun{font-size:14px;line-height:1.3;color:#000}
+#printDoc.sun h1{font-size:26px}
+#printDoc.sun h3{font-size:16px;font-weight:800;border-bottom-width:2.5px}
+#printDoc.sun .sub{font-size:15px}
+#printDoc.sun td,#printDoc.sun th{font-size:14.5px;font-weight:600;border-bottom:1.5px solid #000;padding:3px 4px}
+#printDoc.sun th{font-weight:800}
+#printDoc.sun .pfc{font-weight:600} #printDoc.sun .pfc b{font-size:15px;font-weight:800}
+#printDoc.sun canvas{height:1.6in;border:1.5px solid #000}
+#printDoc.sun #pMap{border-width:2.5px}
+#printDoc.sun .wpname,#printDoc.sun .mkname{font-size:15px;font-weight:800;background:#fff;border-width:2px;padding:1px 6px}
+#printDoc.sun .mkname{border-color:#000}
+#printDoc.sun .wp{transform:scale(1.25);border-width:3.5px;font-weight:800;line-height:19px}
+#printDoc.sun .pfoot{font-size:11px;color:#000}
+/* Sun mode on screen: black on white, bigger and bolder small text, heavier lines, punchier map */
+body.sun{--ink:#000;--muted:#1d2329;--line:#4d5963;--wash:#fff;--paper:#fff}
+body.sun .card{border:2px solid #000}
+body.sun .muted,body.sun #status{font-size:14.5px;font-weight:600}
+body.sun .cell .k,body.sun .now .k,body.sun label.f{font-size:14px;font-weight:700}
+body.sun .cell .s,body.sun .trip small,body.sun .track small{font-size:14.5px;font-weight:600}
+body.sun #tabs button{font-size:16px;font-weight:700}
+body.sun .btn,body.sun .pill{border:2px solid #000;font-weight:700;box-shadow:none}
+body.sun details summary{font-weight:700}
+body.sun #drawBar .txt{font-size:14px;font-weight:600}
+body.sun #miniBox{background:#fff;border:2px solid #000}
+body.sun #map .leaflet-tile-pane{filter:contrast(1.25) saturate(1.3)}
+body.sun #map .wpname,body.sun #map .mkname,body.sun #map .leg{font-size:15px;font-weight:800;background:#fff;border-width:2px}
+body.sun #map .mkname{border-color:#000}
+body.sun #map .wp{transform:scale(1.2);border-width:4px;font-weight:800;line-height:18px}
+body.sun .me{transform:scale(1.35);box-shadow:0 0 0 2px #000}
+body.sun .cm span,body.sun .tm span{font-size:13.5px}
+body.sun #coords{font-weight:700}
+#sunBtn[aria-pressed="true"]{background:#000;color:#FFD400;border-color:#000}
 @media print{
   @page{size:letter portrait;margin:.35in}
   html,body{height:auto!important;overflow:visible!important;background:#fff!important}
@@ -272,7 +305,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
   <!-- 1. Trips -->
   <section class="view" id="vTrips" aria-label="Trips">
     <div class="page">
-      <div class="row" style="margin-bottom:12px"><h1 class="grow" style="margin:0">Outback</h1><button class="btn" id="shareApp">Share Outback</button><button class="btn qbtn" data-help aria-label="Help" title="Help">?</button></div>
+      <div class="row" style="margin-bottom:12px"><h1 class="grow" style="margin:0">Outback</h1><button class="btn" id="shareApp">Share Outback</button><button class="btn qbtn" data-sun aria-label="Sun mode: high contrast for bright light" title="Sun mode">☀</button><button class="btn qbtn" data-help aria-label="Help" title="Help">?</button></div>
       <div class="new"><button class="btn primary" id="newPaddle">+ Paddle</button><button class="btn primary" id="newHike">+ Hike</button><button class="btn primary" id="newBike">+ Bike</button></div>
       <div id="tripList"></div>
       <div class="row" style="margin-top:6px"><button class="btn" id="importBtn">Import trip or GPX…</button></div>
@@ -299,7 +332,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
   <!-- 2. Trip details -->
   <section class="view" id="vTrip" aria-label="Trip">
     <div class="page">
-      <div class="row" style="gap:8px"><input class="f grow" id="tripName" aria-label="Trip name" autocomplete="off"><button class="btn qbtn" data-help aria-label="Help" title="Help">?</button></div>
+      <div class="row" style="gap:8px"><input class="f grow" id="tripName" aria-label="Trip name" autocomplete="off"><button class="btn qbtn" data-sun aria-label="Sun mode: high contrast for bright light" title="Sun mode">☀</button><button class="btn qbtn" data-help aria-label="Help" title="Help">?</button></div>
       <div class="card">
         <div class="row when"><span id="dow" class="dow"></span><input class="f" id="date" type="date" aria-label="Trip date"><button class="f" id="start" type="button" aria-label="Start time" title="Planned start"></button></div>
         <div class="seg" id="actSel" role="group" aria-label="Activity"><button data-act="paddle">Paddle</button><button data-act="hike">Hike</button><button data-act="bike">Bike</button></div>
@@ -507,6 +540,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card help" id="helpLoc"><summary>Location and checkpoints</summary>
         <ul>
+          <li><b>☀</b> (next to <b>?</b> on the Trips and Trip tabs) turns on Sun mode for bright daylight: black on white, bigger and bolder small text, heavier borders, a thicker route, bigger waypoint and name labels, and a punchier map. Tap it again to turn it off; it stays as you left it.</li>
           <li><b>◎</b> shows your location as a blue dot; it never moves the map (zoom out if you're off screen). Each tap switches what's shown with it:
             <b>→</b> the next waypoint with distance and magnetic bearing; <b>⚑</b> the next checkpoint with the distance, time and arrival time along the route; <b>XY</b> large coordinates for an emergency call (tap them to copy); <b>•</b> the dot only. Hold the button to turn location off.</li>
           <li><b>Checkpoints</b>: tap a waypoint, then <b>⚑ Checkpoint</b> (a crossing, a turn-around point, the lunch beach). Checkpoints are drawn as rounded squares. With no checkpoint ahead, ⚑ counts to the finish.</li>
@@ -560,6 +594,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>1-page sheet</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Tap <b>Print</b> there, and pick a printer or save it as a PDF. With <b>1-page sheet as an image</b> ticked the button is <b>Save image</b> instead: a sharp PNG of the same page to paste into a spreadsheet or doc (the map needs its tiles to allow it; the Street layer always does).</li>
           <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping 1-page sheet.</li>
+          <li>Tick <b>☀ Large, bold print for reading outdoors</b> in Share or print for a sheet you can read in sun spray: bigger, bolder text, heavier lines, bigger waypoint labels and graphs. It still fits one page (the map gets smaller if needed).</li>
           <li>Turn on <b>🚻</b> and <b>P</b> on the map first to have restrooms and parking on the printed map.</li>
           <li>For a waterproof case: print in colour if you can, fold once, and carry a proper chart or map too.</li>
         </ul>
@@ -588,7 +623,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15f';
+const APP_VERSION = '2026-10-15g';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -952,7 +987,7 @@ function fitTrip(refit){
 function drawRoute(){
   routeLayer.clearLayers(); wpSize();
   const r = trip.route;
-  if (r.length > 1) L.polyline(r.map(ll2), { color: '#C8167E', weight: 4, opacity: .9, interactive: false }).addTo(routeLayer);
+  if (r.length > 1) L.polyline(r.map(ll2), { color: '#C8167E', weight: settings.sun ? 6 : 4, opacity: .9, interactive: false }).addTo(routeLayer);
   r.forEach((p, i) => {
     if (i){
       const a = r[i-1], mid = [(a[0]+p[0])/2, (a[1]+p[1])/2];
@@ -1732,10 +1767,11 @@ function drawChart(sun){
   if (!$('#timeBar').hidden) drawDay(tcv, sun, 'tide', { tide: tcShows('tide'), cur: tcShows('current'), compact: true });
 }
 function drawDay(cv, sun, kind, o){
-  const dpr = o.dpr || devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  // zoom > 1 draws on a smaller logical size, so text and lines come out that much bigger
+  const dpr = o.dpr || devicePixelRatio || 1, zm = o.zoom || 1, W = cv.clientWidth / zm, H = cv.clientHeight / zm;
   if (!W) return;
-  cv.width = W * dpr; cv.height = H * dpr;
-  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  cv.width = W * zm * dpr; cv.height = H * zm * dpr;
+  const g = cv.getContext('2d'); g.setTransform(dpr * zm, 0, 0, dpr * zm, 0, 0); g.clearRect(0, 0, W, H);
   const font = getComputedStyle(document.body).fontFamily, lab = '600 10px ' + font, T = o.compact ? v => v : (v, t) => `${v} ${hmS(t)}`;
   const note = s => { g.fillStyle = '#5B7183'; g.font = (o.compact ? '11px ' : '13px ') + font; g.fillText(s, 8, o.compact ? 14 : 22); };
   if (kind === 'elev') return drawElev(g, W, H, font, note, !o.dpr);
@@ -2863,6 +2899,7 @@ function sharePlanSheet(again){
     <h3 style="margin:14px 0 4px;font-size:14px">Save a file</h3>
     <div class="row" style="flex-wrap:wrap"><button class="btn" id="printPlan">1-page sheet</button>${gpx ? '<button class="btn" id="planGpx">GPX</button>' : ''}<button class="btn" id="planJson">Outback file</button></div>
     <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:14px"><input type="checkbox" id="sheetPng"${settings.sheetPng ? ' checked' : ''}> 1-page sheet as an image (PNG) instead of PDF</label>
+    <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:14px"><input type="checkbox" id="sheetSun"${settings.sheetSun ? ' checked' : ''}> ☀ Large, bold print for reading outdoors</label>
     <p class="muted" style="margin-top:6px">1-page sheet: map, waypoints, forecast and graphs, to print, save as a PDF, or as an image for a spreadsheet or doc. ${gpx ? `GPX: ${[trip.route.length && 'route', trip.marks.length && 'markers', trip.tracks.length && 'tracks'].filter(Boolean).join(', ')}, for map and GPS apps. ` : ''}Outback file: everything, to open in Outback on another phone (Trips, Import trip or GPX…).</p>
     <div class="row" style="margin-top:8px"><span class="grow"></span><button class="btn" data-close>Close</button></div>`);
   $('#planTxt').value = planText();
@@ -2889,6 +2926,7 @@ async function openPrint(){
   const legs = onlyNamed ? named : all;
   const kinds = [isTidal() && 'tide', 'wind', hasElev() && r.length > 1 && 'elev'].filter(Boolean);
   const names = { tide: hasCurrents() ? 'Tide and current' : 'Tide', wind: 'Wind and gusts', elev: 'Elevation' };
+  const big = !!settings.sheetSun; $('#printDoc').classList.toggle('sun', big);
   $('#printDoc').innerHTML = `<h1>${esc(trip.name)}</h1>
     <p class="sub"><b>${act().name}${envName() ? ' · ' + esc(envName()) : ''}</b> · ${fmtDay(trip.date)} · start ${startTime()}${r.length > 1 ? ` · ${esc($('#dist').textContent)} · ${esc($('#dur').textContent)} at ${esc($('#spd').textContent)}` : ''}</p>
     ${trip.parking ? `<p class="sub">Parking: <b>${esc(trip.parking.name)}</b>${trip.parking.note ? ' · ' + esc(trip.parking.note) : ''} · ${trip.parking.lat.toFixed(5)}, ${trip.parking.lng.toFixed(5)}${parkToStart() ? ' · ' + parkToStart() : ''}</p>` : ''}
@@ -2913,7 +2951,7 @@ async function openPrint(){
   fitW();
   // graphs with the cursor at the planned start
   const tMin = state.tMin; state.tMin = trip.start;
-  $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr: 3 }));
+  $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr: 3, zoom: big ? 1.3 : 1 }));
   state.tMin = tMin;
   // the map: the selected layer, the route with numbered waypoints, markers and sea marks
   const L0 = LAYERS[settings.layer];
@@ -2926,10 +2964,10 @@ async function openPrint(){
   new (L.Control.Scale.extend({ _updateScales: scaleCtl._updateScales }))({ position: 'bottomleft', metric: true, imperial: false, maxWidth: 110 }).addTo(pMap);
   const pk = trip.parking, pts = [...r.map(ll2), ...trip.marks.map(k => [k.lat, k.lng]), ...(pk ? [[pk.lat, pk.lng]] : [])];
   if (pk) L.marker([pk.lat, pk.lng], { icon: L.divIcon({ className: '', html: '<div class="poi pk mine">P</div>', iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(pMap);
-  if (r.length > 1) L.polyline(r.map(ll2), { color: '#C8167E', weight: 4, opacity: .95 }).addTo(pMap);
+  if (r.length > 1) L.polyline(r.map(ll2), { color: '#C8167E', weight: big ? 6 : 4, opacity: .95 }).addTo(pMap);
   r.forEach((p, i) => { const m = L.marker(ll2(p), { icon: L.divIcon({ className: '', html: `<div class="wp${isCp(p) ? ' cp' : ''}">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(pMap);
     const tip = [p[2], pauseMin(p) && `⏸ ${fmtDur(pauseMin(p) / 60)}`].filter(Boolean).join(' · ');
-    if (tip) m.bindTooltip(esc(tip), { permanent: true, direction: 'right', offset: [12, 0], className: 'wpname' }); });
+    if (tip) m.bindTooltip(esc(tip), { permanent: true, direction: 'right', offset: [big ? 16 : 12, 0], className: 'wpname' }); });
   for (const k of trip.marks) L.marker([k.lat, k.lng], { icon: MARK_ICON }).bindTooltip(esc(k.name), { permanent: true, direction: 'right', offset: [8, -9], className: 'mkname' }).addTo(pMap);
   pts.length ? pMap.fitBounds(L.latLngBounds(pts), { padding: [24, 24], maxZoom: 15 }) : pMap.setView(map.getCenter(), map.getZoom());
   for (const P of Object.values(POI)) if (settings[P.key]) poiMarkers(P, pMap.getBounds(), pMap);
@@ -2964,7 +3002,11 @@ function openHelp(id){
 }
 const closeHelp = () => { if (!$('#helpPage').hidden) history.state?.help ? history.back() : ($('#helpPage').hidden = true); };
 addEventListener('popstate', () => { $('#helpPage').hidden = true; closePrint(); });
-document.addEventListener('click', e => { if (e.target.closest('[data-help]')) openHelp(); });
+document.addEventListener('click', e => { if (e.target.closest('[data-help]')) openHelp(); if (e.target.closest('[data-sun]')){ settings.sun = !settings.sun; saveSettings(); sunMode(); } });
+// Sun mode: high contrast for bright daylight; the setting stays on until tapped off
+function sunMode(){ document.body.classList.toggle('sun', !!settings.sun); document.querySelectorAll('[data-sun]').forEach(b => b.setAttribute('aria-pressed', !!settings.sun));
+  if (trip) drawRoute(); }
+sunMode();
 $('#toast').addEventListener('click', e => { const h = e.currentTarget.dataset.help; if (h){ e.currentTarget.classList.remove('show', 'link'); openHelp(h); } });
 // Sea marks legend: the buoys and beacons drawn in their chart colours
 const SM_C = { R: '#d40000', G: '#00a000', Y: '#f0c000', B: '#111', W: '#fff', O: '#f07800' };
@@ -3025,7 +3067,7 @@ document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (
 /* ---------- sheet (PDF maps) ---------- */
 const sheet = $('#sheet');
 function openSheet(html){ sheet.innerHTML = `<div class="sh">${html}</div>`; if (!sheet.open) sheet.showModal(); }
-sheet.addEventListener('change', e => { if (e.target.id === 'sheetPng'){ settings.sheetPng = e.target.checked; saveSettings(); } });
+sheet.addEventListener('change', e => { if (e.target.id === 'sheetPng' || e.target.id === 'sheetSun'){ settings[e.target.id] = e.target.checked; saveSettings(); } });
 sheet.addEventListener('click', async e => {
   if (e.target === sheet || e.target.closest('[data-close]')) return sheet.close();
   if (e.target.id === 'pdfHelp'){ e.preventDefault(); sheet.close(); return openHelp('helpPdf'); }

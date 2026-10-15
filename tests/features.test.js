@@ -489,6 +489,14 @@ module.exports = async (browser, url, check) => {
     await page.uncheck('#sheetPng'); await page.click('#printPlan'); await page.waitForTimeout(500);
     c('unticked: back to Print', await page.text('#pPrint') === 'Print' && await page.isEnabled('#pPrint'));
     await page.click('#pClose'); await page.waitForTimeout(300);
+    await page.check('#sheetSun'); await page.click('#printPlan'); await page.waitForTimeout(1200);
+    const sunSheet = await page.evaluate(() => ({ on: document.querySelector('#printDoc').classList.contains('sun'), td: parseFloat(getComputedStyle(document.querySelector('#printDoc td')).fontSize),
+      g: (c => c ? c.width / c.clientWidth : 3)(document.querySelector('#printDoc canvas[data-kind]')), saved: settings.sheetSun }));
+    c('☀ large print: bigger, bolder sheet, still sharp graphs', sunSheet.on && sunSheet.td >= 14 && sunSheet.g >= 2.99 && sunSheet.saved, JSON.stringify(sunSheet));
+    await page.emulateMedia({ media: 'print' });
+    c('☀ large print sheet still fits on one page', ((await page.pdf({ format: 'Letter' })).toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 1);
+    await page.emulateMedia({ media: 'screen' });
+    await page.click('#pClose'); await page.waitForTimeout(300); await page.uncheck('#sheetSun');
     await page.click('#sheet [data-close]');
     // Park here from a P popup
     await view(page, 2); await page.evaluate(() => { settings.parking = true; poiState(POI.parking); poiRefresh(POI.parking); map.setView([37.82, -122.44], 13, { animate: false }); });
@@ -818,6 +826,21 @@ module.exports = async (browser, url, check) => {
     await page.evaluate(() => map.setView([38.5, -121.0], 12)); await page.click('#fcBtn'); await waitForecast(page);
     c('forecast with the trip off screen fits the trip instead', await page.evaluate(() => L.latLng(trip.anchor.c).distanceTo([37.705, -122.59]) < 5000));
     await ctx.close(); }
+
+  { // ☀ sun mode: high contrast on screen, remembered
+    const { ctx, page, errors } = await open(browser, url);
+    await page.goto(url); await ready(page); await view(page, 2);
+    await seedRoute(page, [[37.80, -122.45, 'Launch'], [37.81, -122.43]]);
+    await view(page, 1); await page.click('#vTrip [data-sun]'); await page.waitForTimeout(200);
+    const st = () => page.evaluate(() => ({ on: document.body.classList.contains('sun'), pressed: document.querySelector('#vTrips [data-sun]').getAttribute('aria-pressed'),
+      muted: getComputedStyle(document.querySelector('.muted')).color, w: routeLayer.getLayers().find(l => l instanceof L.Polyline && l.options.color === '#C8167E')?.options.weight }));
+    let s1 = await st();
+    c('☀ turns on sun mode: dark text, both buttons pressed, thicker route', s1.on && s1.pressed === 'true' && s1.muted === 'rgb(29, 35, 41)' && s1.w === 6, JSON.stringify(s1));
+    await page.reload(); await ready(page); s1 = await st();
+    c('sun mode remembered', s1.on && s1.pressed === 'true', JSON.stringify(s1));
+    await page.click('#vTrip [data-sun]'); await page.waitForTimeout(200); s1 = await st();
+    c('☀ again turns it off', !s1.on && s1.pressed === 'false' && s1.w === 4, JSON.stringify(s1));
+    c('no page errors (sun mode)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // service worker must not delete other apps' caches on the shared origin
     const { ctx, page } = await open(browser, url, { serviceWorkers: 'allow' });

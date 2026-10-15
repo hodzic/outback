@@ -79,6 +79,8 @@ Three views; swipe between them or use the tabs at the bottom.
   with coordinates, legs, bearings and estimated arrivals, points of interest, the day's forecast, a map link to the
   start); *Copy text* and *Copy image*. *Save a file*: *1-page sheet* (below), *GPX* (route, markers, tracks) or *Outback file*
   (the trip, to open on another phone). Saving says when it's done (share sheet on phones, else a download).
+- **☀ Sun mode** (next to ? on the Trips and Trip tabs): high contrast for bright daylight, remembered. The 1-page sheet
+  has its own *☀ Large, bold print for reading outdoors* option.
 - **1-page sheet** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
   numbered, named waypoints, the waypoint table, the day's forecast, and the tide/current and wind graphs with the planned
   start marked. Shows a preview first; *Print* opens the phone's print dialog (or save as PDF). Tick *as an image*
