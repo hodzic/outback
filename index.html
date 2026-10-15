@@ -588,7 +588,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15d';
+const APP_VERSION = '2026-10-15e';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2853,7 +2853,8 @@ async function routeImage(W = 1200, H = 800){
   return new Promise(res => c.toBlob(res, 'image/png'));
 }
 let planImg = null;
-function sharePlanSheet(){
+// again: back from the PDF preview, keeping the map image already made
+function sharePlanSheet(again){
   const gpx = hasGpx();
   openSheet(`<h2>Share or print</h2><p class="muted">The plan as text anyone can read, for a club forum, email or chat, with a map of the route.</p>
     <textarea id="planTxt" class="f" readonly rows="8" style="width:100%;font:13px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap"></textarea>
@@ -2863,16 +2864,20 @@ function sharePlanSheet(){
     <div class="row" style="flex-wrap:wrap"><button class="btn" id="printPlan">PDF</button>${gpx ? '<button class="btn" id="planGpx">GPX</button>' : ''}<button class="btn" id="planJson">Outback file</button></div>
     <p class="muted" style="margin-top:6px">PDF: a one-page trip sheet to print or save. ${gpx ? `GPX: ${[trip.route.length && 'route', trip.marks.length && 'markers', trip.tracks.length && 'tracks'].filter(Boolean).join(', ')}, for map and GPS apps. ` : ''}Outback file: everything, to open in Outback on another phone (Trips, Import trip or GPX…).</p>
     <div class="row" style="margin-top:8px"><span class="grow"></span><button class="btn" data-close>Close</button></div>`);
-  $('#planTxt').value = planText(); planImg = null;
+  $('#planTxt').value = planText();
+  if (again === true && planImg){ $('#planPrev').src = URL.createObjectURL(planImg); $('#planPrev').hidden = false; $('#planCopyImg').disabled = false; return; }
+  planImg = null;
   // made ahead so Copy image still has the tap's permission when it runs
   routeImage().then(b => { if (!b || !$('#planPrev')) return; planImg = new File([b], fileName('png'), { type: 'image/png' });
     $('#planPrev').src = URL.createObjectURL(b); $('#planPrev').hidden = false; $('#planCopyImg').disabled = false; }).catch(() => {});
 }
-$('#sharePlan').onclick = sharePlanSheet;
+$('#sharePlan').onclick = () => sharePlanSheet();
 async function copyText(t){ try{ await navigator.clipboard.writeText(t); return true; }catch{ const a = $('#planTxt'); a?.select(); try{ return document.execCommand('copy'); }catch{ return false; } } }
 
 let pMap = null;
-function closePrint(){ if (pMap){ pMap.remove(); pMap = null; } $('#printView').hidden = true; }
+let printBack = false;   // opened from Share or print: closing goes back there
+function closePrint(){ if (pMap){ pMap.remove(); pMap = null; } if ($('#printView').hidden) return; $('#printView').hidden = true; document.title = 'Outback';
+  if (printBack){ printBack = false; sharePlanSheet(true); } }
 async function openPrint(){
   if (pMap){ pMap.remove(); pMap = null; }
   const r = trip.route, all = legsOf(), fc = planForecast(), sun = sunTimes(trip.date, ...centroid());
@@ -2896,6 +2901,7 @@ async function openPrint(){
     ${trip.data ? `<div class="pgs">${kinds.map(k => `<div class="pg"><h3>${names[k]}</h3><canvas data-kind="${k}"></canvas></div>`).join('')}</div>` : ''}
     <p class="pfoot">Magenta line on the graphs: the planned start. Not for navigation; check official forecasts and local conditions. Planned with Outback, ${esc(appUrl())}</p>`;
   if ($('#printView').hidden){ $('#printView').hidden = false; history.pushState({ print: 1 }, ''); }
+  document.title = fileName('pdf').slice(0, -4);   // the name Save as PDF suggests
   $('#printView').scrollTop = 0;
   // laid out at paper width; the on-screen preview is shrunk to fit (print resets it)
   const doc = $('#printDoc'), fitW = () => { doc.style.zoom = Math.min(1, ($('#printView').clientWidth - 16) / doc.offsetWidth); };
@@ -3010,7 +3016,7 @@ sheet.addEventListener('click', async e => {
   if (b.id === 'planCopy') return toast(await copyText($('#planTxt').value) ? 'Trip plan copied. Paste it into the forum post.' : 'Could not copy; select the text and copy it.');
   if (b.id === 'planCopyImg'){ try{ await navigator.clipboard.write([new ClipboardItem({ 'image/png': planImg })]); return toast('Map image copied. Paste it next to the text.'); }
     catch{ return toast('Could not copy the image here; press and hold the map to save or copy it.', 4000); } }
-  if (b.id === 'printPlan'){ sheet.close(); return openPrint(); }
+  if (b.id === 'printPlan'){ sheet.close(); printBack = true; return openPrint(); }
   if (b.id === 'planGpx') return shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml');
   if (b.id === 'planJson') return shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json');
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
