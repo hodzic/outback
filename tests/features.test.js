@@ -343,12 +343,15 @@ module.exports = async (browser, url, check) => {
     await page.waitForSelector('#planPrev:not([hidden])', { timeout: 10000 });
     const img = await page.evaluate(async () => { const b = planImg; const bm = await createImageBitmap(b); return { type: b.type, name: b.name, w: bm.width, h: bm.height, data: [...new Uint8Array(await b.arrayBuffer())] }; });
     require('fs').writeFileSync(require('path').join(OUT, 'feat-route.png'), Buffer.from(img.data));
-    c('Share plan makes a route map image', img.type === 'image/png' && /^Club-paddle_.*\.png$/.test(img.name) && img.w === 1200 && img.h === 800 && await page.isVisible('#planImg'), `${img.name} ${img.w}x${img.h}`);
-    const [imgDl] = await Promise.all([page.waitForEvent("download"), page.click("#planImg")]);
-    c("Map image saves the PNG", /\.png$/.test(imgDl.suggestedFilename()), imgDl.suggestedFilename());
+    c('Share plan makes a route map image', img.type === 'image/png' && /^Club-paddle_.*\.png$/.test(img.name) && img.w === 1200 && img.h === 800 && await page.isEnabled('#planCopyImg'), `${img.name} ${img.w}x${img.h}`);
+    await page.click('#planCopyImg'); await page.waitForTimeout(300);
+    c('Copy image puts the PNG on the clipboard', await page.evaluate(async () => { const [it] = await navigator.clipboard.read(); return it.types.includes('image/png') && (await it.getType('image/png')).size > 1000; })
+      && /image copied/.test(await page.text('#toast')), await page.text('#toast'));
+    c('no Share… or separate image button', !(await page.$('#planShare')) && !(await page.$('#planImg')) && await page.isVisible('#sheet #printPlan'));
     await page.click('#planCopy'); await page.waitForTimeout(150);
     c('Copy text puts the plan on the clipboard', (await page.evaluate(() => navigator.clipboard.readText())) === t && /copied/.test(await page.text('#toast')));
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#planGpx')]);
+    c('saving a file says so', new RegExp('Saved Club-paddle_.*\\.gpx to your downloads').test(await page.text('#toast')), await page.text('#toast'));
     c('GPX file from the share sheet', dl && /^Club-paddle_\d{4}-\d\d-\d\d\.gpx$/.test(dl.suggestedFilename()), dl && dl.suggestedFilename());
     const [jl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#planJson')]);
     c('Outback trip file from the share sheet', jl && /^Club-paddle_.*\.json$/.test(jl.suggestedFilename()) && /markers, for map/.test(await page.text('#sheet')), jl && jl.suggestedFilename());
@@ -359,7 +362,7 @@ module.exports = async (browser, url, check) => {
     c('no GPX button with nothing to put in it', !(await page.$('#planGpx')));
     await page.click('#sheet [data-close]');
     await page.evaluate(k => { trip.route = k.r; trip.marks = k.m; }, keep);
-    await page.click('#printPlan'); await page.waitForTimeout(1200);
+    await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
     c('Print opens a preview with title, map, waypoints, forecast and graphs', await page.isVisible('#printView') && /Club paddle/.test(await page.text('#printDoc h1'))
       && await page.locator('#pMap .leaflet-tile').count() > 0 && await page.locator('#pMap .wp').count() === 3 && await page.locator('#printDoc table tr').count() >= 4
       && /Tide · San Francisco/.test(await page.text('#printDoc .pfc')) && await page.locator('#printDoc canvas[data-kind]').count() === 2);
@@ -368,7 +371,7 @@ module.exports = async (browser, url, check) => {
       await page.click('#pClose'); await page.waitForTimeout(200);
       await page.evaluate(() => { const c = document.createElement('canvas'); c.width = c.height = 8; c.getContext('2d').fillRect(0, 0, 8, 8);
         const o = L.imageOverlay.rotated(c.toDataURL(), L.latLng(37.84, -122.48), L.latLng(37.84, -122.40), L.latLng(37.79, -122.48), { opacity: .6 }).addTo(map); shownMaps.set('t', { layer: o, url: '' }); });
-      await page.click('#printPlan'); await page.waitForTimeout(800);
+      await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(800);
       const im = await page.evaluate(() => { const d = document.querySelector('#pMap div.leaflet-image-layer'), e = d?.querySelector('img'); return e && { op: d.style.opacity, src: e.src.slice(0, 14) }; });
       c('overlay PDF map that is on is printed on the map, at its opacity', im && im.op === '0.6' && im.src === 'data:image/png', JSON.stringify(im));
       await page.evaluate(() => { map.removeLayer(shownMaps.get('t').layer); shownMaps.delete('t'); }); }
@@ -385,7 +388,7 @@ module.exports = async (browser, url, check) => {
     // a long route prints the start, finish and named waypoints; the toggle shows them all
     await page.evaluate(() => { const r = []; for (let i = 0; i < 16; i++) r.push([37.80 + i * .004, -122.45 + (i % 2) * .006]);
       r[5] = [...r[5].slice(0, 2), 'Angel Island']; r[9] = [...r[9].slice(0, 2), '', 30]; trip.route = r; delete settings.printNamed; changed(); });
-    await page.click('#printPlan'); await page.waitForTimeout(1200);
+    await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
     const rows = await page.locator('#printDoc table tr').allInnerTexts();
     c('long route: named waypoints only, by default', await page.isVisible('#pNamed') && await page.isChecked('#pNamed') && rows.length === 5
       && /^6 Angel Island/.test(rows[2]) && /⏸ 30 min, leave/.test(rows[3]) && /^16/.test(rows[4]) && /4 of 16/.test(await page.text('#printDoc')), rows.join(' | '));
@@ -399,7 +402,7 @@ module.exports = async (browser, url, check) => {
     c('unticked: every waypoint, remembered', await page.locator('#printDoc table tr').count() === 17 && await page.evaluate(() => settings.printNamed === false && !!pMap));
     await page.click('#pClose'); await page.waitForTimeout(200);
     await page.evaluate(() => { trip.route = trip.route.map(p => p.slice(0, 2)); settings.printNamed = true; changed(); });
-    await page.click('#printPlan'); await page.waitForTimeout(1200);
+    await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
     c('no named waypoints: the toggle still offers just the start and finish', await page.isVisible('#pNamed') && await page.locator('#printDoc table tr').count() === 3, await page.locator('#printDoc table tr').count());
     await page.click('#pClose'); await page.waitForTimeout(200);
     c('no page errors (share, print)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
@@ -466,7 +469,7 @@ module.exports = async (browser, url, check) => {
     c('parking shown on the map with a dashed line to the start', await page.locator('.poi.pk.mine').count() === 1 && await page.evaluate(() => parkLayer.getLayers().length === 2));
     const txt = await page.evaluate(() => planText());
     c('Share plan includes the parking and its driving link', /Parking: Horseshoe Cove lot \(Fee: \$5\/day/.test(txt) && /Driving directions: https:\/\/www\.google\.com\/maps\/dir\/\?api=1&destination=37\.833100,-122\.477200&travelmode=driving/.test(txt), txt);
-    await page.click('#printPlan'); await page.waitForTimeout(800);
+    await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(800);
     c('Print shows the parking line and its P on the map', /Parking: Horseshoe Cove lot/.test(await page.text('#printDoc')) && await page.locator('#pMap .poi.pk.mine').count() === 1);
     await page.click('#pClose'); await page.waitForTimeout(300);
     // Park here from a P popup
