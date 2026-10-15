@@ -588,7 +588,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15a';
+const APP_VERSION = '2026-10-15b';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2918,7 +2918,9 @@ async function openPrint(){
   const pk = trip.parking, pts = [...r.map(ll2), ...trip.marks.map(k => [k.lat, k.lng]), ...(pk ? [[pk.lat, pk.lng]] : [])];
   if (pk) L.marker([pk.lat, pk.lng], { icon: L.divIcon({ className: '', html: '<div class="poi pk mine">P</div>', iconSize: [28, 28], iconAnchor: [14, 14] }) }).addTo(pMap);
   if (r.length > 1) L.polyline(r.map(ll2), { color: '#C8167E', weight: 4, opacity: .95 }).addTo(pMap);
-  r.forEach((p, i) => L.marker(ll2(p), { icon: L.divIcon({ className: '', html: `<div class="wp">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(pMap));
+  r.forEach((p, i) => { const m = L.marker(ll2(p), { icon: L.divIcon({ className: '', html: `<div class="wp${isCp(p) ? ' cp' : ''}">${i + 1}</div>`, iconSize: [26, 26], iconAnchor: [13, 13] }) }).addTo(pMap);
+    const tip = [p[2], pauseMin(p) && `⏸ ${fmtDur(pauseMin(p) / 60)}`].filter(Boolean).join(' · ');
+    if (tip) m.bindTooltip(esc(tip), { permanent: true, direction: 'right', offset: [12, 0], className: 'wpname' }); });
   for (const k of trip.marks) L.marker([k.lat, k.lng], { icon: MARK_ICON }).bindTooltip(esc(k.name), { permanent: true, direction: 'right', offset: [8, -9], className: 'mkname' }).addTo(pMap);
   pts.length ? pMap.fitBounds(L.latLngBounds(pts), { padding: [24, 24], maxZoom: 15 }) : pMap.setView(map.getCenter(), map.getZoom());
   for (const P of Object.values(POI)) if (settings[P.key]) poiMarkers(P, pMap.getBounds(), pMap);

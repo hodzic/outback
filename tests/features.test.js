@@ -389,6 +389,8 @@ module.exports = async (browser, url, check) => {
     const rows = await page.locator('#printDoc table tr').allInnerTexts();
     c('long route: named waypoints only, by default', await page.isVisible('#pNamed') && await page.isChecked('#pNamed') && rows.length === 5
       && /^6 Angel Island/.test(rows[2]) && /⏸ 30 min, leave/.test(rows[3]) && /^16/.test(rows[4]) && /4 of 16/.test(await page.text('#printDoc')), rows.join(' | '));
+    c('printed map labels named and stop waypoints', await page.evaluate(() => [...document.querySelectorAll('#pMap .wpname')].map(e => e.textContent).join('|')) === 'Angel Island|⏸ 30 min',
+      await page.evaluate(() => [...document.querySelectorAll('#pMap .wpname')].map(e => e.textContent).join('|')));
     c('skipped waypoints: distance along the route, no bearing', /\t–\t/.test(rows[2]) && Math.abs(parseFloat(rows[2].split('\t')[2]) - parseFloat(rows[2].split('\t')[4])) < .01, rows[2]);
     await page.emulateMedia({ media: 'print' });
     c('named-only sheet fits on one page', ((await page.pdf({ format: 'Letter' })).toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 1);
