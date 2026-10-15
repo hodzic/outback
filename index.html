@@ -350,8 +350,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <p class="muted">Tracks from imported GPX files (e.g. from your watch).</p>
       </div>
 
-      <div class="row" style="flex-wrap:wrap;margin-bottom:8px"><button class="btn primary" id="sharePlan">Share plan</button><button class="btn primary" id="printPlan">Print</button></div>
-      <div class="row"><button class="btn" id="exportGpx">Export GPX</button><button class="btn" id="exportJson">Export trip file</button><span class="grow"></span><button class="btn danger" id="deleteTrip">Delete trip</button></div>
+      <div class="row" style="flex-wrap:wrap"><button class="btn primary" id="sharePlan">Share</button><button class="btn primary" id="printPlan">Print</button><span class="grow"></span><button class="btn danger" id="deleteTrip">Delete trip</button></div>
     </div>
   </section>
 
@@ -529,7 +528,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li><b>Parking</b> (Trip tab, under the route) is where you'll leave the car. <b>Find nearby</b> lists the closest public lots to the route's start from OpenStreetMap, with the walk to the start, fees and spaces; tap <b>Use</b>. Or tap <b>Park here</b> in a <b>P</b> or 🛶 Water Trail popup on the map, or <b>Set on map</b> and tap the spot (a pullout, a friend's driveway).</li>
           <li><b>Drive there</b> opens navigation in Google Maps (Apple Maps on iPhone and iPad). The parking shows on the map as a pink P with a dashed line to the start; drag it while editing the route.</li>
-          <li>Share plan and Print include the parking with a driving-directions link, so your group knows where to meet.</li>
+          <li>Share and Print include the parking with a driving-directions link, so your group knows where to meet.</li>
           <li><b>Stops</b>: tap a waypoint, then <b>Stop here</b>, and enter the minutes (e.g. 45 for lunch). The stop is added to the trip's duration and every later arrival time; the waypoint table shows when you leave again. 0 removes it.</li>
         </ul>
       </details>
@@ -556,7 +555,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card help" id="helpShare"><summary>Sharing and printing a trip</summary>
         <ul>
-          <li><b>Share plan</b> (Trip tab, under Tracks) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast. <b>Copy text</b> to paste it into a club forum or email; <b>Share…</b> sends it with a map image of the route and the GPX file where the phone allows; <b>Map image</b> saves the picture on its own (the route on the current map layer, numbered waypoints with names, markers and parking); <b>GPX file</b> is for people with a GPS or map app.</li>
+          <li><b>Share</b> (bottom of the Trip tab) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast, plus a map image of the route on the current map layer. <b>Share…</b> sends the text with the map image and the GPX file where the phone allows; <b>Copy text</b> is for pasting into a club forum or email.</li>
+          <li><b>Save a file</b> in the same sheet: <b>Map image</b> (the picture on its own), <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback trip</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…).</li>
           <li><b>Print</b> makes a one-page trip sheet: the map with the route and numbered waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Check the preview, then tap <b>Print</b>, or choose Save as PDF in the print dialog.</li>
           <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping Print.</li>
@@ -588,7 +588,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-11g';
+const APP_VERSION = '2026-10-14a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1896,8 +1896,6 @@ $('#clearRoute').onclick = () => {
   if (!trip.route.length || !confirm(`Clear all ${trip.route.length} waypoints?`)) return;
   editRoute(); trip.route = []; state.legs.clear(); changed(); toast('Waypoints cleared.');
 };
-$('#exportGpx').onclick = () => (trip.route.length || trip.tracks.length || trip.marks.length) ? shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml') : toast('No route or track to export.');
-$('#exportJson').onclick = () => shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json');
 $('#deleteTrip').onclick = async () => {
   if (!confirm(`Delete "${trip.name}"?`)) return;
   const id = trip.id;
@@ -2856,10 +2854,14 @@ async function routeImage(W = 1200, H = 800){
 }
 let planImg = null;
 function sharePlanSheet(){
-  openSheet(`<h2>Share trip plan</h2><p class="muted">For a club forum, email or chat: anyone can read it. The GPX file opens in most map and GPS apps.</p>
-    <textarea id="planTxt" class="f" readonly rows="12" style="width:100%;font:13px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap"></textarea>
-    <div class="row" style="flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="planCopy">Copy text</button><button class="btn" id="planShare">Share…</button><button class="btn" id="planGpx">GPX file</button><button class="btn" id="planImg" hidden>Map image</button><span class="grow"></span><button class="btn" data-close>Close</button></div>
-    <img id="planPrev" alt="Route map" hidden style="display:block;width:100%;max-height:220px;object-fit:contain;margin-top:10px;border:1px solid var(--line,#ddd);border-radius:8px">`);
+  const gpx = hasGpx();
+  openSheet(`<h2>Share trip</h2><p class="muted">The plan as text anyone can read, for a club forum, email or chat, with a map of the route.</p>
+    <textarea id="planTxt" class="f" readonly rows="10" style="width:100%;font:13px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap"></textarea>
+    <img id="planPrev" alt="Route map" hidden style="display:block;width:100%;max-height:200px;object-fit:contain;margin-top:8px;border:1px solid var(--line,#ddd);border-radius:8px">
+    <div class="row" style="flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="planShare">Share…</button><button class="btn" id="planCopy">Copy text</button></div>
+    <h3 style="margin:14px 0 4px;font-size:14px">Save a file</h3>
+    <div class="row" style="flex-wrap:wrap"><button class="btn" id="planImg" hidden>Map image</button>${gpx ? '<button class="btn" id="planGpx">GPX</button>' : ''}<button class="btn" id="planJson">Outback trip</button><span class="grow"></span><button class="btn" data-close>Close</button></div>
+    <p class="muted" style="margin-top:6px">${gpx ? `GPX: ${[trip.route.length && 'route', trip.marks.length && 'markers', trip.tracks.length && 'tracks'].filter(Boolean).join(', ')}, for map and GPS apps. ` : ''}Outback trip: everything, to open in Outback on another phone (Trips, Import trip or GPX…).</p>`);
   $('#planTxt').value = planText(); planImg = null;
   // made ahead so Share… still has the tap's permission when it runs
   routeImage().then(b => { if (!b || !$('#planPrev')) return; planImg = new File([b], fileName('png'), { type: 'image/png' });
@@ -3004,13 +3006,14 @@ sheet.addEventListener('click', async e => {
   if (b.id === 'addPdf'){ sheet.close(); return $('#pdfFile').click(); }
   if (b.id === 'copyGps') return copyGpsMaps();
   if (b.id === 'planCopy') return toast(await copyText($('#planTxt').value) ? 'Trip plan copied. Paste it into the forum post.' : 'Could not copy; select the text and copy it.');
-  if (b.id === 'planShare'){ const text = $('#planTxt').value, gpx = trip.route.length ? new File([toGpx()], fileName('gpx'), { type: 'application/gpx+xml' }) : null;
+  if (b.id === 'planShare'){ const text = $('#planTxt').value, gpx = hasGpx() ? new File([toGpx()], fileName('gpx'), { type: 'application/gpx+xml' }) : null;
     const files = [planImg, gpx].filter(Boolean);
     try{ for (const f of [files, files.slice(0, 1), gpx ? [gpx] : []]) if (f.length && navigator.canShare?.({ files: f, text })) return await navigator.share({ title: trip.name, text, files: f });
       if (navigator.share) return await navigator.share({ title: trip.name, text }); }catch(e){ if (e.name === 'AbortError') return; }
     return toast(await copyText(text) ? 'Trip plan copied.' : 'Sharing is not available here; copy the text instead.'); }
   if (b.id === 'planImg') return planImg && shareFile(planImg.name, planImg, 'image/png');
-  if (b.id === 'planGpx') return trip.route.length || trip.marks.length ? shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml') : toast('No route to export.');
+  if (b.id === 'planGpx') return shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml');
+  if (b.id === 'planJson') return shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json');
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
   if (ds.pdfmap){ const m = await idb.get('trailMaps', ds.pdfmap), on = !shownMaps.has(ds.pdfmap); showPdfMap(m, on, on); if (on) sheet.close(); else mapsSheet(); return; }
   if (ds.builtin) return addBuiltin(ds.builtin);
@@ -3020,6 +3023,7 @@ sheet.addEventListener('click', async e => {
 
 /* ---------- export / import ---------- */
 const fileName = ext => `${String(trip.name || '').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'trip'}_${trip.date}.${ext}`;
+const hasGpx = () => !!(trip.route.length || trip.marks.length || trip.tracks.some(k => k.pts.length > 1));
 function toGpx(){
   const pts = trip.route.map((p, i) => `  <rtept lat="${p[0]}" lon="${p[1]}"><name>${esc(p[2] || 'WP' + (i + 1))}</name></rtept>`).join('\n');
   const wpts = trip.marks.map(k => ` <wpt lat="${k.lat}" lon="${k.lng}"><name>${esc(k.name)}</name></wpt>\n`).join('');

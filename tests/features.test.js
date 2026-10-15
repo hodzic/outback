@@ -113,7 +113,9 @@ module.exports = async (browser, url, check) => {
     c('track label has distance and time', /in 11 min/.test(await page.text('#trackList')), await page.text('#trackList'));
     await page.click('#trackList [data-trackroute]');
     c('track becomes a route', await page.evaluate(() => trip.route.length >= 2 && trip.route.length <= 60), await page.evaluate(() => trip.route.length));
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#exportGpx')]);
+    await page.click('#sharePlan'); await page.waitForSelector('#planGpx');
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#planGpx')]);
+    await page.click('#sheet [data-close]');
     const gpx = fs.readFileSync(await dl.path(), 'utf8');
     c('GPX export has route and timed track', /<rte>/.test(gpx) && (gpx.match(/<trkpt/g) || []).length === 12 && /<time>/.test(gpx));
     await page.click('#trackList [data-showtrack]'); await page.waitForTimeout(600);
@@ -178,7 +180,9 @@ module.exports = async (browser, url, check) => {
     c('rename a marker', await page.evaluate(() => trip.marks[0].name) === 'Kirby Cove beach');
     await page.click('#wpDetails summary'); await page.waitForFunction(() => document.querySelectorAll('#routeTable tr').length > 0);
     c('waypoint table shows the name', /2 Bonita/.test(await page.text('#routeTable')));
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#exportGpx')]);
+    await page.click('#sharePlan'); await page.waitForSelector('#planGpx');
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#planGpx')]);
+    await page.click('#sheet [data-close]');
     const gpx = fs.readFileSync(await dl.path(), 'utf8');
     c('GPX export has markers and waypoint names', /<wpt [^>]+><name>Kirby Cove beach<\/name><\/wpt>/.test(gpx) && /<name>Bonita<\/name><\/rtept>/.test(gpx) && /<name>WP1<\/name>/.test(gpx));
     fs.writeFileSync(path.join(OUT, 'named.gpx'), gpx);
@@ -346,6 +350,15 @@ module.exports = async (browser, url, check) => {
     c('Copy text puts the plan on the clipboard', (await page.evaluate(() => navigator.clipboard.readText())) === t && /copied/.test(await page.text('#toast')));
     const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#planGpx')]);
     c('GPX file from the share sheet', dl && /^Club-paddle_\d{4}-\d\d-\d\d\.gpx$/.test(dl.suggestedFilename()), dl && dl.suggestedFilename());
+    const [jl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#planJson')]);
+    c('Outback trip file from the share sheet', jl && /^Club-paddle_.*\.json$/.test(jl.suggestedFilename()) && /markers, for map/.test(await page.text('#sheet')), jl && jl.suggestedFilename());
+    c('no separate export buttons on the Trip tab', !(await page.$('#exportGpx')) && !(await page.$('#exportJson')));
+    await page.click('#sheet [data-close]');
+    const keep = await page.evaluate(() => { const k = { r: trip.route, m: trip.marks }; trip.route = []; trip.marks = []; return k; });
+    await page.click('#sharePlan'); await page.waitForSelector('#planJson');
+    c('no GPX button with nothing to put in it', !(await page.$('#planGpx')));
+    await page.click('#sheet [data-close]');
+    await page.evaluate(k => { trip.route = k.r; trip.marks = k.m; }, keep);
     await page.click('#sheet [data-close]');
     await page.click('#printPlan'); await page.waitForTimeout(1200);
     c('Print opens a preview with title, map, waypoints, forecast and graphs', await page.isVisible('#printView') && /Club paddle/.test(await page.text('#printDoc h1'))
