@@ -77,15 +77,19 @@ Three views; swipe between them or use the tabs at the bottom.
   overlay PDF maps, and Tomales Bay / San Francisco Bay links. Close or the phone's back button returns.
 - **Share or print** (Trip tab): one sheet for everything that leaves the app. A route map image and a plain-text plan for a club forum, email or chat (name, day, start, route, the start, finish and named waypoints
   with coordinates, legs, bearings and estimated arrivals, points of interest, the day's forecast, a map link to the
-  start); *Copy text* and *Copy image*. *Save a file*: *PDF* (below), *GPX* (route, markers, tracks) or *Outback file*
-  (the trip, to open on another phone). Saving says when it's done (share sheet on phones, else a download).
-- **PDF** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
+  start); *Copy text* and *Copy image*. *Share a file*: *1-page sheet* (below), *GPX* (route, markers, tracks) or *Outback file*
+  (the trip, to open on another phone). Files go through the phone's share sheet (Save to Files to keep one; GPX retried as plain data where a phone
+  turns down the type), else a download; a note says which.
+- **☀ Sun mode** (next to ? on the Trips and Trip tabs): high contrast for bright daylight, remembered. The 1-page sheet
+  has its own *☀ Large, bold print for reading outdoors* option.
+- **1-page sheet** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
   numbered, named waypoints, the waypoint table, the day's forecast, and the tide/current and wind graphs with the planned
-  start marked. Shows a preview first; *Print* opens the phone's print dialog (or save as PDF).
+  start marked. Shows a preview first; *Print* opens the phone's print dialog (or save as PDF). Tick *as an image*
+  for *Copy image*: a 3× PNG of the page on the clipboard (saved as a file if copying isn't allowed) (html2canvas, vendored, loaded on first use).
 - **Parking** (Trip tab, under the route): where you'll leave the car, saved with the trip. *Find nearby* lists the
   closest public OpenStreetMap lots to the route start (walk distance, fee, spaces); or *Park here* from a P or Water
   Trail popup, or *Set on map*. *Drive there* opens Google Maps navigation (Apple Maps on iPhone/iPad). Shown on the
-  map with a dashed line to the start, and in the shared text (with a driving link) and the PDF.
+  map with a dashed line to the start, and in the shared text (with a driving link) and the 1-page sheet.
 - **Stops**: tap a waypoint, *Stop here*, and enter minutes (lunch, a rest). Stops add to the duration and push back
   every later arrival; the waypoint table shows the leave time. Saved as the waypoint's 4th value, in minutes.
 - **Names**: tap a waypoint to name it; names show on the map, in the waypoint table and in the next-waypoint line.
@@ -179,7 +183,7 @@ The app works offline once each trip has been prepared while you still have a co
 |---|---|
 | `index.html` | The whole app (Leaflet from cdnjs) |
 | `pdfmap.js` | PDF trail map parsing, loaded only when importing a PDF |
-| `vendor/` | MuPDF WebAssembly (AGPL, loaded on demand) and `Leaflet.ImageOverlay.Rotated` |
+| `vendor/` | MuPDF WebAssembly (AGPL, loaded on demand), html2canvas 1.4.1 (MIT, loaded on demand) and `Leaflet.ImageOverlay.Rotated` |
 | `tools/bump.js` | Sets the next version (`npm run bump`) |
 | `sw.js` | Service worker: app shell and map tiles for offline use |
 | `manifest.webmanifest`, `icon-*.png` | Installable app |
