@@ -359,7 +359,6 @@ module.exports = async (browser, url, check) => {
     c('no GPX button with nothing to put in it', !(await page.$('#planGpx')));
     await page.click('#sheet [data-close]');
     await page.evaluate(k => { trip.route = k.r; trip.marks = k.m; }, keep);
-    await page.click('#sheet [data-close]');
     await page.click('#printPlan'); await page.waitForTimeout(1200);
     c('Print opens a preview with title, map, waypoints, forecast and graphs', await page.isVisible('#printView') && /Club paddle/.test(await page.text('#printDoc h1'))
       && await page.locator('#pMap .leaflet-tile').count() > 0 && await page.locator('#pMap .wp').count() === 3 && await page.locator('#printDoc table tr').count() >= 4
