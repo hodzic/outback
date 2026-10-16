@@ -408,6 +408,26 @@ module.exports = async (browser, url, check) => {
     await page.goBack(); await page.waitForTimeout(200);
     c('back closes the print preview, back to Share or print', await page.isHidden('#printView') && await page.evaluate(() => state.view === 1 && !pMap && sheet.open && !!planImg && document.title === 'Outback')
       && await page.isEnabled('#planCopyImg'));
+    { // page 2: the full-page deck map, PDF only
+      c('deck map is an option, off at first', await page.isVisible('#sheetDeck') && !await page.isChecked('#sheetDeck'));
+      await page.check('#sheetDeck'); await page.click('#printPlan'); await page.waitForTimeout(1500);
+      const dk = await page.evaluate(() => ({ saved: settings.sheetDeck, wp: document.querySelectorAll('#pDeck .wp').length, tiles: document.querySelectorAll('#pDeck .leaflet-tile').length,
+        names: [...document.querySelectorAll('#pDeck .wpname')].map(e => e.textContent), legs: [...document.querySelectorAll('#pDeck .leg')].map(e => e.textContent),
+        long: legsOf().filter((g, i, a) => i && (g.at - a[i - 1].at) / 6e4 - a[i - 1].stop >= 5).length }));
+      c('deck map: route, start and finish with arrival times, legs over 5 min with distance, bearing and time', dk.saved && dk.wp === 3 && dk.tiles > 0
+        && /^Horseshoe Cove · \d+:\d\d/.test(dk.names[0]) && /^\d+:\d\d/.test(dk.names[1]) && /^Aquatic Park · \d/.test(dk.names.at(-1)) && dk.names.length === 3 && dk.legs.length === dk.long && dk.long > 0
+        && dk.legs.every(t => /\d\.\d\d nm · \d+°M? · \d+ (min|h)/.test(t)), JSON.stringify(dk));
+      await page.emulateMedia({ media: 'print' });
+      const pdf2 = await page.pdf({ format: 'Letter' }); fs.writeFileSync(path.join(OUT, 'feat-deck.pdf'), pdf2);
+      c('with the deck map: two Letter pages', (pdf2.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 2);
+      await page.emulateMedia({ media: 'screen' });
+      await page.click('#pClose'); await page.waitForTimeout(300);
+      await page.click('#sheetImg'); await page.waitForTimeout(500);
+      c('not in the image', await page.locator('#pDeck').count() === 0);
+      await page.click('#pClose'); await page.waitForTimeout(300);
+      await page.uncheck('#sheetDeck'); await page.click('#printPlan'); await page.waitForTimeout(500);
+      c('unticked: one page again', await page.locator('#pDeck').count() === 0 && await page.evaluate(() => !dMap && settings.sheetDeck === false));
+      await page.click('#pClose'); await page.waitForTimeout(300); }
     // a long route prints the start, finish and named waypoints; the toggle shows them all
     await page.evaluate(() => { const r = []; for (let i = 0; i < 16; i++) r.push([37.80 + i * .004, -122.45 + (i % 2) * .006]);
       r[5] = [...r[5].slice(0, 2), 'Angel Island']; r[9] = [...r[9].slice(0, 2), '', 30]; trip.route = r; delete settings.printNamed; changed(); });
