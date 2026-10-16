@@ -425,6 +425,19 @@ module.exports = async (browser, url, check) => {
       await page.click('#sheetImg'); await page.waitForTimeout(500);
       c('not in the image', await page.locator('#pDeck').count() === 0);
       await page.click('#pClose'); await page.waitForTimeout(300);
+      // its own map and black and white
+      await page.selectOption('#sheetLayer', 'topo'); await page.check('#sheetBw'); await page.click('#printPlan'); await page.waitForTimeout(1500);
+      const bw = await page.evaluate(() => { const lines = []; pMap.eachLayer(l => l instanceof L.Polyline && lines.push(l.options.color)); const t = document.querySelector('#pDeck .leaflet-tile');
+        return { layer: settings.layer, saved: settings.sheetLayer, topo: /nationalmap/.test(document.querySelector('#pMap .leaflet-tile')?.src) && /nationalmap/.test(t?.src),
+          filt: getComputedStyle(document.querySelector('#pMap .leaflet-tile-pane')).filter, wp: getComputedStyle(document.querySelector('#pDeck .wp')).borderTopColor, lines: lines.join() }; });
+      c('print map: its own choice, the screen map unchanged', bw.topo && bw.saved === 'topo' && bw.layer !== 'topo', JSON.stringify(bw));
+      c('B&W: pale gray map, black route on a white edge, black waypoints', /grayscale\(1\)/.test(bw.filt) && bw.lines === '#fff,#000' && bw.wp === 'rgb(0, 0, 0)', JSON.stringify(bw));
+      await page.emulateMedia({ media: 'print' });
+      const pdf3 = await page.pdf({ format: 'Letter' }); fs.writeFileSync(path.join(OUT, 'feat-bw.pdf'), pdf3);
+      c('B&W with the deck map: still two pages', (pdf3.toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 2);
+      await page.emulateMedia({ media: 'screen' });
+      await page.click('#pClose'); await page.waitForTimeout(300);
+      await page.selectOption('#sheetLayer', ''); await page.uncheck('#sheetBw');
       await page.uncheck('#sheetDeck'); await page.click('#printPlan'); await page.waitForTimeout(500);
       c('unticked: one page again', await page.locator('#pDeck').count() === 0 && await page.evaluate(() => !dMap && settings.sheetDeck === false));
       await page.click('#pClose'); await page.waitForTimeout(300); }

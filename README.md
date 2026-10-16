@@ -86,6 +86,8 @@ Three views; swipe between them or use the tabs at the bottom.
   has its own *☀ Large, bold print for reading outdoors* option.
   *PDF page 2: full-page deck map* adds a second page with the route on a whole page: waypoint
   names with planned arrival times, and legs over 5 min labelled with distance, bearing and time.
+  *Map* picks the printed map (Chart, Street, Topo, Sat) apart from the one on screen, and *Black and white printer*
+  prints the map pale gray under a black route, with black waypoints and labels.
 - **1-page sheet** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
   numbered, named waypoints, the waypoint table, the day's forecast, and the tide/current and wind graphs with the planned
   start marked. *PDF* shows a preview; *Print* opens the phone's print dialog (or save as PDF). *Image*
