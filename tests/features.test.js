@@ -431,6 +431,9 @@ module.exports = async (browser, url, check) => {
         return { layer: settings.layer, saved: settings.sheetLayer, topo: /nationalmap/.test(document.querySelector('#pMap .leaflet-tile')?.src) && /nationalmap/.test(t?.src),
           filt: getComputedStyle(document.querySelector('#pMap .leaflet-tile-pane')).filter, wp: getComputedStyle(document.querySelector('#pDeck .wp')).borderTopColor, lines: lines.join() }; });
       c('print map: its own choice, the screen map unchanged', bw.topo && bw.saved === 'topo' && bw.layer !== 'topo', JSON.stringify(bw));
+      const ink = await page.evaluate(() => [...document.querySelectorAll('#printDoc canvas[data-kind]')].map(c => { const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let n = 0;
+        for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 40 && Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 24) n++; return n; }));
+      c('B&W: graphs in black and gray only', ink.length === 2 && ink.every(n => n === 0), JSON.stringify(ink));
       c('B&W: pale gray map, black route on a white edge, black waypoints', /grayscale\(1\)/.test(bw.filt) && bw.lines === '#fff,#000' && bw.wp === 'rgb(0, 0, 0)', JSON.stringify(bw));
       await page.emulateMedia({ media: 'print' });
       const pdf3 = await page.pdf({ format: 'Letter' }); fs.writeFileSync(path.join(OUT, 'feat-bw.pdf'), pdf3);

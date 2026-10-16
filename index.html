@@ -619,7 +619,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li>Tick <b>☀ Large, bold print for reading outdoors</b> in Share or print for a sheet you can read in sun spray: bigger, bolder text, heavier lines, bigger waypoint labels and graphs. It still fits one page (the map gets smaller if needed).</li>
           <li>Tick <b>PDF page 2: full-page deck map</b> to add a second page with just the route on the whole page, for a chart case on the deck: waypoint names with planned arrival times (and stops), and every leg over 5 minutes labelled with its distance, magnetic bearing and time. PDF only, not the image.</li>
           <li><b>Map</b> picks the map printed on the sheet (Chart, Street, Topo or Sat) without changing the one on screen; Chart is best for paddling, Sat prints dark.</li>
-          <li>Tick <b>Black and white printer</b> for a laser printer: the map prints pale gray under a black route with a white edge, with black waypoints and labels and a heavy black start line on the graphs.</li>
+          <li>Tick <b>Black and white printer</b> for a laser printer: the map prints pale gray under a black route with a white edge, with black waypoints and labels. The graphs go black and gray: tide a black line, flood dark bars up and ebb light bars down, wind a gray area under a black gust line, and a heavy black start line.</li>
           <li>Turn on <b>🚻</b> and <b>P</b> on the map first to have restrooms and parking on the printed map.</li>
           <li>For a waterproof case: print in colour if you can, fold once, and carry a proper chart or map too.</li>
         </ul>
@@ -648,7 +648,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-16b';
+const APP_VERSION = '2026-10-16c';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1764,6 +1764,12 @@ const cv = $('#chart'), tcv = $('#tChart');
 const hmS = t => hm(t).replace(/\s?([AP])M$/i, (m, x) => x.toLowerCase()); // 3:12p
 // A value label with a white backing, kept inside the graph and clear of labels already placed (taken).
 // dir -1 prefers above the point, 1 below; failing that it slides sideways or further out, and a label with no room is left off.
+// B&W printer: the graphs' colours as black and grays (set only while the print sheet's graphs are drawn)
+let bwInk = false;
+const BW_INK = { '#5B7183': '#333', '#12324A': '#000', '#1F6FB2': '#000', '#2E8B57': '#000', '#B3261E': '#000', '#C8167E': '#000',
+  'rgba(18,50,74,.10)': 'rgba(0,0,0,.08)', 'rgba(31,111,178,.55)': 'rgba(0,0,0,.6)', 'rgba(46,139,87,.55)': 'rgba(0,0,0,.26)', 'rgba(18,50,74,.25)': 'rgba(0,0,0,.6)',
+  'rgba(18,50,74,.28)': 'rgba(0,0,0,.16)', 'rgba(179,38,30,.6)': 'rgba(0,0,0,.7)', 'rgba(46,139,87,.30)': 'rgba(0,0,0,.16)' };
+const ink = c => bwInk ? BW_INK[c] ?? c : c;
 function tag(g, W, H, x, y, text, col, dir = -1, taken = []){
   const w = g.measureText(text).width + 6, h = 13, top = 1, bot = H - 12 - h;
   const free = (bx, by) => !taken.some(r => bx < r[0] + r[2] && r[0] < bx + w && by < r[1] + r[3] && r[1] < by + h);
@@ -1772,11 +1778,11 @@ function tag(g, W, H, x, y, text, col, dir = -1, taken = []){
   for (const dy of [0, 14, 28, 42]) for (const s of [dir, -dir]) for (const dx of [0, w / 2 + 6, -w / 2 - 6, w, -w])
     spots.push([x - w / 2 + dx, Math.max(top, Math.min(bot, s < 0 ? y - 16 - dy : y + 4 + dy))]);
   const box = spots.map(([bx, by]) => [Math.max(1, Math.min(W - w - 1, bx)), by]).find(([bx, by]) => free(bx, by));
-  g.fillStyle = col; g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill();
+  g.fillStyle = ink(col); g.beginPath(); g.arc(x, y, 2.5, 0, 7); g.fill();
   if (!box) return;
   const [bx, by] = box; taken.push([bx, by, w, h]);
-  g.fillStyle = 'rgba(255,255,255,.85)'; g.fillRect(bx, by, w, h);
-  g.fillStyle = col; g.fillText(text, bx + 3, by + 10);
+  g.fillStyle = ink('rgba(255,255,255,.85)'); g.fillRect(bx, by, w, h);
+  g.fillStyle = ink(col); g.fillText(text, bx + 3, by + 10);
 }
 // Local highs and lows of a sampled curve, as [index, isHigh]; the ends of the day don't count.
 function turns(vs){
@@ -1798,14 +1804,14 @@ function drawDay(cv, sun, kind, o){
   cv.width = W * zm * dpr; cv.height = H * zm * dpr;
   const g = cv.getContext('2d'); g.setTransform(dpr * zm, 0, 0, dpr * zm, 0, 0); g.clearRect(0, 0, W, H);
   const font = getComputedStyle(document.body).fontFamily, lab = '600 10px ' + font, T = o.compact ? v => v : (v, t) => `${v} ${hmS(t)}`;
-  const note = s => { g.fillStyle = '#5B7183'; g.font = (o.compact ? '11px ' : '13px ') + font; g.fillText(s, 8, o.compact ? 14 : 22); };
+  const note = s => { g.fillStyle = ink('#5B7183'); g.font = (o.compact ? '11px ' : '13px ') + font; g.fillText(s, 8, o.compact ? 14 : 22); };
   if (kind === 'elev') return drawElev(g, W, H, font, note, !o.dpr);
   const t0 = dayStart(), t1 = t0 + 864e5, X = t => (t - t0) / (t1 - t0) * W, at = x => t0 + x / W * 864e5;
-  g.fillStyle = 'rgba(18,50,74,.10)';
+  g.fillStyle = ink('rgba(18,50,74,.10)');
   if (sun.rise){ g.fillRect(0, 0, X(sun.rise), H); g.fillRect(X(sun.set), 0, W - X(sun.set), H); }
-  g.fillStyle = '#5B7183'; g.font = '10px ' + font;
+  g.fillStyle = ink('#5B7183'); g.font = '10px ' + font;
   for (let h = 3; h < 24; h += o.compact ? 6 : 3){ const x = X(t0 + h*36e5); g.fillRect(x, H - 4, 1, 4); g.fillText(h === 12 ? '12p' : (h > 12 ? h - 12 + 'p' : h + 'a'), x + 2, H - 2); }
-  const cursor = () => { g.fillStyle = o.bw ? '#000' : '#C8167E'; g.fillRect(X(tAt()) - (o.bw ? 1.5 : 1), 0, o.bw ? 3 : 2, H); };
+  const cursor = () => { g.fillStyle = ink('#C8167E'); g.fillRect(X(tAt()) - (bwInk ? 1.5 : 1), 0, bwInk ? 3 : 2, H); };
   if (kind === 'wind'){ drawWind(g, W, H, X, t0, t1, font, note, T, sun); return cursor(); }
   const mid = H * .55, tags = [];
   const cur = o.cur && trip.data?.current && hasCurrents(), tide = o.tide && trip.data?.tide;
@@ -1815,10 +1821,10 @@ function drawDay(cv, sun, kind, o){
     const sc = (H * .42) / mx;
     for (let x = 0; x <= W; x += 2){
       const c = curAt(at(x)); if (!c) continue;
-      g.fillStyle = c.v >= 0 ? 'rgba(31,111,178,.55)' : 'rgba(46,139,87,.55)';
+      g.fillStyle = ink(c.v >= 0 ? 'rgba(31,111,178,.55)' : 'rgba(46,139,87,.55)');
       g.fillRect(x, c.v >= 0 ? mid - c.v * sc : mid, 2, Math.abs(c.v) * sc);
     }
-    g.fillStyle = 'rgba(18,50,74,.25)'; g.fillRect(0, mid, W, 1);
+    g.fillStyle = ink('rgba(18,50,74,.25)'); g.fillRect(0, mid, W, 1);
     // every max flood and max ebb of the day
     for (const [x, up] of turns(vs)) if (up ? vs[x] > .05 : vs[x] < -.05)
       tags.push([x, mid - vs[x] * sc, T(`${vs[x].toFixed(1)} kt`, at(x)), up ? '#1F6FB2' : '#2E8B57', up ? -1 : 1]);
@@ -1828,7 +1834,7 @@ function drawDay(cv, sun, kind, o){
     if (ok.length){
       const lo = Math.min(...ok), hi = Math.max(...ok);
       const pad = o.compact ? 4 : 18, Y = v => pad + (1 - (v - lo) / Math.max(.5, hi - lo)) * (H - pad - (o.compact ? 14 : 28));
-      g.strokeStyle = '#12324A'; g.lineWidth = 2; g.beginPath(); let first = true;
+      g.strokeStyle = ink('#12324A'); g.lineWidth = 2; g.beginPath(); let first = true;
       for (let x = 0; x <= W; x += 2){ const d = tideAt(at(x)); if (!d) { first = true; continue; } first ? g.moveTo(x, Y(d.v)) : g.lineTo(x, Y(d.v)); first = false; }
       g.stroke();
       // every high and low tide of the day, ahead of the current labels
@@ -1845,12 +1851,12 @@ function drawWind(g, W, H, X, t0, t1, font, note, T, sun){
   const idx = w.t.map((t, i) => i).filter(i => w.t[i] >= t0 - 36e5 && w.t[i] <= t1 + 36e5);
   if (!idx.length) return note('No wind forecast for this day');
   const top = Math.max(gust() + 5, ...idx.map(i => w.wg[i] || 0)), Y = v => H - 14 - v / top * (H - 22);
-  g.fillStyle = 'rgba(18,50,74,.28)'; g.beginPath(); g.moveTo(X(w.t[idx[0]]), Y(0));
+  g.fillStyle = ink('rgba(18,50,74,.28)'); g.beginPath(); g.moveTo(X(w.t[idx[0]]), Y(0));
   idx.forEach(i => g.lineTo(X(w.t[i]), Y(w.ws[i]))); g.lineTo(X(w.t[idx[idx.length-1]]), Y(0)); g.fill();
-  g.strokeStyle = '#B3261E'; g.lineWidth = 1.5; g.beginPath();
+  g.strokeStyle = ink('#B3261E'); g.lineWidth = 1.5; g.beginPath();
   idx.forEach((i, k) => k ? g.lineTo(X(w.t[i]), Y(w.wg[i])) : g.moveTo(X(w.t[i]), Y(w.wg[i]))); g.stroke();
-  g.setLineDash([4, 4]); g.strokeStyle = 'rgba(179,38,30,.6)'; g.beginPath(); g.moveTo(0, Y(gust())); g.lineTo(W, Y(gust())); g.stroke(); g.setLineDash([]);
-  g.fillStyle = '#5B7183'; g.font = '10px ' + font; g.fillText(`${Math.round(wU(top))} ${wUnit()}`, 2, 10); g.fillText(`gust limit ${Math.round(wU(gust()))}`, W - 76, Y(gust()) - 3);
+  g.setLineDash([4, 4]); g.strokeStyle = ink('rgba(179,38,30,.6)'); g.beginPath(); g.moveTo(0, Y(gust())); g.lineTo(W, Y(gust())); g.stroke(); g.setLineDash([]);
+  g.fillStyle = ink('#5B7183'); g.font = '10px ' + font; g.fillText(`${Math.round(wU(top))} ${wUnit()}`, 2, 10); g.fillText(`gust limit ${Math.round(wU(gust()))}`, W - 76, Y(gust()) - 3);
   // the strongest gust and wind in daylight, plus the day's strongest gust if that comes at night
   const day = idx.filter(i => w.t[i] >= t0 && w.t[i] < t1), lit = day.filter(i => !sun.rise || (w.t[i] >= sun.rise && w.t[i] <= sun.set));
   const pk = (k, set) => set.reduce((a, i) => w[k][i] > w[k][a] ? i : a, set[0]);
@@ -1865,10 +1871,10 @@ function drawElev(g, W, H, font, note, live){
   if (!el || el.key !== routeKey(trip.route)) return note(trip.route.length > 1 ? 'Elevation profile appears after Get forecast' : 'Plot a route to see its elevation profile');
   const lo = Math.min(...el.e), hi = Math.max(...el.e), span = Math.max(50, hi - lo), D = el.d[el.d.length - 1] || 1;
   const X = d => d / D * W, Y = v => 8 + (1 - (v - lo) / span) * (H - 24);
-  g.fillStyle = 'rgba(46,139,87,.30)'; g.beginPath(); g.moveTo(0, H - 14);
+  g.fillStyle = ink('rgba(46,139,87,.30)'); g.beginPath(); g.moveTo(0, H - 14);
   el.e.forEach((v, i) => g.lineTo(X(el.d[i]), Y(v))); g.lineTo(W, H - 14); g.fill();
-  g.strokeStyle = '#2E8B57'; g.lineWidth = 2; g.beginPath(); el.e.forEach((v, i) => i ? g.lineTo(X(el.d[i]), Y(v)) : g.moveTo(X(el.d[i]), Y(v))); g.stroke();
-  g.fillStyle = '#5B7183'; g.font = '10px ' + font;
+  g.strokeStyle = ink('#2E8B57'); g.lineWidth = 2; g.beginPath(); el.e.forEach((v, i) => i ? g.lineTo(X(el.d[i]), Y(v)) : g.moveTo(X(el.d[i]), Y(v))); g.stroke();
+  g.fillStyle = ink('#5B7183'); g.font = '10px ' + font;
   g.fillText(ft(hi), 2, 10); g.fillText(ft(lo), 2, H - 16);
   const step = dU(D) > 6 ? 2 : dU(D) > 2 ? 1 : 0.5;
   for (let u = step; u < dU(D); u += step){ const x = X(u / dU(1)); g.fillRect(x, H - 4, 1, 4); g.fillText(u + ' ' + unitName(), x + 2, H - 2); }
@@ -1878,7 +1884,7 @@ function drawElev(g, W, H, font, note, live){
     const a = el.d[i - 1], b = el.d[i];
     const e = b > a ? el.e[i - 1] + (el.e[i] - el.e[i - 1]) * (d - a) / (b - a) : el.e[i - 1];
     let up = 0; for (let k = 1; k < i; k++) up += Math.max(0, el.e[k] - el.e[k - 1]);
-    g.fillStyle = '#C8167E'; g.fillRect(X(d) - 1, 0, 2, H);
+    g.fillStyle = ink('#C8167E'); g.fillRect(X(d) - 1, 0, 2, H);
     g.font = '600 10px ' + font;
     tag(g, W, H, X(d), Y(e), `${ft(e)} · ${dU(d).toFixed(1)} ${unitName()} · ${fmtDur(hoursFor(d, up))}`, '#C8167E', -1, [[0, 0, 60, 13], [0, H - 28, 60, 13]]);
   }
@@ -1887,7 +1893,7 @@ function drawElev(g, W, H, font, note, live){
   if (rp && rp.off < 0.5){
     const d = rp.along / (routeNm(trip.route) || 1) * D; let i = el.d.findIndex(x => x >= d); i = i < 0 ? el.d.length - 1 : Math.max(1, i);
     const a = el.d[i - 1], b = el.d[i], e = b > a ? el.e[i - 1] + (el.e[i] - el.e[i - 1]) * (d - a) / (b - a) : el.e[i - 1];
-    g.fillStyle = '#1a73e8'; g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.arc(X(d), Y(e), 6, 0, 7); g.fill(); g.stroke();
+    g.fillStyle = ink('#1a73e8'); g.strokeStyle = ink('#fff'); g.lineWidth = 2.5; g.beginPath(); g.arc(X(d), Y(e), 6, 0, 7); g.fill(); g.stroke();
   }
 }
 $('#graphSel').addEventListener('click', e => { const b = e.target.closest('button[data-g]'); if (!b) return; settings.graph = b.dataset.g; saveSettings(); render(); });
@@ -2972,7 +2978,7 @@ async function openPrint(){
     <h3>Forecast${trip.fetchedAt ? ` <span style="font-weight:400">(as of ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })})</span>` : ''}</h3>
     ${fc.length ? `<div class="pfc">${fc.map(([k, l]) => `<div><b>${esc(k)}</b>${l.map(esc).join(' · ')}</div>`).join('')}</div>` : '<p>No forecast yet: tap Get forecast first.</p>'}
     ${trip.data ? `<div class="pgs">${kinds.map(k => `<div class="pg"><h3>${names[k]}</h3><canvas data-kind="${k}"></canvas></div>`).join('')}</div>` : ''}
-    <p class="pfoot">${settings.sheetBw ? 'Heavy black' : 'Magenta'} line on the graphs: the planned start. Not for navigation; check official forecasts and local conditions. Planned with Outback, ${esc(appUrl())}</p>`;
+    <p class="pfoot">${settings.sheetBw ? 'Graphs: heavy black line, the planned start; tide a black line; current dark bars up (flood), light bars down (ebb); wind a gray area, gusts a black line.' : 'Magenta line on the graphs: the planned start.'} Not for navigation; check official forecasts and local conditions. Planned with Outback, ${esc(appUrl())}</p>`;
   if ($('#printView').hidden){ $('#printView').hidden = false; history.pushState({ print: 1 }, ''); }
   document.title = fileName('pdf').slice(0, -4);   // the name Save as PDF suggests
   $('#printView').scrollTop = 0;
@@ -3043,8 +3049,9 @@ function printMap(el, big, o = {}){
 // the sheet's graphs with the cursor at the planned start, at dpr pixels per CSS pixel (3 for paper, the image's own scale for it)
 function sheetGraphs(dpr){
   const sun = sunTimes(trip.date, ...centroid()), tMin = state.tMin; state.tMin = trip.start;
-  $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr, zoom: settings.sheetSun ? 1.3 : 1, bw: !!settings.sheetBw }));
-  state.tMin = tMin;
+  bwInk = !!settings.sheetBw;
+  try{ $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr, zoom: settings.sheetSun ? 1.3 : 1 })); }
+  finally{ bwInk = false; state.tMin = tMin; }
 }
 // image sizes: 1× fits a spreadsheet or doc at 100% (Sheets shows images pixel for pixel and shrinks them poorly)
 const SHEET_SCALES = [[1, 'Small (800 px), fits a sheet'], [2, 'Medium (1600 px)'], [3, 'Large, to print (2400 px)']];
