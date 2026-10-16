@@ -196,12 +196,15 @@ module.exports = async (browser, url, check) => {
   c('lake switches chart layer to topo', (await page.text('#layerBtn')) === 'Topo', await page.text('#layerBtn'));
   await page.setInputFiles('#file', path.join(OUT, 'export.json')); await page.waitForTimeout(600);
   c('JSON import adds a copy', (await page.text('#tabTrip')) === 'Golden Gate loop' && await page.evaluate(async () => (await idb.all('trips')).length) === 4);
+  { const j = JSON.parse(fs.readFileSync(path.join(OUT, 'export.json'), 'utf8')); delete j.trip.name; fs.writeFileSync(path.join(OUT, 'Shared-trip_2026-10-15.json.txt'), JSON.stringify(j)); }
+  await page.setInputFiles('#file', path.join(OUT, 'Shared-trip_2026-10-15.json.txt')); await page.waitForTimeout(600);
+  c('an Outback file shared as .json.txt imports too', (await page.text('#tabTrip')) === 'Shared-trip_2026-10-15' && await page.evaluate(async () => (await idb.all('trips')).length) === 5, await page.text('#tabTrip'));
   fs.writeFileSync(path.join(OUT, 'bad.json'), '{"foo":1}');
   await page.setInputFiles('#file', path.join(OUT, 'bad.json')); await page.waitForTimeout(300);
   c('bad import rejected', (await page.text('#toast')).includes('Import failed'), await page.text('#toast'));
 
   await view(page, 0);
-  c('list shows all trips, current highlighted', await page.locator('#tripList .trip').count() === 4 && await page.locator('#tripList .trip.cur').count() === 1);
+  c('list shows all trips, current highlighted', await page.locator('#tripList .trip').count() === 5 && await page.locator('#tripList .trip.cur').count() === 1);
   await page.locator('#tripList .trip', { hasText: 'Tahoe test' }).click(); await page.waitForTimeout(400);
   c('tap a trip opens it in the Trip view', await page.evaluate(() => state.view === 1 && trip.name === 'Tahoe test'));
 

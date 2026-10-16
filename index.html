@@ -163,7 +163,12 @@ body.sun #map .wp{transform:scale(1.2);border-width:4px;font-weight:800;line-hei
 body.sun .me{transform:scale(1.35);box-shadow:0 0 0 2px #000}
 body.sun .cm span,body.sun .tm span{font-size:13.5px}
 body.sun #coords{font-weight:700}
-#sunBtn[aria-pressed="true"]{background:#000;color:#FFD400;border-color:#000}
+/* Share or print: each button with what it does beside it */
+.shh{margin:14px 0 6px;font-size:14px} .shh .muted{font-weight:400;font-size:13px}
+.shrow{display:grid;grid-template-columns:118px 1fr;gap:10px;align-items:center;margin:6px 0}
+.shrow .btn{width:100%} .shrow .muted{line-height:1.3} .shrow select{display:block;width:100%;margin-top:4px;min-height:32px}
+.shck{display:flex;align-items:center;gap:6px;margin:6px 0 0;font-size:14px}
+[data-sun][aria-pressed="true"]{background:#000;color:#FFD400;border-color:#000}
 @media print{
   @page{size:letter portrait;margin:.35in}
   html,body{height:auto!important;overflow:visible!important;background:#fff!important}
@@ -589,9 +594,9 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card help" id="helpShare"><summary>Sharing and printing a trip</summary>
         <ul>
-          <li><b>Share or print</b> (bottom of the Trip tab) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast, plus a map image of the route on the current map layer (numbered waypoints with names, markers and parking). <b>Copy text</b> and <b>Copy image</b> to paste them into a club forum, email or chat; press and hold the map to save it to your photos.</li>
-          <li><b>Share a file</b> in the same sheet: <b>1-page sheet</b> (a one-page trip sheet, see below), <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback file</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…). Each opens the phone's share sheet: send it straight on (Messages, Mail, AirDrop, another app), or pick Save to Files to keep it. A note at the bottom of the screen says when it's done.</li>
-          <li><b>1-page sheet</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Tap <b>Print</b> there, and pick a printer or save it as a PDF. With <b>1-page sheet as an image</b> ticked the button is <b>Copy image</b> instead: a sharp PNG of the same page, copied to paste into a spreadsheet or doc (saved as a file where copying isn't allowed) (the map needs its tiles to allow it; the Street layer always does).</li>
+          <li><b>Share or print</b> (bottom of the Trip tab) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast, plus a map image of the route on the current map layer (numbered waypoints with names, markers and parking). <b>Copy text</b> and <b>Copy map</b> to paste them into a club forum, email or chat; press and hold the map to save it to your photos.</li>
+          <li><b>Files</b> in the same sheet: <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback file</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…). Each opens the phone's share sheet: send it straight on (Messages, Mail, AirDrop, Google Drive or another app), or pick Save to Files to keep it. On Android, Chrome won't let a web app share .json or .gpx files, so GPX and Outback file (and backups) are saved to Downloads under their own name: share them on from the Files app (e.g. to Google Drive). A note at the bottom of the screen says when it's done.</li>
+          <li><b>1-page sheet</b>: <b>PDF</b> or <b>Image</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. From <b>PDF</b>, tap <b>Print</b> there and pick a printer or save it as a PDF. From <b>Image</b>, tap <b>Copy image</b> there: a PNG of the same page, copied to paste into a spreadsheet or doc (shared as a file where copying isn't allowed). Pick its size beside the Image button: <b>Small</b> pastes at a sensible size in Google Sheets or Docs (they show images pixel for pixel and blur them when you drag them smaller); <b>Large</b> is sharp enough to print (the map needs its tiles to allow it; the Street layer always does).</li>
           <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping 1-page sheet.</li>
           <li>Tick <b>☀ Large, bold print for reading outdoors</b> in Share or print for a sheet you can read in sun spray: bigger, bolder text, heavier lines, bigger waypoint labels and graphs. It still fits one page (the map gets smaller if needed).</li>
@@ -608,7 +613,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
 
 <dialog id="sheet"></dialog>
 <div id="toast" role="status"></div>
-<input id="file" type="file" accept=".json,.gpx,application/json,application/gpx+xml" hidden>
+<input id="file" type="file" accept=".json,.gpx,.txt,application/json,application/gpx+xml,text/plain" hidden>
 <input id="pdfFile" type="file" accept=".pdf,application/pdf" hidden>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -623,7 +628,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15i';
+const APP_VERSION = '2026-10-15q';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2892,16 +2897,21 @@ let planImg = null;
 // again: back from the PDF preview, keeping the map image already made
 function sharePlanSheet(again){
   const gpx = hasGpx();
-  openSheet(`<h2>Share or print</h2><p class="muted">The plan as text anyone can read, for a club forum, email or chat, with a map of the route.</p>
-    <textarea id="planTxt" class="f" readonly rows="8" style="width:100%;font:13px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap"></textarea>
-    <img id="planPrev" alt="Route map" hidden style="display:block;width:100%;max-height:200px;object-fit:contain;margin-top:8px;border:1px solid var(--line,#ddd);border-radius:8px">
-    <div class="row" style="flex-wrap:wrap;margin-top:10px"><button class="btn primary" id="planCopy">Copy text</button><button class="btn primary" id="planCopyImg" disabled>Copy image</button></div>
-    <h3 style="margin:14px 0 4px;font-size:14px">Share a file</h3>
-    <div class="row" style="flex-wrap:wrap"><button class="btn" id="printPlan">1-page sheet</button>${gpx ? '<button class="btn" id="planGpx">GPX</button>' : ''}<button class="btn" id="planJson">Outback file</button></div>
-    <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:14px"><input type="checkbox" id="sheetPng"${settings.sheetPng ? ' checked' : ''}> 1-page sheet as an image (PNG) instead of PDF</label>
-    <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:14px"><input type="checkbox" id="sheetSun"${settings.sheetSun ? ' checked' : ''}> ☀ Large, bold print for reading outdoors</label>
-    <p class="muted" style="margin-top:6px">1-page sheet: map, waypoints, forecast and graphs, to print, save as a PDF, or as an image for a spreadsheet or doc. ${gpx ? `GPX: ${[trip.route.length && 'route', trip.marks.length && 'markers', trip.tracks.length && 'tracks'].filter(Boolean).join(', ')}, for map and GPS apps. ` : ''}Outback file: everything, to open in Outback on another phone (Trips, Import trip or GPX…).</p>
-    <div class="row" style="margin-top:8px"><span class="grow"></span><button class="btn" data-close>Close</button></div>`);
+  const opt = (btn, desc) => `<div class="shrow">${btn}<div class="muted">${desc}</div></div>`;
+  openSheet(`<h2>Share or print</h2>
+    <textarea id="planTxt" class="f" readonly rows="6" style="width:100%;font:13px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap"></textarea>
+    <img id="planPrev" alt="Route map" hidden style="display:block;width:100%;max-height:180px;object-fit:contain;margin-top:8px;border:1px solid var(--line,#ddd);border-radius:8px">
+    <h3 class="shh">The plan</h3>
+    ${opt('<button class="btn primary" id="planCopy">Copy text</button>', 'The text above, for a club forum, email or chat')}
+    ${opt('<button class="btn primary" id="planCopyImg" disabled>Copy map</button>', 'The route map above, as a picture')}
+    <h3 class="shh">1-page sheet <span class="muted">map, waypoints, forecast, graphs</span></h3>
+    ${opt('<button class="btn" id="printPlan">PDF</button>', 'Print it, or save as PDF')}
+    ${opt('<button class="btn" id="sheetImg">Image</button>', `Copy as a picture, for a spreadsheet or doc<select id="sheetScale" class="f" aria-label="Image size">${SHEET_SCALES.map(([v, t]) => `<option value="${v}"${(settings.sheetScale || 1) === v ? ' selected' : ''}>${t}</option>`).join('')}</select>`)}
+    <label class="shck"><input type="checkbox" id="sheetSun"${settings.sheetSun ? ' checked' : ''}> ☀ Large, bold print for reading outdoors</label>
+    <h3 class="shh">Files</h3>
+    ${gpx ? opt('<button class="btn" id="planGpx">GPX</button>', `${[trip.route.length && 'Route', trip.marks.length && 'markers', trip.tracks.length && 'tracks'].filter(Boolean).join(', ').replace(/^./, c => c.toUpperCase())}, for map and GPS apps or your watch`) : ''}
+    ${opt('<button class="btn" id="planJson">Outback file</button>', 'The whole trip, to open in Outback on another phone')}
+    <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn" data-close>Close</button></div>`);
   $('#planTxt').value = planText();
   if (again === true && planImg){ $('#planPrev').src = URL.createObjectURL(planImg); $('#planPrev').hidden = false; $('#planCopyImg').disabled = false; return; }
   planImg = null;
@@ -2950,9 +2960,7 @@ async function openPrint(){
   const over = doc.offsetHeight - 10.1 * 96; if (over > 0) pm.style.height = Math.max(2.2 * 96, pm.offsetHeight - over) + 'px';
   fitW();
   // graphs with the cursor at the planned start
-  const tMin = state.tMin; state.tMin = trip.start;
-  $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr: 3, zoom: big ? 1.3 : 1 }));
-  state.tMin = tMin;
+  sheetGraphs(3);
   // the map: the selected layer, the route with numbered waypoints, markers and sea marks
   const L0 = LAYERS[settings.layer];
   pMap = L.map('pMap', { preferCanvas: true, zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false });
@@ -2982,12 +2990,24 @@ async function openPrint(){
   sheetPng = b; btn.disabled = !b; if (!b) toast('Could not make the image (offline the first time?). Untick image to print instead.', 5000);
 }
 let sheetPng = null;
-// The trip sheet as a PNG at 3× (about 2300 px wide), for a spreadsheet, doc or chat; html2canvas loads on first use.
+// The trip sheet as a PNG at the chosen size, for a spreadsheet, doc or chat; html2canvas loads on first use.
+// the sheet's graphs with the cursor at the planned start, at dpr pixels per CSS pixel (3 for paper, the image's own scale for it)
+function sheetGraphs(dpr){
+  const sun = sunTimes(trip.date, ...centroid()), tMin = state.tMin; state.tMin = trip.start;
+  $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr, zoom: settings.sheetSun ? 1.3 : 1 }));
+  state.tMin = tMin;
+}
+// image sizes: 1× fits a spreadsheet or doc at 100% (Sheets shows images pixel for pixel and shrinks them poorly)
+const SHEET_SCALES = [[1, 'Small (800 px), fits a sheet'], [2, 'Medium (1600 px)'], [3, 'Large, to print (2400 px)']];
 async function sheetImage(){
   if (!window.html2canvas) await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'vendor/html2canvas.min.js'; s.onload = res; s.onerror = () => rej(new Error('html2canvas')); document.head.append(s); });
-  const c = await html2canvas($('#printDoc'), { scale: 3, useCORS: true, backgroundColor: '#fff', logging: false,
-    onclone: d => { const e = d.getElementById('printDoc'); e.style.zoom = 1; e.style.padding = '20px'; e.style.width = 'calc(7.6in + 40px)'; e.style.boxSizing = 'border-box'; } });
-  return new Promise(res => c.toBlob(res, 'image/png'));
+  const scale = settings.sheetScale || 1;
+  sheetGraphs(scale);   // drawn at the image's own scale: no blurry shrinking of the paper-sharp ones
+  try{
+    const c = await html2canvas($('#printDoc'), { scale, useCORS: true, backgroundColor: '#fff', logging: false,
+      onclone: d => { const e = d.getElementById('printDoc'); e.style.zoom = 1; e.style.padding = '20px'; e.style.width = 'calc(7.6in + 40px)'; e.style.boxSizing = 'border-box'; } });
+    return await new Promise(res => c.toBlob(res, 'image/png'));
+  }finally{ sheetGraphs(3); }
 }
 // as an image it's copied, like Copy image in Share or print; saved as a file where the clipboard won't take it
 $('#pPrint').onclick = async () => { if (!settings.sheetPng) return print(); if (!sheetPng) return;
@@ -3070,7 +3090,8 @@ document.addEventListener('keydown', e => { if (e.key !== 'Escape') return; if (
 /* ---------- sheet (PDF maps) ---------- */
 const sheet = $('#sheet');
 function openSheet(html){ sheet.innerHTML = `<div class="sh">${html}</div>`; if (!sheet.open) sheet.showModal(); }
-sheet.addEventListener('change', e => { if (e.target.id === 'sheetPng' || e.target.id === 'sheetSun'){ settings[e.target.id] = e.target.checked; saveSettings(); } });
+sheet.addEventListener('change', e => { if (e.target.id === 'sheetSun'){ settings[e.target.id] = e.target.checked; saveSettings(); }
+  if (e.target.id === 'sheetScale'){ settings.sheetScale = +e.target.value; saveSettings(); } });
 sheet.addEventListener('click', async e => {
   if (e.target === sheet || e.target.closest('[data-close]')) return sheet.close();
   if (e.target.id === 'pdfHelp'){ e.preventDefault(); sheet.close(); return openHelp('helpPdf'); }
@@ -3081,7 +3102,12 @@ sheet.addEventListener('click', async e => {
   if (b.id === 'planCopy') return toast(await copyText($('#planTxt').value) ? 'Trip plan copied. Paste it into the forum post.' : 'Could not copy; select the text and copy it.');
   if (b.id === 'planCopyImg'){ try{ await navigator.clipboard.write([new ClipboardItem({ 'image/png': planImg })]); return toast('Map image copied. Paste it next to the text.'); }
     catch{ return toast('Could not copy the image here; press and hold the map to save or copy it.', 4000); } }
-  if (b.id === 'printPlan'){ sheet.close(); printBack = true; return openPrint(); }
+  if (b.id === 'printPlan' || b.id === 'sheetImg'){ settings.sheetPng = b.id === 'sheetImg'; saveSettings(); sheet.close(); printBack = true; return openPrint(); }
+  // the sheet stays up while the share runs: a refusal puts the next Ready to share in it
+  if (b.id === 'shareSave' && pendingShare){ const p = pendingShare; pendingShare = null; saveFile(p.name, p.data, p.type); toast(`Saved ${p.name} to your downloads.`, 5000); sheet.close(); return p.res(true); }
+  if (b.id === 'shareReady' && pendingShare){ const p = pendingShare; pendingShare = null; b.disabled = true; b.textContent = 'Opening…';
+    const ok = await shareFile(p.name, p.data, p.type, p.from, true);
+    if (!pendingShare) sheet.close(); return p.res(ok); }
   if (b.id === 'planGpx') return shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml');
   if (b.id === 'planJson') return shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json');
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
@@ -3101,17 +3127,43 @@ function toGpx(){
     `  <trkpt lat="${p[0]}" lon="${p[1]}">${p[3] != null ? `<ele>${(p[3] / 3.28084).toFixed(1)}</ele>` : ''}<time>${new Date(p[2]).toISOString()}</time></trkpt>`).join('\n')}\n </trkseg></trk>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Outback" xmlns="http://www.topografix.com/GPX/1/1">\n${wpts}${trip.route.length ? ` <rte><name>${esc(trip.name)}</name>\n${pts}\n </rte>\n` : ''}${trks}\n</gpx>\n`;
 }
-// The phone's share sheet (Save to Files, AirDrop, mail, another app), else a download; says which happened.
-// Phones turn down types they don't know (GPX): the same file as plain data or text usually goes, keeping its name.
-async function shareFile(name, text, type){
-  const file = new File([text], name, { type });
-  try{ if (navigator.share) for (const t of [type, 'application/octet-stream', 'text/plain']){ const f = t === type ? file : new File([text], name, { type: t });
-      if (navigator.canShare?.({ files: [f] })){ await navigator.share({ files: [f], title: name }); toast(`Done: ${name}`); return true; } } }
-  catch(e){ if (e.name === 'AbortError'){ toast('Not shared.'); return false; } }
-  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = name; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  toast(`Saved ${name} to your downloads.`, 4000);
+// The share sheet (Save to Files, Google Drive, AirDrop, mail, another app), else a download; says which happened.
+// A browser that doesn't know a type (GPX, JSON) may take the same file as plain data or text, keeping its name.
+// Chrome on Android shares only listed file types (images, media, PDF, text, HTML, CSV) and turns .json and .gpx down
+// whatever they're labelled; those are saved under their own name there instead, to share from the Files app.
+const NO_SHARE = /Android/i.test(navigator.userAgent) ? /\.(json|gpx)$/i : null;
+function shareables(name, data, type){
+  if (!navigator.share || !navigator.canShare || NO_SHARE?.test(name)) return [];
+  return [type, 'application/octet-stream', 'text/plain'].map(t => new File([data], name, { type: t })).filter(f => { try{ return navigator.canShare({ files: [f] }); }catch{ return false; } });
+}
+// One try per tap: a phone that turns a form down (or a tap whose permission ran out while the file was being made)
+// gets a Ready to share sheet, whose Share… tries again, with the next form after a refusal. retry: from that sheet.
+async function shareFile(name, data, type, from = 0, retry = false){
+  const fs = shareables(name, data, type), f = fs[from];
+  let err = null;
+  // still within the tap? then a NotAllowedError is the phone refusing this type (Android does that to .json), not a stale tap
+  const live = navigator.userActivation ? navigator.userActivation.isActive : !retry;
+  if (f) try{ await navigator.share({ files: [f] }); toast(`Done: ${f.name}`); return true; }
+    catch(e){ if (e.name === 'AbortError'){ toast('Not shared.'); return false; }
+      err = e;
+      const next = e.name === 'NotAllowedError' && !live && !retry ? from : from + 1;
+      if (next < fs.length) return readyToShare(name, data, type, next, `${f.name} (${f.type || 'no type'}): ${e.name}${e.message ? ', ' + e.message : ''}`); }
+  saveFile(name, data, type);
+  if (!err && NO_SHARE?.test(name) && navigator.share) return toast(`Saved ${name} to Downloads. To send it to Drive or another app, share it from the Files app.`, 7000), true;
+  toast(`${err ? `Could not share (${err.name}${err.message ? ': ' + err.message : ''}); s` : 'This browser can\'t share files; s'}aved ${name} to your downloads.`, 8000);
   return true;
+}
+function saveFile(name, data, type){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new File([data], name, { type })); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+let pendingShare = null;
+// why: what the phone said to the last try, shown so a refusal isn't silent
+function readyToShare(name, data, type, from, why){
+  return new Promise(res => { pendingShare = { name, data, type, from, res };
+    openSheet(`<h2>Ready to share</h2><p><b>${esc(name)}</b></p>${why ? `<p class="muted">The phone turned down the last try (${esc(why)}). Share… tries it another way.</p>` : '<p class="muted">Tap Share… to pick where it goes (Drive, Files, mail…).</p>'}
+      <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn primary" id="shareReady">Share…</button><button class="btn" id="shareSave">Save file</button><span class="grow"></span><button class="btn" data-close>Cancel</button></div>`);
+    sheet.addEventListener('close', () => { if (pendingShare?.res === res){ pendingShare = null; res(false); } }, { once: true }); });
 }
 $('#file').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -3123,7 +3175,7 @@ $('#file').onchange = async e => {
       const ll = p => [+(+p.getAttribute('lat')).toFixed(6), +(+p.getAttribute('lon')).toFixed(6)];
       const rte = [...x.getElementsByTagName('rtept')], trk = [...x.getElementsByTagName('trkpt')], wpt = [...x.getElementsByTagName('wpt')];
       t = newTrip(trip?.activity || 'paddle');
-      t.name = x.querySelector('rte>name,trk>name,metadata>name')?.textContent?.trim() || f.name.replace(/\.gpx$/i, '');
+      t.name = x.querySelector('rte>name,trk>name,metadata>name')?.textContent?.trim() || f.name.replace(/\.gpx(\.txt)?$/i, '');
       // A timed track is kept as a recorded track; the route comes from route points, else a simplified track.
       const timed = trk.filter(p => p.getElementsByTagName('time')[0]);
       if (timed.length > 1){
@@ -3145,7 +3197,7 @@ $('#file').onchange = async e => {
       if (j.kind === 'backup') return await restoreBackup(j);
       t = j.trip || j;
       if (!Array.isArray(t.route) || !t.date) throw new Error('Not an Outback trip file');
-      t.name = String(t.name || f.name.replace(/\.json$/i, ''));
+      t.name = String(t.name || f.name.replace(/\.json(\.txt)?$/i, ''));
       t.id = t.id || newTrip().id;
       if (await idb.get('trips', t.id)) t.id = newTrip().id;
     }
