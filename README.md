@@ -77,16 +77,16 @@ Three views; swipe between them or use the tabs at the bottom.
   overlay PDF maps, and Tomales Bay / San Francisco Bay links. Close or the phone's back button returns.
 - **Share or print** (Trip tab): one sheet for everything that leaves the app. A route map image and a plain-text plan for a club forum, email or chat (name, day, start, route, the start, finish and named waypoints
   with coordinates, legs, bearings and estimated arrivals, points of interest, the day's forecast, a map link to the
-  start); *Copy text* and *Copy image*. *Share a file*: *1-page sheet* (below), *GPX* (route, markers, tracks) or *Outback file*
-  (the trip, to open on another phone). Files go through the phone's share sheet (Save to Files to keep one). On Android, where Chrome won't share
+  start); *Copy text* and *Copy map*; the *1-page sheet* (below) as *PDF* or *Image*; files: *GPX* (route, markers, tracks) or
+  *Outback file* (the trip, to open on another phone). Each button has what it does beside it. Files go through the phone's share sheet (Save to Files to keep one). On Android, where Chrome won't share
   .json or .gpx, they're saved to Downloads under their own name, to share on from the Files app.
 - **☀ Sun mode** (next to ? on the Trips and Trip tabs): high contrast for bright daylight, remembered. The 1-page sheet
   has its own *☀ Large, bold print for reading outdoors* option.
 - **1-page sheet** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
   numbered, named waypoints, the waypoint table, the day's forecast, and the tide/current and wind graphs with the planned
-  start marked. Shows a preview first; *Print* opens the phone's print dialog (or save as PDF). Tick *as an image*
-  for *Copy image*: a PNG of the page on the clipboard, Small (800 px, pastes at a sensible size in Sheets/Docs), Medium or
-  Large (2400 px, for printing), (saved as a file if copying isn't allowed) (html2canvas, vendored, loaded on first use).
+  start marked. *PDF* shows a preview; *Print* opens the phone's print dialog (or save as PDF). *Image*
+  shows it too, with *Copy image*: a PNG of the page on the clipboard, Small (800 px, pastes at a sensible size in Sheets/Docs), Medium or
+  Large (2400 px, for printing) (saved as a file if copying isn't allowed) (html2canvas, vendored, loaded on first use).
 - **Parking** (Trip tab, under the route): where you'll leave the car, saved with the trip. *Find nearby* lists the
   closest public OpenStreetMap lots to the route start (walk distance, fee, spaces); or *Park here* from a P or Water
   Trail popup, or *Set on map*. *Drive there* opens Google Maps navigation (Apple Maps on iPhone/iPad). Shown on the

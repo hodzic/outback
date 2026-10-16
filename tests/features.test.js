@@ -496,9 +496,8 @@ module.exports = async (browser, url, check) => {
     c('Print shows the parking line and its P on the map', /Parking: Horseshoe Cove lot/.test(await page.text('#printDoc')) && await page.locator('#pMap .poi.pk.mine').count() === 1);
     await page.click('#pClose'); await page.waitForTimeout(300);
     c('Close returns to Share or print', await page.isHidden('#printView') && await page.isVisible('#sheet #printPlan'));
-    await page.check('#sheetPng');
-    c('image option remembered', await page.evaluate(() => settings.sheetPng === true));
-    await page.click('#printPlan');
+    await page.click('#sheetImg');
+    c('Image opens the sheet as an image, remembered', await page.evaluate(() => settings.sheetPng === true));
     c('as an image: Copy image, ready once made', await page.text('#pPrint') === 'Copy image');
     await page.waitForFunction(() => !document.querySelector('#pPrint').disabled && sheetPng, null, { timeout: 20000 }).catch(() => {});
     await page.click('#pPrint'); await page.waitForTimeout(300);
@@ -508,17 +507,17 @@ module.exports = async (browser, url, check) => {
       pb ? `${pb.readUInt32BE(16)}x${pb.readUInt32BE(20)} ${await page.text('#toast')}` : await page.text('#toast'));
     c('graphs back to paper-sharp after the image', await page.evaluate(() => [...document.querySelectorAll('#printDoc canvas[data-kind]')].every(c => c.width >= c.clientWidth * 3 - 1)));
     await page.click('#pClose'); await page.waitForTimeout(300);
-    await page.selectOption('#sheetScale', '3'); await page.click('#printPlan');
+    await page.selectOption('#sheetScale', '3'); await page.click('#sheetImg');
     await page.waitForFunction(() => !document.querySelector('#pPrint').disabled && sheetPng, null, { timeout: 20000 }).catch(() => {});
     const lg = await page.evaluate(async () => { const b = new Uint8Array(await sheetPng.arrayBuffer()); return [new DataView(b.buffer).getUint32(16), settings.sheetScale]; });
     c('Large: sharp enough to print, remembered', lg[0] > 2200 && lg[1] === 3, JSON.stringify(lg));
     await page.click('#pPrint'); await page.waitForTimeout(300);
     const cl = await page.evaluate(async () => { const [it] = await navigator.clipboard.read(); return [...new Uint8Array(await (await it.getType('image/png')).arrayBuffer())]; }).catch(() => null);
     if (cl) fs.writeFileSync(path.join(OUT, 'feat-sheet.png'), Buffer.from(cl));
-    await page.click('#pClose'); await page.waitForTimeout(300); await page.selectOption('#sheetScale', '1'); await page.click('#printPlan'); await page.waitForTimeout(300);
+    await page.click('#pClose'); await page.waitForTimeout(300); await page.selectOption('#sheetScale', '1'); await page.click('#sheetImg'); await page.waitForTimeout(300);
     await page.click('#pClose'); await page.waitForTimeout(300);
-    await page.uncheck('#sheetPng'); await page.click('#printPlan'); await page.waitForTimeout(500);
-    c('unticked: back to Print', await page.text('#pPrint') === 'Print' && await page.isEnabled('#pPrint'));
+    await page.click('#printPlan'); await page.waitForTimeout(500);
+    c('PDF: back to Print', await page.text('#pPrint') === 'Print' && await page.isEnabled('#pPrint'));
     await page.click('#pClose'); await page.waitForTimeout(300);
     await page.check('#sheetSun'); await page.click('#printPlan'); await page.waitForTimeout(1200);
     const sunSheet = await page.evaluate(() => ({ on: document.querySelector('#printDoc').classList.contains('sun'), td: parseFloat(getComputedStyle(document.querySelector('#printDoc td')).fontSize),
