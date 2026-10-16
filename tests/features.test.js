@@ -359,27 +359,22 @@ module.exports = async (browser, url, check) => {
     await page.click('#planGpx'); await page.waitForTimeout(200);
     c('GPX goes to the share sheet, as plain text where the phone turns down GPX', await page.evaluate(() => __sh.length === 1 && /\.gpx\|text\/plain$/.test(__sh[0][0])) && /^Done: .*\.gpx/.test(await page.text('#toast')),
       await page.evaluate(() => JSON.stringify(__sh)));
-    await page.evaluate(() => { __sh = []; navigator.canShare = d => d.files.every(f => /\.txt$/.test(f.name)); });
-    await page.click('#planJson'); await page.waitForTimeout(200);
-    const shared = await page.evaluate(() => __sh[0]?.[0]);
-    c('Outback file shared (as .json.txt where only text goes), e.g. to Google Drive', /^Club-paddle_.*\.json\.txt\|text\/plain$/.test(shared || ''), shared);
-    c('the form that worked is remembered for next time', await page.evaluate(() => JSON.stringify(settings.shareForm?.json)) === '[".txt","text/plain"]');
-    await page.evaluate(() => { __sh = []; let n = 0; navigator.canShare = () => true; delete settings.shareForm;
+    await page.evaluate(() => { __sh = []; let n = 0; navigator.canShare = () => true;
       navigator.share = async d => { if (!n++) throw new DOMException('no tap', 'NotAllowedError'); __sh.push(d.files.map(f => f.name)); }; });
     await page.click('#planJson'); await page.waitForSelector('#shareReady');
     await page.click('#shareReady'); await page.waitForTimeout(200);
     c('permission ran out: Ready to share, one more tap shares it', await page.evaluate(() => __sh.length === 1 && /\.json$/.test(__sh[0][0])) && /^Done/.test(await page.text('#toast')), await page.evaluate(() => JSON.stringify(__sh)));
     await page.click('#sharePlan'); await page.waitForSelector('#planJson');
-    await page.evaluate(() => { __sh = []; delete settings.shareForm; navigator.share = async d => { if (d.files[0].type === 'application/json') throw new DOMException('refused', 'DataError'); __sh.push(d.files.map(f => f.name + '|' + f.type)); }; });
+    await page.evaluate(() => { __sh = []; navigator.share = async d => { if (d.files[0].type === 'application/json') throw new DOMException('refused', 'DataError'); __sh.push(d.files.map(f => f.name + '|' + f.type)); }; });
     await page.click('#planJson'); await page.waitForSelector('#shareReady');
     await page.click('#shareReady'); await page.waitForTimeout(200);
     c('a form the phone refuses at share time: one more tap shares the next form', await page.evaluate(() => __sh.length === 1 && /\.json\|application\/octet-stream$/.test(__sh[0][0])), await page.evaluate(() => JSON.stringify(__sh)));
     await page.click('#sharePlan'); await page.waitForSelector('#planJson');
-    await page.evaluate(() => { delete settings.shareForm; navigator.share = async () => { throw new DOMException('nope', 'DataError'); }; });
+    await page.evaluate(() => { navigator.share = async () => { throw new DOMException('nope', 'DataError'); }; });
     await page.click('#planJson');
     const taps = []; for (let i = 0; i < 4; i++){ await page.waitForSelector('#shareReady', { state: 'visible', timeout: 2000 }).catch(() => {}); if (!await page.isVisible('#shareReady')) break; taps.push(await page.evaluate(() => pendingShare?.from)); await page.click('#shareReady'); await page.waitForTimeout(150); }
-    c('every form refused: saved, and the message says why', taps.join() === '1,2,3' && /Could not share \(DataError: nope\); saved .*\.json/.test(await page.text('#toast')), await page.text('#toast'));
-    await page.evaluate(() => { delete navigator.canShare; delete navigator.share; delete settings.shareForm; });
+    c('every form refused: saved, and the message says why', taps.join() === '1,2' && /Could not share \(DataError: nope\); saved .*\.json/.test(await page.text('#toast')), await page.text('#toast'));
+    await page.evaluate(() => { delete navigator.canShare; delete navigator.share; });
     await page.click('#sharePlan'); await page.waitForSelector('#planJson');
     c('no separate export buttons on the Trip tab', !(await page.$('#exportGpx')) && !(await page.$('#exportJson')));
     await page.click('#sheet [data-close]');
@@ -861,6 +856,19 @@ module.exports = async (browser, url, check) => {
     await view(page, 1);
     await page.evaluate(() => map.setView([38.5, -121.0], 12)); await page.click('#fcBtn'); await waitForecast(page);
     c('forecast with the trip off screen fits the trip instead', await page.evaluate(() => L.latLng(trip.anchor.c).distanceTo([37.705, -122.59]) < 5000));
+    await ctx.close(); }
+
+  { // Android: Chrome won't share .json or .gpx, so they're saved under their own name, with a pointer to the Files app
+    const { ctx, page } = await open(browser, url, { userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36' });
+    await page.addInitScript(() => { navigator.share = async () => { window.__shared = 1; }; navigator.canShare = () => true; });
+    await page.goto(url); await ready(page); await view(page, 2);
+    await seedRoute(page, [[37.80, -122.45, 'Launch'], [37.81, -122.43]]);
+    await view(page, 1); await page.click('#sharePlan'); await page.waitForSelector('#planJson');
+    const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#planJson')]);
+    c('Android: Outback file saved as .json in one tap, Files app hint', dl && /\.json$/.test(dl.suggestedFilename()) && !(await page.evaluate(() => window.__shared)) && !(await page.isVisible('#shareReady'))
+      && /Saved .*\.json to Downloads\. To send it to Drive/.test(await page.text('#toast')), (dl && dl.suggestedFilename()) + ' ' + await page.text('#toast'));
+    const [g] = await Promise.all([page.waitForEvent('download', { timeout: 5000 }).catch(() => null), page.click('#planGpx')]);
+    c('Android: GPX saved as .gpx', g && /\.gpx$/.test(g.suggestedFilename()), g && g.suggestedFilename());
     await ctx.close(); }
 
   { // ☀ sun mode: high contrast on screen, remembered

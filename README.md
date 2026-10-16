@@ -78,8 +78,8 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Share or print** (Trip tab): one sheet for everything that leaves the app. A route map image and a plain-text plan for a club forum, email or chat (name, day, start, route, the start, finish and named waypoints
   with coordinates, legs, bearings and estimated arrivals, points of interest, the day's forecast, a map link to the
   start); *Copy text* and *Copy image*. *Share a file*: *1-page sheet* (below), *GPX* (route, markers, tracks) or *Outback file*
-  (the trip, to open on another phone). Files go through the phone's share sheet (Save to Files to keep one; GPX retried as plain data where a phone
-  turns down the type), else a download; a note says which.
+  (the trip, to open on another phone). Files go through the phone's share sheet (Save to Files to keep one). On Android, where Chrome won't share
+  .json or .gpx, they're saved to Downloads under their own name, to share on from the Files app.
 - **☀ Sun mode** (next to ? on the Trips and Trip tabs): high contrast for bright daylight, remembered. The 1-page sheet
   has its own *☀ Large, bold print for reading outdoors* option.
 - **1-page sheet** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
