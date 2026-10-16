@@ -623,7 +623,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15l';
+const APP_VERSION = '2026-10-15m';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3095,7 +3095,9 @@ sheet.addEventListener('click', async e => {
     catch{ return toast('Could not copy the image here; press and hold the map to save or copy it.', 4000); } }
   if (b.id === 'printPlan'){ sheet.close(); printBack = true; return openPrint(); }
   // the sheet stays up while the share runs: a refusal puts the next Ready to share in it
-  if (b.id === 'shareReady' && pendingShare){ const p = pendingShare; pendingShare = null; const ok = await shareFile(p.name, p.data, p.type, p.from, true);
+  if (b.id === 'shareSave' && pendingShare){ const p = pendingShare; pendingShare = null; saveFile(p.name, p.data, p.type); toast(`Saved ${p.name} to your downloads.`, 5000); sheet.close(); return p.res(true); }
+  if (b.id === 'shareReady' && pendingShare){ const p = pendingShare; pendingShare = null; b.disabled = true; b.textContent = 'Opening…';
+    const ok = await shareFile(p.name, p.data, p.type, p.from, true);
     if (!pendingShare) sheet.close(); return p.res(ok); }
   if (b.id === 'planGpx') return shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml');
   if (b.id === 'planJson') return shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json');
@@ -3133,16 +3135,21 @@ async function shareFile(name, data, type, from = 0, retry = false){
     catch(e){ if (e.name === 'AbortError'){ toast('Not shared.'); return false; }
       err = e;
       const next = e.name === 'NotAllowedError' && !retry ? from : from + 1;
-      if (next < fs.length) return readyToShare(name, data, type, next); }
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new File([data], name, { type })); a.download = name; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      if (next < fs.length) return readyToShare(name, data, type, next, `${f.name} (${f.type || 'no type'}): ${e.name}${e.message ? ', ' + e.message : ''}`); }
+  saveFile(name, data, type);
   toast(`${err ? `Could not share (${err.name}${err.message ? ': ' + err.message : ''}); s` : 'This browser can\'t share files; s'}aved ${name} to your downloads.`, 8000);
   return true;
 }
+function saveFile(name, data, type){
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new File([data], name, { type })); a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
 let pendingShare = null;
-function readyToShare(name, data, type, from){
+// why: what the phone said to the last try, shown so a refusal isn't silent
+function readyToShare(name, data, type, from, why){
   return new Promise(res => { pendingShare = { name, data, type, from, res };
-    openSheet(`<h2>Ready to share</h2><p class="muted">${esc(name)}</p><div class="row" style="margin-top:10px"><button class="btn primary" id="shareReady">Share…</button><span class="grow"></span><button class="btn" data-close>Cancel</button></div>`);
+    openSheet(`<h2>Ready to share</h2><p><b>${esc(name)}</b></p>${why ? `<p class="muted">The phone turned down the last try (${esc(why)}). Share… tries it another way.</p>` : '<p class="muted">Tap Share… to pick where it goes (Drive, Files, mail…).</p>'}
+      <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn primary" id="shareReady">Share…</button><button class="btn" id="shareSave">Save file</button><span class="grow"></span><button class="btn" data-close>Cancel</button></div>`);
     sheet.addEventListener('close', () => { if (pendingShare?.res === res){ pendingShare = null; res(false); } }, { once: true }); });
 }
 $('#file').onchange = async e => {
