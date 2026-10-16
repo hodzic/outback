@@ -80,6 +80,8 @@ Three views; swipe between them or use the tabs at the bottom.
   start); *Copy text* and *Copy map*; the *1-page sheet* (below) as *PDF* or *Image*; files: *GPX* (route, markers, tracks) or
   *Outback file* (the trip, to open on another phone). Each button has what it does beside it. Files go through the phone's share sheet (Save to Files to keep one). On Android, where Chrome won't share
   .json or .gpx, they're saved to Downloads under their own name, to share on from the Files app.
+- **Importing a trip you already have** (the same Outback file shared again after changes) lists what changed and offers
+  *Update it* (keeps your recorded tracks, adds new ones) or *Keep both*; an unchanged file just says it's up to date.
 - **☀ Sun mode** (next to ? on the Trips and Trip tabs): high contrast for bright daylight, remembered. The 1-page sheet
   has its own *☀ Large, bold print for reading outdoors* option.
 - **1-page sheet** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and

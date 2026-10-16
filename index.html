@@ -596,6 +596,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li><b>Share or print</b> (bottom of the Trip tab) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast, plus a map image of the route on the current map layer (numbered waypoints with names, markers and parking). <b>Copy text</b> and <b>Copy map</b> to paste them into a club forum, email or chat; press and hold the map to save it to your photos.</li>
           <li><b>Files</b> in the same sheet: <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback file</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…). Each opens the phone's share sheet: send it straight on (Messages, Mail, AirDrop, Google Drive or another app), or pick Save to Files to keep it. On Android, Chrome won't let a web app share .json or .gpx files, so GPX and Outback file (and backups) are saved to Downloads under their own name: share them on from the Files app (e.g. to Google Drive). A note at the bottom of the screen says when it's done.</li>
+          <li>To share a trip you'll keep changing, put its <b>Outback file</b> somewhere others can download it (a Google Drive file anyone with the link can view, say) and send them the link. They download it and use <b>Import trip or GPX…</b>. When you change the trip, replace the file; importing it again shows what changed (day, start, route, waypoints, markers, parking) and offers <b>Update it</b> (their recorded tracks are kept) or <b>Keep both</b>.</li>
           <li><b>1-page sheet</b>: <b>PDF</b> or <b>Image</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. From <b>PDF</b>, tap <b>Print</b> there and pick a printer or save it as a PDF. From <b>Image</b>, tap <b>Copy image</b> there: a PNG of the same page, copied to paste into a spreadsheet or doc (shared as a file where copying isn't allowed). Pick its size beside the Image button: <b>Small</b> pastes at a sensible size in Google Sheets or Docs (they show images pixel for pixel and blur them when you drag them smaller); <b>Large</b> is sharp enough to print (the map needs its tiles to allow it; the Street layer always does).</li>
           <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping 1-page sheet.</li>
@@ -628,7 +629,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15q';
+const APP_VERSION = '2026-10-15r';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3104,6 +3105,7 @@ sheet.addEventListener('click', async e => {
     catch{ return toast('Could not copy the image here; press and hold the map to save or copy it.', 4000); } }
   if (b.id === 'printPlan' || b.id === 'sheetImg'){ settings.sheetPng = b.id === 'sheetImg'; saveSettings(); sheet.close(); printBack = true; return openPrint(); }
   // the sheet stays up while the share runs: a refusal puts the next Ready to share in it
+  if ((b.id === 'impUpd' || b.id === 'impBoth') && pendingImport) return applyImport(b.id === 'impBoth');
   if (b.id === 'shareSave' && pendingShare){ const p = pendingShare; pendingShare = null; saveFile(p.name, p.data, p.type); toast(`Saved ${p.name} to your downloads.`, 5000); sheet.close(); return p.res(true); }
   if (b.id === 'shareReady' && pendingShare){ const p = pendingShare; pendingShare = null; b.disabled = true; b.textContent = 'Opening…';
     const ok = await shareFile(p.name, p.data, p.type, p.from, true);
@@ -3165,6 +3167,49 @@ function readyToShare(name, data, type, from, why){
       <div class="row" style="margin-top:10px;flex-wrap:wrap"><button class="btn primary" id="shareReady">Share…</button><button class="btn" id="shareSave">Save file</button><span class="grow"></span><button class="btn" data-close>Cancel</button></div>`);
     sheet.addEventListener('close', () => { if (pendingShare?.res === res){ pendingShare = null; res(false); } }, { once: true }); });
 }
+// What an imported copy of a trip changes, in plain words; [] when it's the same plan.
+const SAME_IGNORE = ['id', 'updated', 'data', 'fetchedAt', 'tracks', 'prog'];
+function tripChanges(a, b){
+  const J = JSON.stringify, ch = [], at = m => new Date(2000, 0, 1, 0, m).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (a.name !== b.name) ch.push(`Name: ${a.name} → ${b.name}`);
+  if (a.date !== b.date) ch.push(`Day: ${fmtDay(a.date)} → ${fmtDay(b.date)}`);
+  if (a.start !== b.start) ch.push(`Start: ${at(a.start)} → ${at(b.start)}`);
+  if (a.activity !== b.activity || a.env !== b.env) ch.push(`Activity: ${ACT[a.activity]?.name || a.activity}${a.env ? ' · ' + a.env : ''} → ${ACT[b.activity]?.name || b.activity}${b.env ? ' · ' + b.env : ''}`);
+  const geo = r => J(r.map(p => [p[0], p[1]]));
+  if (geo(a.route) !== geo(b.route)) ch.push(`Route: ${a.route.length} → ${b.route.length} waypoints, ${fmtD(routeNm(a.route))} → ${fmtD(routeNm(b.route))}`);
+  else if (J(a.route) !== J(b.route)) ch.push('Waypoint names, stops or checkpoints');
+  if (J(a.marks) !== J(b.marks)) ch.push(a.marks.length !== b.marks.length ? `Markers: ${a.marks.length} → ${b.marks.length}` : 'Markers');
+  if (J(a.parking) !== J(b.parking)) ch.push(`Parking: ${a.parking?.name || 'none'} → ${b.parking?.name || 'none'}`);
+  const rest = t => J(Object.keys(t).filter(k => !SAME_IGNORE.includes(k) && !['name', 'date', 'start', 'activity', 'env', 'envSet', 'route', 'marks', 'parking'].includes(k)).sort().map(k => [k, t[k]]));
+  if (rest(a) !== rest(b)) ch.push('Other trip settings (stations, speed…)');
+  const ids = new Set(a.tracks.map(k => k.id)), nt = b.tracks.filter(k => !ids.has(k.id)).length;
+  if (nt) ch.push(`${nt} recorded track${nt > 1 ? 's' : ''} added`);
+  return ch;
+}
+let pendingImport = null;
+async function importAgain(mine, inc){
+  const ch = tripChanges(mine, inc);
+  if (!ch.length){ await openTrip(mine); showView(1); return toast(`${mine.name} is already up to date.`, 3500); }
+  pendingImport = { mine, inc };
+  openSheet(`<h2>Update ${esc(mine.name)}?</h2><p class="muted">This file is a newer or different copy of a trip you already have. What changes:</p>
+    <ul style="margin:6px 0 0;padding-left:20px">${ch.map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+    <div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="btn primary" id="impUpd">Update it</button><button class="btn" id="impBoth">Keep both</button><span class="grow"></span><button class="btn" data-close>Cancel</button></div>
+    <p class="muted" style="margin-top:8px">Update keeps your recorded tracks and adds any new ones from the file.</p>`);
+}
+// Update: the file's plan, this trip's id; tracks from both; the forecast kept if the day and route didn't change
+async function applyImport(both){
+  const { mine, inc } = pendingImport; pendingImport = null; sheet.close();
+  let t;
+  if (both){ t = { ...inc, id: newTrip().id, name: inc.name === mine.name ? inc.name + ' (shared)' : inc.name }; }
+  else {
+    const ids = new Set(mine.tracks.map(k => k.id));
+    t = { ...inc, id: mine.id, tracks: [...mine.tracks, ...inc.tracks.filter(k => !ids.has(k.id))] };
+    if (!inc.data && mine.data && mine.date === inc.date && JSON.stringify(mine.route) === JSON.stringify(inc.route)){ t.data = mine.data; t.fetchedAt = mine.fetchedAt; }
+  }
+  t.updated = Date.now();
+  await idb.put('trips', t); await openTrip(t); showView(1);
+  toast(both ? `Imported ${t.name} as a separate trip.` : `Updated ${t.name}.`, 3000);
+}
 $('#file').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   const text = await f.text();
@@ -3199,7 +3244,9 @@ $('#file').onchange = async e => {
       if (!Array.isArray(t.route) || !t.date) throw new Error('Not an Outback trip file');
       t.name = String(t.name || f.name.replace(/\.json(\.txt)?$/i, ''));
       t.id = t.id || newTrip().id;
-      if (await idb.get('trips', t.id)) t.id = newTrip().id;
+      // the same trip already here (shared again after changes): show what changed, update it or keep both
+      const mine = await idb.get('trips', t.id);
+      if (mine) return importAgain(normTrip(mine), normTrip(t));
     }
     t.updated = Date.now();
     await idb.put('trips', t); await openTrip(t); showView(1);
