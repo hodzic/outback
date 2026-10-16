@@ -590,7 +590,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card help" id="helpShare"><summary>Sharing and printing a trip</summary>
         <ul>
           <li><b>Share or print</b> (bottom of the Trip tab) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast, plus a map image of the route on the current map layer (numbered waypoints with names, markers and parking). <b>Copy text</b> and <b>Copy image</b> to paste them into a club forum, email or chat; press and hold the map to save it to your photos.</li>
-          <li><b>Share a file</b> in the same sheet: <b>1-page sheet</b> (a one-page trip sheet, see below), <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback file</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…). Each opens the phone's share sheet: send it straight on (Messages, Mail, AirDrop, Google Drive or another app), or pick Save to Files to keep it. Where a browser won't share an Outback file as is, it goes as <i>name</i>.json.txt; Import trip or GPX… takes that too. A note at the bottom of the screen says when it's done.</li>
+          <li><b>Share a file</b> in the same sheet: <b>1-page sheet</b> (a one-page trip sheet, see below), <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback file</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…). Each opens the phone's share sheet: send it straight on (Messages, Mail, AirDrop, Google Drive or another app), or pick Save to Files to keep it. Where a browser won't share an Outback or GPX file as is (Chrome on Android), it goes as <i>name</i>.json.txt or .gpx.txt, after a <b>Ready to share</b> step the first time; Import trip or GPX… takes those too. A note at the bottom of the screen says when it's done.</li>
           <li><b>1-page sheet</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. Tap <b>Print</b> there, and pick a printer or save it as a PDF. With <b>1-page sheet as an image</b> ticked the button is <b>Copy image</b> instead: a PNG of the same page, copied to paste into a spreadsheet or doc (shared as a file where copying isn't allowed). Pick its <b>Size</b> under the tick box: <b>Small</b> pastes at a sensible size in Google Sheets or Docs (they show images pixel for pixel and blur them when you drag them smaller); <b>Large</b> is sharp enough to print (the map needs its tiles to allow it; the Street layer always does).</li>
           <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping 1-page sheet.</li>
@@ -623,7 +623,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15n';
+const APP_VERSION = '2026-10-15o';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3123,8 +3123,12 @@ function toGpx(){
 // name; an Outback file can go as .json.txt as a last try (Import takes it back).
 function shareables(name, data, type){
   if (!navigator.share || !navigator.canShare) return [];
-  const tries = [[name, type], [name, 'application/octet-stream'], [name, 'text/plain'], ...(/\.json$/.test(name) ? [[name + '.txt', 'text/plain']] : [])];
-  return tries.map(([n, t]) => new File([data], n, { type: t })).filter(f => { try{ return navigator.canShare({ files: [f] }); }catch{ return false; } });
+  // Android's Chrome refuses .json and .gpx in any type but takes them as .json.txt / .gpx.txt; the form that worked for
+  // an extension last time goes first, so it's one tap from then on
+  const forms = [['', type], ['', 'application/octet-stream'], ['', 'text/plain'], ...(/\.(json|gpx)$/.test(name) ? [['.txt', 'text/plain']] : [])];
+  const ok = settings.shareForm?.[name.split('.').pop()], k = ok ? forms.findIndex(([x, t]) => x === ok[0] && t === ok[1]) : -1;
+  if (k > 0) forms.unshift(...forms.splice(k, 1));
+  return forms.map(([x, t]) => new File([data], name + x, { type: t })).filter(f => { try{ return navigator.canShare({ files: [f] }); }catch{ return false; } });
 }
 // One try per tap: a phone that turns a form down (or a tap whose permission ran out while the file was being made)
 // gets a Ready to share sheet, whose Share… tries again, with the next form after a refusal. retry: from that sheet.
@@ -3133,7 +3137,8 @@ async function shareFile(name, data, type, from = 0, retry = false){
   let err = null;
   // still within the tap? then a NotAllowedError is the phone refusing this type (Android does that to .json), not a stale tap
   const live = navigator.userActivation ? navigator.userActivation.isActive : !retry;
-  if (f) try{ await navigator.share({ files: [f] }); toast(`Done: ${f.name}`); return true; }
+  if (f) try{ await navigator.share({ files: [f] }); toast(`Done: ${f.name}`);
+      settings.shareForm = { ...settings.shareForm, [name.split('.').pop()]: [f.name.slice(name.length), f.type] }; saveSettings(); return true; }
     catch(e){ if (e.name === 'AbortError'){ toast('Not shared.'); return false; }
       err = e;
       const next = e.name === 'NotAllowedError' && !live && !retry ? from : from + 1;
@@ -3164,7 +3169,7 @@ $('#file').onchange = async e => {
       const ll = p => [+(+p.getAttribute('lat')).toFixed(6), +(+p.getAttribute('lon')).toFixed(6)];
       const rte = [...x.getElementsByTagName('rtept')], trk = [...x.getElementsByTagName('trkpt')], wpt = [...x.getElementsByTagName('wpt')];
       t = newTrip(trip?.activity || 'paddle');
-      t.name = x.querySelector('rte>name,trk>name,metadata>name')?.textContent?.trim() || f.name.replace(/\.gpx$/i, '');
+      t.name = x.querySelector('rte>name,trk>name,metadata>name')?.textContent?.trim() || f.name.replace(/\.gpx(\.txt)?$/i, '');
       // A timed track is kept as a recorded track; the route comes from route points, else a simplified track.
       const timed = trk.filter(p => p.getElementsByTagName('time')[0]);
       if (timed.length > 1){
@@ -3200,7 +3205,7 @@ $('#file').onchange = async e => {
 /* ---------- backup ---------- */
 // One file with every trip, PDF map and setting. Restore merges: newer copies of a trip win, maps are added.
 const DAY = 864e5, NAG_DAYS = 14;
-const SKIP_SETTINGS = ['view', 'shownMaps', 'lastBackup', 'backupNag', 'firstRun', 'prog'];
+const SKIP_SETTINGS = ['view', 'shownMaps', 'lastBackup', 'backupNag', 'firstRun', 'prog', 'shareForm'];
 const toDataUrl = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
 function fromDataUrl(u){
   const [h, d] = String(u).split(','), bin = atob(d), a = new Uint8Array(bin.length);
