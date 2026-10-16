@@ -623,7 +623,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15k';
+const APP_VERSION = '2026-10-15l';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3094,7 +3094,9 @@ sheet.addEventListener('click', async e => {
   if (b.id === 'planCopyImg'){ try{ await navigator.clipboard.write([new ClipboardItem({ 'image/png': planImg })]); return toast('Map image copied. Paste it next to the text.'); }
     catch{ return toast('Could not copy the image here; press and hold the map to save or copy it.', 4000); } }
   if (b.id === 'printPlan'){ sheet.close(); printBack = true; return openPrint(); }
-  if (b.id === 'shareReady' && pendingShare){ const p = pendingShare; pendingShare = null; sheet.close(); return p.res(await shareFile(p.name, p.data, p.type, true)); }
+  // the sheet stays up while the share runs: a refusal puts the next Ready to share in it
+  if (b.id === 'shareReady' && pendingShare){ const p = pendingShare; pendingShare = null; const ok = await shareFile(p.name, p.data, p.type, p.from, true);
+    if (!pendingShare) sheet.close(); return p.res(ok); }
   if (b.id === 'planGpx') return shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml');
   if (b.id === 'planJson') return shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json');
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
@@ -3117,26 +3119,29 @@ function toGpx(){
 // The share sheet (Save to Files, Google Drive, AirDrop, mail, another app), else a download; says which happened.
 // Browsers turn down types they don't know (GPX, JSON): the same file as plain data or text usually goes, keeping its
 // name; an Outback file can go as .json.txt as a last try (Import takes it back).
-function shareable(name, data, type){
-  if (!navigator.share || !navigator.canShare) return null;
+function shareables(name, data, type){
+  if (!navigator.share || !navigator.canShare) return [];
   const tries = [[name, type], [name, 'application/octet-stream'], [name, 'text/plain'], ...(/\.json$/.test(name) ? [[name + '.txt', 'text/plain']] : [])];
-  for (const [n, t] of tries){ const f = new File([data], n, { type: t }); if (navigator.canShare({ files: [f] })) return f; }
-  return null;
+  return tries.map(([n, t]) => new File([data], n, { type: t })).filter(f => { try{ return navigator.canShare({ files: [f] }); }catch{ return false; } });
 }
-async function shareFile(name, data, type, again){
-  const f = shareable(name, data, type);
-  if (f) try{ await navigator.share({ files: [f], title: name }); toast(`Done: ${f.name}`); return true; }
+// One try per tap: a phone that turns a form down (or a tap whose permission ran out while the file was being made)
+// gets a Ready to share sheet, whose Share… tries again, with the next form after a refusal. retry: from that sheet.
+async function shareFile(name, data, type, from = 0, retry = false){
+  const fs = shareables(name, data, type), f = fs[from];
+  let err = null;
+  if (f) try{ await navigator.share({ files: [f] }); toast(`Done: ${f.name}`); return true; }
     catch(e){ if (e.name === 'AbortError'){ toast('Not shared.'); return false; }
-      // the tap's permission ran out while the file was being made (a big backup): one more tap shares it
-      if (e.name === 'NotAllowedError' && !again) return readyToShare(name, data, type); }
+      err = e;
+      const next = e.name === 'NotAllowedError' && !retry ? from : from + 1;
+      if (next < fs.length) return readyToShare(name, data, type, next); }
   const a = document.createElement('a'); a.href = URL.createObjectURL(new File([data], name, { type })); a.download = name; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  toast(`${f ? 'Could not share; s' : 'This browser can\'t share files; s'}aved ${name} to your downloads.`, 5000);
+  toast(`${err ? `Could not share (${err.name}${err.message ? ': ' + err.message : ''}); s` : 'This browser can\'t share files; s'}aved ${name} to your downloads.`, 8000);
   return true;
 }
 let pendingShare = null;
-function readyToShare(name, data, type){
-  return new Promise(res => { pendingShare = { name, data, type, res };
+function readyToShare(name, data, type, from){
+  return new Promise(res => { pendingShare = { name, data, type, from, res };
     openSheet(`<h2>Ready to share</h2><p class="muted">${esc(name)}</p><div class="row" style="margin-top:10px"><button class="btn primary" id="shareReady">Share…</button><span class="grow"></span><button class="btn" data-close>Cancel</button></div>`);
     sheet.addEventListener('close', () => { if (pendingShare?.res === res){ pendingShare = null; res(false); } }, { once: true }); });
 }
