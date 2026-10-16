@@ -125,8 +125,6 @@ table.acts td,table.acts th{padding:5px 3px}
 #pMap .leaflet-control-attribution{font-size:8px}
 .pfc{display:grid;grid-template-columns:repeat(3,1fr);gap:3px 16px} .pfc div{break-inside:avoid} .pfc b{display:block}
 .pbar label{display:flex;align-items:center;gap:5px;font-size:14px;margin-right:6px}
-#printDoc table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
-#printDoc td,#printDoc th{border-bottom:1px solid #999;padding:2px 4px;text-align:left;font-size:11.5px;white-space:nowrap}
 #printDoc .pg{break-inside:avoid;min-width:0}
 #printDoc .pgs{display:grid;grid-template-columns:repeat(auto-fit,minmax(3in,1fr));gap:0 14px}
 #printDoc canvas{width:100%;height:1.35in;display:block;border:1px solid #999}
@@ -144,8 +142,6 @@ table.acts td,table.acts th{padding:5px 3px}
 #printDoc.sun h1{font-size:26px}
 #printDoc.sun h3{font-size:16px;font-weight:800;border-bottom-width:2.5px}
 #printDoc.sun .sub{font-size:15px}
-#printDoc.sun td,#printDoc.sun th{font-size:14.5px;font-weight:600;border-bottom:1.5px solid #000;padding:3px 4px}
-#printDoc.sun th{font-weight:800}
 #printDoc.sun .pfc{font-weight:600} #printDoc.sun .pfc b{font-size:15px;font-weight:800}
 #printDoc.sun canvas{height:1.6in;border:1.5px solid #000}
 #printDoc.sun #pMap{border-width:2.5px}
@@ -440,7 +436,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
 </main>
 <!-- Print: a printable trip sheet (map, waypoints, forecast, graphs), shown first as a preview -->
 <div id="printView" hidden role="dialog" aria-modal="true" aria-label="Print trip">
-  <div class="pbar noprint"><b class="grow">Print preview</b><label id="pNamedL" hidden><input type="checkbox" id="pNamed"> Named waypoints only</label><button class="btn primary" id="pPrint">Print</button><button class="btn" id="pClose">Close</button></div>
+  <div class="pbar noprint"><b class="grow">Print preview</b><button class="btn primary" id="pPrint">Print</button><button class="btn" id="pClose">Close</button></div>
   <div id="printDoc"></div>
 </div>
 <!-- Help: its own page over the app, opened by the ? buttons -->
@@ -613,8 +609,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>Share or print</b> (bottom of the Trip tab) writes the trip out as plain text anyone can read: day and start time, route, the start, the finish and the named or stop waypoints with coordinates, distance, bearing and estimated arrival (name a waypoint to include it; the GPX file has them all), your markers and the day's forecast, plus a map image of the route on the current map layer (numbered waypoints with names, markers and parking). <b>Copy text</b> and <b>Copy map</b> to paste them into a club forum, email or chat; press and hold the map to save it to your photos.</li>
           <li><b>Files</b> in the same sheet: <b>GPX</b> (route, markers and recorded tracks, for map and GPS apps or your watch) and <b>Outback file</b> (the whole trip, to open in Outback on another phone with Import trip or GPX…). Each opens the phone's share sheet: send it straight on (Messages, Mail, AirDrop, Google Drive or another app), or pick Save to Files to keep it. On Android, Chrome won't let a web app share .json or .gpx files, so GPX and Outback file (and backups) are saved to Downloads under their own name: share them on from the Files app (e.g. to Google Drive). A note at the bottom of the screen says when it's done.</li>
           <li>To share a trip you'll keep changing, put its <b>Outback file</b> somewhere others can download it (a Google Drive file anyone with the link can view, say) and send them the link. They download it and use <b>Import trip or GPX…</b>. When you change the trip, replace the file; importing it again shows what changed (day, start, route, waypoints, markers, parking) and offers <b>Update it</b> (their recorded tracks are kept) or <b>Keep both</b>.</li>
-          <li><b>1-page sheet</b>: <b>PDF</b> or <b>Image</b> shows a preview of the trip sheet: the map with the route and numbered, named waypoints, the waypoint table, the day's forecast and the tide/current and wind graphs, with the planned start marked. From <b>PDF</b>, tap <b>Print</b> there and pick a printer or save it as a PDF. From <b>Image</b>, tap <b>Copy image</b> there: a PNG of the same page, copied to paste into a spreadsheet or doc (shared as a file where copying isn't allowed). Pick its size beside the Image button: <b>Small</b> pastes at a sensible size in Google Sheets or Docs (they show images pixel for pixel and blur them when you drag them smaller); <b>Large</b> is sharp enough to print (the map needs its tiles to allow it; the Street layer always does).</li>
-          <li>Long routes (over 10 waypoints) list just the start, the finish and the named or stop waypoints; untick <b>Named waypoints only</b> in the preview for all of them. The map gets smaller if needed to keep it on one page.</li>
+          <li><b>1-page sheet</b>: <b>PDF</b> or <b>Image</b> shows a preview of the trip sheet: the map with the route and numbered waypoints, the start, finish and named or stop ones labelled with their planned arrival, the day's forecast and the tide/current and wind graphs, with the planned start marked. From <b>PDF</b>, tap <b>Print</b> there and pick a printer or save it as a PDF. From <b>Image</b>, tap <b>Copy image</b> there: a PNG of the same page, copied to paste into a spreadsheet or doc (shared as a file where copying isn't allowed). Pick its size beside the Image button: <b>Small</b> pastes at a sensible size in Google Sheets or Docs (they show images pixel for pixel and blur them when you drag them smaller); <b>Large</b> is sharp enough to print (the map needs its tiles to allow it; the Street layer always does).</li>
+          <li>The map takes the room the rest of the page leaves; a sheet still too long is scaled down to stay on one page.</li>
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping 1-page sheet.</li>
           <li>Tick <b>☀ Large, bold print for reading outdoors</b> in Share or print for a sheet you can read in sun spray: bigger, bolder text, heavier lines, bigger waypoint labels and graphs. It still fits one page (the map gets smaller if needed).</li>
           <li>Tick <b>PDF page 2: full-page deck map</b> to add a second page with just the route on the whole page, for a chart case on the deck: waypoint names with planned arrival times (and stops), and every leg over 5 minutes labelled with its distance, magnetic bearing and time. PDF only, not the image.</li>
@@ -648,7 +644,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-16d';
+const APP_VERSION = '2026-10-16e';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2930,7 +2926,7 @@ function sharePlanSheet(again){
     <h3 class="shh">The plan</h3>
     ${opt('<button class="btn primary" id="planCopy">Copy text</button>', 'The text above, for a club forum, email or chat')}
     ${opt('<button class="btn primary" id="planCopyImg" disabled>Copy map</button>', 'The route map above, as a picture')}
-    <h3 class="shh">1-page sheet <span class="muted">map, waypoints, forecast, graphs</span></h3>
+    <h3 class="shh">1-page sheet <span class="muted">map, forecast, graphs</span></h3>
     ${opt('<button class="btn" id="printPlan">PDF</button>', 'Print it, or save as PDF')}
     ${opt('<button class="btn" id="sheetImg">Image</button>', `Copy as a picture, for a spreadsheet or doc<select id="sheetScale" class="f" aria-label="Image size">${SHEET_SCALES.map(([v, t]) => `<option value="${v}"${(settings.sheetScale || 1) === v ? ' selected' : ''}>${t}</option>`).join('')}</select>`)}
     <label class="shck">Map <select id="sheetLayer" class="f" aria-label="Map to print">${[['', `Best for the trip (${LAYERS[autoLayer()].name})`], ['screen', `Same as on screen (${LAYERS[settings.layer].name})`], ...LAYER_ORDER.map(k => [k, LAYERS[k].name])]
@@ -2960,49 +2956,47 @@ function dropPrintMaps(){ if (pMap){ pMap.remove(); pMap = null; } if (dMap){ dM
 async function openPrint(){
   dropPrintMaps();
   const r = trip.route, all = legsOf(), fc = planForecast(), sun = sunTimes(trip.date, ...centroid());
-  // long routes: the start, the finish and the named or stop waypoints are enough for the sheet (auto above 10 waypoints)
-  const named = namedLegs(all, r), canNamed = named.length < all.length;
-  const onlyNamed = canNamed && (settings.printNamed ?? r.length > 10);
-  $('#pNamedL').hidden = !canNamed; $('#pNamed').checked = onlyNamed;
-  const legs = onlyNamed ? named : all;
+  // the start, the finish and the named, stop and checkpoint waypoints are labelled on the maps with their planned arrival
+  const lbl = new Set(namedLegs(all, r).map(g => g.i));
+  // a round trip (finish back at the start) gets one label with both times
+  const loop = r.length > 2 && (distNm(r[0], r.at(-1)) < .1 || (!!r[0][2] && r[0][2] === r.at(-1)[2]));
+  const tip = i => !lbl.has(i) || (loop && i === r.length - 1) ? '' : [r[i][2] || (i ? i === r.length - 1 ? 'Finish' : '' : loop ? 'Start, finish' : 'Start'),
+    loop && !i ? `${hm(all[i].at)} → ${hm(all.at(-1).at)}` : hm(all[i].at), all[i].stop && `⏸ ${all[i].stop} min`].filter(Boolean).join(' · ');
   const kinds = [isTidal() && 'tide', 'wind', hasElev() && r.length > 1 && 'elev'].filter(Boolean);
   const names = { tide: hasCurrents() ? 'Tide and current' : 'Tide', wind: 'Wind and gusts', elev: 'Elevation' };
   const big = !!settings.sheetSun; $('#printDoc').classList.toggle('sun', big); $('#printDoc').classList.toggle('bw', !!settings.sheetBw);
-  $('#printDoc').innerHTML = `<h1>${esc(trip.name)}</h1>
+  $('#printDoc').innerHTML = `<div class="p1"><h1>${esc(trip.name)}</h1>
     <p class="sub"><b>${act().name}${envName() ? ' · ' + esc(envName()) : ''}</b> · ${fmtDay(trip.date)} · start ${startTime()}${r.length > 1 ? ` · ${esc($('#dist').textContent)} · ${esc($('#dur').textContent)} at ${esc($('#spd').textContent)}` : ''}</p>
     ${trip.parking ? `<p class="sub">Parking: <b>${esc(trip.parking.name)}</b>${trip.parking.note ? ' · ' + esc(trip.parking.note) : ''} · ${trip.parking.lat.toFixed(5)}, ${trip.parking.lng.toFixed(5)}${parkToStart() ? ' · ' + parkToStart() : ''}</p>` : ''}
     <div id="pMap"></div>
-    <h3>Waypoints${onlyNamed ? ` <span style="font-weight:400">(start, finish and named: ${legs.length} of ${r.length})</span>` : ''}</h3>${r.length > 1 ? `<table><tr><th>#</th><th>Lat, lon</th><th>${onlyNamed ? 'Dist' : 'Leg'}</th><th>Brg</th><th>Total</th><th>Arrive</th></tr>${legs.map(g =>
-        `<tr><td>${esc(wpLabel(r, g.i))}</td><td>${g.p[0].toFixed(4)}, ${g.p[1].toFixed(4)}</td><td>${g.i ? dU(g.d).toFixed(2) : '–'}</td><td>${g.brg || '–'}</td><td>${dU(g.cum).toFixed(2)}</td><td>${hm(g.at)}${g.stop ? ` ⏸ ${g.stop} min, leave ${hm(g.at + g.stop * 6e4)}` : ''}</td></tr>`).join('')}</table>
-        <p>${onlyNamed ? 'Dist: along the route from the previous listed waypoint; bearings only between consecutive waypoints. ' : ''}Distances in ${unitName()}; bearings magnetic (${settings.variation}° E); arrivals at ${esc($('#spd').textContent)}${legs.some(g => g.stop) ? ', including stops' : ''}.</p>` : '<p>No route.</p>'}
     ${trip.marks.length ? `<h3>Points of interest</h3><p>${trip.marks.map(k => `<b>${esc(k.name)}</b> ${k.lat.toFixed(4)}, ${k.lng.toFixed(4)}`).join(' · ')}</p>` : ''}
     <h3>Forecast${trip.fetchedAt ? ` <span style="font-weight:400">(as of ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })})</span>` : ''}</h3>
     ${fc.length ? `<div class="pfc">${fc.map(([k, l]) => `<div><b>${esc(k)}</b>${l.map(esc).join(' · ')}</div>`).join('')}</div>` : '<p>No forecast yet: tap Get forecast first.</p>'}
     ${trip.data ? `<div class="pgs">${kinds.map(k => `<div class="pg"><h3>${names[k]}</h3><canvas data-kind="${k}"></canvas></div>`).join('')}</div>` : ''}
-    <p class="pfoot">${settings.sheetBw ? 'Graphs: heavy black line, the planned start; tide a black line; current dark bars up (flood), light bars down (ebb); wind a gray area, gusts a black line.' : 'Magenta line on the graphs: the planned start.'} Not for navigation; check official forecasts and local conditions. Planned with Outback, ${esc(appUrl())}</p>`;
+    <p class="pfoot">${settings.sheetBw ? 'Graphs: heavy black line, the planned start; tide a black line; current dark bars up (flood), light bars down (ebb); wind a gray area, gusts a black line.' : 'Magenta line on the graphs: the planned start.'} ${r.length > 1 ? `Map labels: planned arrivals at ${esc($('#spd').textContent)}${all.some(g => g.stop) ? ', with stops (⏸)' : ''}. ` : ''}Not for navigation; check official forecasts and local conditions. Planned with Outback, ${esc(appUrl())}</p></div>`;
   if ($('#printView').hidden){ $('#printView').hidden = false; history.pushState({ print: 1 }, ''); }
   document.title = fileName('pdf').slice(0, -4);   // the name Save as PDF suggests
   $('#printView').scrollTop = 0;
   // laid out at paper width; the on-screen preview is shrunk to fit (print resets it)
   const doc = $('#printDoc'), fitW = () => { doc.style.zoom = Math.min(1, ($('#printView').clientWidth - 16) / doc.offsetWidth); };
   doc.style.zoom = 1;
-  // one Letter page (10.3 in inside the margins): a long sheet takes the room from the map, down to 2.2 in
-  const pm = $('#pMap'); pm.style.height = '';
-  const over = doc.offsetHeight - 10.1 * 96; if (over > 0) pm.style.height = Math.max(2.2 * 96, pm.offsetHeight - over) + 'px';
+  // one Letter page (10.3 in inside the margins): the map takes the room left (2.2 to 6.5 in);
+  // a sheet still too long is scaled down to fit (not the image, which can be any height)
+  const pm = $('#pMap'), p1 = doc.querySelector('.p1'); pm.style.height = ''; p1.style.zoom = 1;
+  const page = 10.15 * 96, room = page - p1.offsetHeight; pm.style.height = Math.min(6.5 * 96, Math.max(2.2 * 96, pm.offsetHeight + room)) + 'px';
+  if (!settings.sheetPng && p1.offsetHeight > page) p1.style.zoom = (page / p1.offsetHeight).toFixed(3);
   fitW();
   // graphs with the cursor at the planned start
   sheetGraphs(3);
   // the map: the selected layer, the route with numbered waypoints, markers and sea marks
-  let tilesIn; ({ m: pMap, tilesIn } = printMap('pMap', big));
+  let tilesIn; ({ m: pMap, tilesIn } = printMap('pMap', big, { tip, min: () => false }));
   // page 2, for the PDF: the route alone on a whole page, to keep on the deck
   if (settings.sheetDeck && !settings.sheetPng && r.length > 1){
-    const lbl = new Set(namedLegs(all, r).map(g => g.i));
     doc.insertAdjacentHTML('beforeend', `<div class="pdeck"><h1>${esc(trip.name)}</h1>
       <p class="sub"><b>${fmtDay(trip.date)} · start ${startTime()}</b> · ${esc($('#dist').textContent)} · ${esc($('#dur').textContent)} at ${esc($('#spd').textContent)}${sun.rise ? ` · sunrise ${hm(sun.rise)}, sunset ${hm(sun.set)}` : ''}</p>
       <div id="pDeck"></div>
       <p class="pfoot">Times: planned arrivals from the ${startTime()} start at ${esc($('#spd').textContent)}${all.some(g => g.stop) ? ', with stops (⏸)' : ''}. Legs over 5 min: distance in ${unitName()}, magnetic bearing (${settings.variation}° E), time. Not for navigation.</p></div>`);
-    const tip = (g, i) => lbl.has(i) ? [r[i][2] || (i ? i === r.length - 1 ? 'Finish' : '' : 'Start'), hm(g.at), g.stop && `⏸ ${g.stop} min`].filter(Boolean).join(' · ') : r.length <= 20 ? hm(g.at) : '';
-    dMap = printMap('pDeck', big, { tip: i => tip(all[i], i), min: i => !lbl.has(i), legs: true, all }).m;
+    dMap = printMap('pDeck', big, { tip: i => tip(i) || (r.length <= 20 && !(loop && i === r.length - 1) ? hm(all[i].at) : ''), min: i => !lbl.has(i), legs: true, all }).m;
   }
   // as an image: made once the map's tiles are in, so Copy image works straight from the tap
   const btn = $('#pPrint'), my = pMap; sheetPng = null;
@@ -3020,6 +3014,28 @@ const autoLayer = () => trip.activity === 'paddle' && isTidal() ? 'chart' : 'top
 const printLayer = () => settings.sheetLayer === 'screen' ? settings.layer : settings.sheetLayer in LAYERS ? settings.sheetLayer : autoLayer();
 // a print map in el: the selected layer, the route with numbered waypoints, markers and sea marks.
 // o.tip(i) gives a waypoint's label (else its name and stop), o.min(i) a lighter one; o.legs labels the legs over 5 min
+// print map labels: one that would overlap another, a waypoint or the edge goes to the other side of its waypoint
+// (a leg label above or below the line); failing that, waypoint times and leg labels are left out, in that order
+function placeLabels(m){
+  const box = m.getContainer().getBoundingClientRect(), k = box.width / m.getSize().x || 1, taken = [...m.getContainer().querySelectorAll('.wp')].map(e => e.getBoundingClientRect());
+  const clash = a => a.left < box.left || a.right > box.right || a.top < box.top || a.bottom > box.bottom || taken.some(b => a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1);
+  const items = []; m.eachLayer(l => { const t = l instanceof L.Tooltip ? l : l.getTooltip?.(); if (t?._container && !items.some(x => x.t === t)) items.push({ l, t }); });
+  const rank = ({ t }) => { const c = t.options.className; return /\bmin\b/.test(c) ? 3 : /leg/.test(c) ? 2 : /mkname/.test(c) ? 1 : 0; };
+  for (const it of items.sort((a, b) => rank(a) - rank(b))){
+    let t = it.t, r = t._container.getBoundingClientRect(); const lo = rank(it);
+    if (clash(r)){
+      if (t.options.direction === 'center'){   // a leg: up or down, kept inside the map
+        const h = r.height + 4, dx = Math.max(box.left - r.left, Math.min(0, box.right - r.right));
+        for (const dy of [0, -h, h, -2 * h, 2 * h]){ t._container.style.margin = `${dy / k}px 0 0 ${dx / k}px`; r = t._container.getBoundingClientRect(); if (!clash(r)) break; }
+      } else {   // a waypoint or marker label: the other side
+        const { content: c, ...op } = { ...t.options, content: t.getContent() }, side = op.direction === 'right' ? 'left' : 'right';
+        it.l.unbindTooltip().bindTooltip(c, { ...op, direction: side, offset: [-op.offset[0], op.offset[1]] }); t = it.l.getTooltip(); r = t._container.getBoundingClientRect();
+      }
+    }
+    if (clash(r) && lo >= 2){ t._container.style.display = 'none'; continue; }
+    taken.push(r);
+  }
+}
 function printMap(el, big, o = {}){
   const r = trip.route, L0 = LAYERS[printLayer()], bw = !!settings.sheetBw;
   const m = L.map(el, { preferCanvas: true, zoomSnap: o.legs ? .25 : 1, zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false });
@@ -3043,10 +3059,7 @@ function printMap(el, big, o = {}){
   for (const k of trip.marks) L.marker([k.lat, k.lng], { icon: MARK_ICON }).bindTooltip(esc(k.name), { permanent: true, direction: 'right', offset: [8, -9], className: 'mkname' }).addTo(m);
   pts.length ? m.fitBounds(L.latLngBounds(pts), o.legs ? { padding: [48, 48], maxZoom: 16 } : { padding: [24, 24], maxZoom: 15 }) : m.setView(map.getCenter(), map.getZoom());
   for (const P of Object.values(POI)) if (settings[P.key]) poiMarkers(P, m.getBounds(), m);
-  // a label that would run off the right edge goes on the left of its waypoint
-  const W = m.getSize().x; m.eachLayer(l => { const t = l.getTooltip?.(); if (!t || t.options.direction !== 'right' || !t._container) return;
-    if (m.latLngToContainerPoint(l.getLatLng()).x + t.options.offset[0] + t._container.offsetWidth + 6 > W){ const { content: c, ...op } = { ...t.options, content: t.getContent() };
-      l.unbindTooltip().bindTooltip(c, { ...op, direction: 'left', offset: [-op.offset[0], op.offset[1]] }); } });
+  placeLabels(m);
   return { m, tilesIn };
 }
 // The trip sheet as a PNG at the chosen size, for a spreadsheet, doc or chat; html2canvas loads on first use.
@@ -3073,7 +3086,6 @@ async function sheetImage(){
 $('#pPrint').onclick = async () => { if (!settings.sheetPng) return print(); if (!sheetPng) return;
   try{ await navigator.clipboard.write([new ClipboardItem({ 'image/png': sheetPng })]); toast('1-page sheet copied. Paste it into the spreadsheet or doc.'); }
   catch{ shareFile(fileName('png'), sheetPng, 'image/png'); } };
-$('#pNamed').onchange = e => { settings.printNamed = e.target.checked; saveSettings(); openPrint(); };
 $('#pClose').onclick = () => history.state?.print ? history.back() : closePrint();
 
 /* ---------- help page ---------- */
