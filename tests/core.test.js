@@ -194,9 +194,21 @@ module.exports = async (browser, url, check) => {
   c('no tide stations nearby -> lake', await page.evaluate(() => trip.env) === 'lake');
   c('tidal cells hidden on a lake', !(await page.isVisible('#tideV')) && !(await page.isVisible('#stationsBtn')));
   c('lake switches chart layer to topo', (await page.text('#layerBtn')) === 'Topo', await page.text('#layerBtn'));
-  await page.setInputFiles('#file', path.join(OUT, 'export.json')); await page.waitForTimeout(600);
-  c('JSON import adds a copy', (await page.text('#tabTrip')) === 'Golden Gate loop' && await page.evaluate(async () => (await idb.all('trips')).length) === 4);
-  { const j = JSON.parse(fs.readFileSync(path.join(OUT, 'export.json'), 'utf8')); delete j.trip.name; fs.writeFileSync(path.join(OUT, 'Shared-trip_2026-10-15.json.txt'), JSON.stringify(j)); }
+  { // the same trip shared again after changes: what changed, then Keep both / Update it
+    const j = JSON.parse(fs.readFileSync(path.join(OUT, 'export.json'), 'utf8'));
+    j.trip.start += 30; j.trip.route[1] = [...j.trip.route[1].slice(0, 2), 'Bonita'];
+    fs.writeFileSync(path.join(OUT, 'changed.json'), JSON.stringify(j)); }
+  await page.setInputFiles('#file', path.join(OUT, 'changed.json')); await page.waitForSelector('#impUpd');
+  const lis = await page.locator('#sheet li').allInnerTexts();
+  c('same trip again: says what changed', lis.length === 2 && /^Start: \d+:\d\d [AP]M → \d+:\d\d [AP]M$/.test(lis[0]) && /Waypoint names/.test(lis[1]), lis.join(' | '));
+  await page.click('#impBoth'); await page.waitForTimeout(500);
+  c('Keep both: a separate copy', (await page.text('#tabTrip')) === 'Golden Gate loop (shared)' && await page.evaluate(async () => (await idb.all('trips')).length) === 4, await page.text('#tabTrip'));
+  await page.setInputFiles('#file', path.join(OUT, 'changed.json')); await page.waitForSelector('#impUpd');
+  await page.click('#impUpd'); await page.waitForTimeout(500);
+  c('Update it: the trip takes the changes, no new trip', await page.evaluate(async () => trip.name === 'Golden Gate loop' && trip.route[1][2] === 'Bonita' && (await idb.all('trips')).length === 4));
+  await page.setInputFiles('#file', path.join(OUT, 'changed.json')); await page.waitForTimeout(500);
+  c('the same file again: already up to date', /already up to date/.test(await page.text('#toast')) && !(await page.isVisible('#impUpd')), await page.text('#toast'));
+  { const j = JSON.parse(fs.readFileSync(path.join(OUT, 'export.json'), 'utf8')); delete j.trip.name; j.trip.id = 'tshared1'; fs.writeFileSync(path.join(OUT, 'Shared-trip_2026-10-15.json.txt'), JSON.stringify(j)); }
   await page.setInputFiles('#file', path.join(OUT, 'Shared-trip_2026-10-15.json.txt')); await page.waitForTimeout(600);
   c('an Outback file shared as .json.txt imports too', (await page.text('#tabTrip')) === 'Shared-trip_2026-10-15' && await page.evaluate(async () => (await idb.all('trips')).length) === 5, await page.text('#tabTrip'));
   fs.writeFileSync(path.join(OUT, 'bad.json'), '{"foo":1}');
