@@ -90,7 +90,7 @@ Three views; swipe between them or use the tabs at the bottom.
   on tidal water), and *Black and white printer*
   prints the map pale gray under a black route, with black waypoints and labels and black-and-gray graphs.
 - **1-page sheet** (in Share or print): a one-page Letter trip sheet to carry in a waterproof case: the map with the route and
-  numbered, named waypoints, the waypoint table, the day's forecast, and the tide/current and wind graphs with the planned
+  numbered waypoints (start, finish, named and stops labelled with planned arrivals), the day's forecast, and the tide/current and wind graphs with the planned
   start marked. *PDF* shows a preview; *Print* opens the phone's print dialog (or save as PDF). *Image*
   shows it too, with *Copy image*: a PNG of the page on the clipboard, Small (800 px, pastes at a sensible size in Sheets/Docs), Medium or
   Large (2400 px, for printing) (saved as a file if copying isn't allowed) (html2canvas, vendored, loaded on first use).

@@ -385,7 +385,7 @@ module.exports = async (browser, url, check) => {
     await page.evaluate(k => { trip.route = k.r; trip.marks = k.m; }, keep);
     if (!await page.isVisible('#sheet #printPlan')) await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
     c('Print opens a preview with title, map, waypoints, forecast and graphs', await page.isVisible('#printView') && /Club paddle/.test(await page.text('#printDoc h1'))
-      && await page.locator('#pMap .leaflet-tile').count() > 0 && await page.locator('#pMap .wp').count() === 3 && await page.locator('#printDoc table tr').count() >= 4
+      && await page.locator('#pMap .leaflet-tile').count() > 0 && await page.locator('#pMap .wp').count() === 3
       && /Tide · San Francisco/.test(await page.text('#printDoc .pfc')) && await page.locator('#printDoc canvas[data-kind]').count() === 2);
     c('no overlay on the printed map when none is on', await page.locator('#pMap .leaflet-image-layer').count() === 0);
     { // an overlay PDF map that's on prints too
@@ -446,26 +446,33 @@ module.exports = async (browser, url, check) => {
       await page.uncheck('#sheetDeck'); await page.click('#printPlan'); await page.waitForTimeout(500);
       c('unticked: one page again', await page.locator('#pDeck').count() === 0 && await page.evaluate(() => !dMap && settings.sheetDeck === false));
       await page.click('#pClose'); await page.waitForTimeout(300); }
-    // a long route prints the start, finish and named waypoints; the toggle shows them all
+    // no waypoint table: the map labels the start, finish, named and stop waypoints with their planned arrival
     await page.evaluate(() => { const r = []; for (let i = 0; i < 16; i++) r.push([37.80 + i * .004, -122.45 + (i % 2) * .006]);
-      r[5] = [...r[5].slice(0, 2), 'Angel Island']; r[9] = [...r[9].slice(0, 2), '', 30]; trip.route = r; delete settings.printNamed; changed(); });
+      r[5] = [...r[5].slice(0, 2), 'Angel Island']; r[9] = [...r[9].slice(0, 2), '', 30]; trip.route = r; changed(); });
     if (!await page.isVisible('#sheet #printPlan')) await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
-    const rows = await page.locator('#printDoc table tr').allInnerTexts();
-    c('long route: named waypoints only, by default', await page.isVisible('#pNamed') && await page.isChecked('#pNamed') && rows.length === 5
-      && /^6 Angel Island/.test(rows[2]) && /⏸ 30 min, leave/.test(rows[3]) && /^16/.test(rows[4]) && /4 of 16/.test(await page.text('#printDoc')), rows.join(' | '));
-    c('printed map labels named and stop waypoints', await page.evaluate(() => [...document.querySelectorAll('#pMap .wpname')].map(e => e.textContent).join('|')) === 'Angel Island|⏸ 30 min',
-      await page.evaluate(() => [...document.querySelectorAll('#pMap .wpname')].map(e => e.textContent).join('|')));
-    c('skipped waypoints: distance along the route, no bearing', /\t–\t/.test(rows[2]) && Math.abs(parseFloat(rows[2].split('\t')[2]) - parseFloat(rows[2].split('\t')[4])) < .01, rows[2]);
+    const labs = await page.evaluate(() => [...document.querySelectorAll('#pMap .wpname')].map(e => e.textContent).sort((a, b) => /^Start/.test(b) - /^Start/.test(a) || /^Finish/.test(a) - /^Finish/.test(b) || /^\d/.test(a) - /^\d/.test(b)));
+    c('no waypoint table or named-only toggle', await page.locator('#printDoc table').count() === 0 && !(await page.$('#pNamed')));
+    c('printed map labels start, finish, named and stops with arrival times', labs.length === 4 && /^Start · \d+:\d\d/.test(labs[0]) && /^Angel Island · \d+:\d\d/.test(labs[1])
+      && /^\d+:\d\d [AP]M · ⏸ 30 min$/.test(labs[2]) && /^Finish · \d+:\d\d/.test(labs[3]), labs.join(' | '));
     await page.emulateMedia({ media: 'print' });
-    c('named-only sheet fits on one page', ((await page.pdf({ format: 'Letter' })).toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 1);
+    c('long route sheet fits on one page', ((await page.pdf({ format: 'Letter' })).toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 1);
     await page.emulateMedia({ media: 'screen' });
-    await page.click('#pNamed'); await page.waitForTimeout(1200);
-    c('unticked: every waypoint, remembered', await page.locator('#printDoc table tr').count() === 17 && await page.evaluate(() => settings.printNamed === false && !!pMap));
     await page.click('#pClose'); await page.waitForTimeout(200);
-    await page.evaluate(() => { trip.route = trip.route.map(p => p.slice(0, 2)); settings.printNamed = true; changed(); });
-    if (!await page.isVisible('#sheet #printPlan')) await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
-    c('no named waypoints: the toggle still offers just the start and finish', await page.isVisible('#pNamed') && await page.locator('#printDoc table tr').count() === 3, await page.locator('#printDoc table tr').count());
-    await page.click('#pClose'); await page.waitForTimeout(200);
+    { // a crowded sheet (every waypoint named, parking, markers, ☀ large print) still fits one page, scaled down if it must
+      const keep = await page.evaluate(() => { const k = { r: trip.route, p: trip.parking, m: trip.marks }; trip.route = trip.route.map((p, i) => [p[0], p[1], `Spot number ${i + 1}`, i % 3 ? 0 : 20]);
+        trip.parking = { lat: 37.79, lng: -122.46, name: 'A parking lot with a long name', note: 'Free, two hour limit, busy on weekends' }; trip.marks = [{ lat: 37.83, lng: -122.44, name: 'Alcatraz' }]; settings.sheetSun = true; changed(); return k; });
+      if (!await page.isVisible('#sheet #printPlan')) await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
+      await page.emulateMedia({ media: 'print' });
+      c('crowded ☀ sheet fits on one page', ((await page.pdf({ format: 'Letter' })).toString('latin1').match(/\/Type\s*\/Page[^s]/g) || []).length === 1);
+      await page.emulateMedia({ media: 'screen' });
+      await page.click('#pClose'); await page.waitForTimeout(200);
+      // a round trip: one label with the start and finish times
+      await page.evaluate(k => { trip.route = [[37.80, -122.45, 'Marina'], [37.82, -122.42, 'Island', 30], [37.8003, -122.4502, 'Marina']]; trip.parking = k.p; trip.marks = k.m; settings.sheetSun = false; changed(); }, keep);
+      if (!await page.isVisible('#sheet #printPlan')) await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
+      const rt = await page.evaluate(() => [...document.querySelectorAll('#pMap .wpname')].map(e => e.textContent));
+      c('round trip: one label with both times', rt.length === 2 && /^Marina · \d+:\d\d [AP]M → \d+:\d\d [AP]M$/.test(rt[0]) && /^Island · /.test(rt[1]), rt.join(' | '));
+      await page.click('#pClose'); await page.waitForTimeout(200);
+      await page.evaluate(k => { trip.route = k.r; changed(); }, keep); }
     c('no page errors (share, print)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // Restrooms: 🚻 shows OpenStreetMap toilets in view, with details and directions; kept for offline
@@ -558,7 +565,7 @@ module.exports = async (browser, url, check) => {
     c('PDF: back to Print', await page.text('#pPrint') === 'Print' && await page.isEnabled('#pPrint'));
     await page.click('#pClose'); await page.waitForTimeout(300);
     await page.check('#sheetSun'); await page.click('#printPlan'); await page.waitForTimeout(1200);
-    const sunSheet = await page.evaluate(() => ({ on: document.querySelector('#printDoc').classList.contains('sun'), td: parseFloat(getComputedStyle(document.querySelector('#printDoc td')).fontSize),
+    const sunSheet = await page.evaluate(() => ({ on: document.querySelector('#printDoc').classList.contains('sun'), td: parseFloat(getComputedStyle(document.querySelector('#printDoc')).fontSize),
       g: (c => c ? c.width / c.clientWidth : 3)(document.querySelector('#printDoc canvas[data-kind]')), saved: settings.sheetSun }));
     c('☀ large print: bigger, bolder sheet, still sharp graphs', sunSheet.on && sunSheet.td >= 14 && sunSheet.g >= 2.99 && sunSheet.saved, JSON.stringify(sunSheet));
     await page.emulateMedia({ media: 'print' });
