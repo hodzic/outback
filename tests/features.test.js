@@ -441,6 +441,8 @@ module.exports = async (browser, url, check) => {
       await page.emulateMedia({ media: 'screen' });
       await page.click('#pClose'); await page.waitForTimeout(300);
       await page.selectOption('#sheetLayer', ''); await page.uncheck('#sheetBw');
+      c('print map by default: best for the trip, Chart for a tidal paddle, Topo for a hike', await page.evaluate(() => { const a = trip.activity, r = [printLayer()];
+        trip.activity = 'hike'; r.push(printLayer()); settings.sheetLayer = 'screen'; r.push(printLayer() === settings.layer); settings.sheetLayer = ''; trip.activity = a; return r.join(); }) === 'chart,topo,true');
       await page.uncheck('#sheetDeck'); await page.click('#printPlan'); await page.waitForTimeout(500);
       c('unticked: one page again', await page.locator('#pDeck').count() === 0 && await page.evaluate(() => !dMap && settings.sheetDeck === false));
       await page.click('#pClose'); await page.waitForTimeout(300); }
