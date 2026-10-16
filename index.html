@@ -623,7 +623,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-15m';
+const APP_VERSION = '2026-10-15n';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3131,10 +3131,12 @@ function shareables(name, data, type){
 async function shareFile(name, data, type, from = 0, retry = false){
   const fs = shareables(name, data, type), f = fs[from];
   let err = null;
+  // still within the tap? then a NotAllowedError is the phone refusing this type (Android does that to .json), not a stale tap
+  const live = navigator.userActivation ? navigator.userActivation.isActive : !retry;
   if (f) try{ await navigator.share({ files: [f] }); toast(`Done: ${f.name}`); return true; }
     catch(e){ if (e.name === 'AbortError'){ toast('Not shared.'); return false; }
       err = e;
-      const next = e.name === 'NotAllowedError' && !retry ? from : from + 1;
+      const next = e.name === 'NotAllowedError' && !live && !retry ? from : from + 1;
       if (next < fs.length) return readyToShare(name, data, type, next, `${f.name} (${f.type || 'no type'}): ${e.name}${e.message ? ', ' + e.message : ''}`); }
   saveFile(name, data, type);
   toast(`${err ? `Could not share (${err.name}${err.message ? ': ' + err.message : ''}); s` : 'This browser can\'t share files; s'}aved ${name} to your downloads.`, 8000);
