@@ -618,7 +618,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li>Get the forecast first so it's on the page, and pick the map layer you want printed (Chart, Street, Topo or Sat) and turn on any overlay PDF maps you want on it before tapping 1-page sheet.</li>
           <li>Tick <b>☀ Large, bold print for reading outdoors</b> in Share or print for a sheet you can read in sun spray: bigger, bolder text, heavier lines, bigger waypoint labels and graphs. It still fits one page (the map gets smaller if needed).</li>
           <li>Tick <b>PDF page 2: full-page deck map</b> to add a second page with just the route on the whole page, for a chart case on the deck: waypoint names with planned arrival times (and stops), and every leg over 5 minutes labelled with its distance, magnetic bearing and time. PDF only, not the image.</li>
-          <li><b>Map</b> picks the map printed on the sheet (Chart, Street, Topo or Sat) without changing the one on screen; Chart is best for paddling, Sat prints dark.</li>
+          <li><b>Map</b> picks the map printed on the sheet without changing the one on screen. <b>Best for the trip</b> (the default) prints Topo for hiking and biking (contours and trails) and Chart for paddling on tidal water (Topo on lakes and rivers); or pick Same as on screen, Chart, Street, Topo or Sat. Sat prints dark.</li>
           <li>Tick <b>Black and white printer</b> for a laser printer: the map prints pale gray under a black route with a white edge, with black waypoints and labels. The graphs go black and gray: tide a black line, flood dark bars up and ebb light bars down, wind a gray area under a black gust line, and a heavy black start line.</li>
           <li>Turn on <b>🚻</b> and <b>P</b> on the map first to have restrooms and parking on the printed map.</li>
           <li>For a waterproof case: print in colour if you can, fold once, and carry a proper chart or map too.</li>
@@ -648,7 +648,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-16c';
+const APP_VERSION = '2026-10-16d';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2933,7 +2933,8 @@ function sharePlanSheet(again){
     <h3 class="shh">1-page sheet <span class="muted">map, waypoints, forecast, graphs</span></h3>
     ${opt('<button class="btn" id="printPlan">PDF</button>', 'Print it, or save as PDF')}
     ${opt('<button class="btn" id="sheetImg">Image</button>', `Copy as a picture, for a spreadsheet or doc<select id="sheetScale" class="f" aria-label="Image size">${SHEET_SCALES.map(([v, t]) => `<option value="${v}"${(settings.sheetScale || 1) === v ? ' selected' : ''}>${t}</option>`).join('')}</select>`)}
-    <label class="shck">Map <select id="sheetLayer" class="f" aria-label="Map to print">${['', ...LAYER_ORDER].map(k => `<option value="${k}"${(settings.sheetLayer || '') === k ? ' selected' : ''}>${k ? LAYERS[k].name : `Same as on screen (${LAYERS[settings.layer].name})`}</option>`).join('')}</select></label>
+    <label class="shck">Map <select id="sheetLayer" class="f" aria-label="Map to print">${[['', `Best for the trip (${LAYERS[autoLayer()].name})`], ['screen', `Same as on screen (${LAYERS[settings.layer].name})`], ...LAYER_ORDER.map(k => [k, LAYERS[k].name])]
+      .map(([k, t]) => `<option value="${k}"${(settings.sheetLayer || '') === k ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
     <label class="shck"><input type="checkbox" id="sheetBw"${settings.sheetBw ? ' checked' : ''}> Black and white printer: pale gray map, black route and labels</label>
     <label class="shck"><input type="checkbox" id="sheetSun"${settings.sheetSun ? ' checked' : ''}> ☀ Large, bold print for reading outdoors</label>
     ${trip.route.length > 1 ? `<label class="shck"><input type="checkbox" id="sheetDeck"${settings.sheetDeck ? ' checked' : ''}> PDF page 2: full-page deck map with names, arrival times and leg distances</label>` : ''}
@@ -3014,10 +3015,13 @@ async function openPrint(){
   sheetPng = b; btn.disabled = !b; if (!b) toast('Could not make the image (offline the first time?). Untick image to print instead.', 5000);
 }
 let sheetPng = null;
+// the print map: Topo for hiking and biking (contours, trails), Chart for paddling on tidal water, else as chosen
+const autoLayer = () => trip.activity === 'paddle' && isTidal() ? 'chart' : 'topo';
+const printLayer = () => settings.sheetLayer === 'screen' ? settings.layer : settings.sheetLayer in LAYERS ? settings.sheetLayer : autoLayer();
 // a print map in el: the selected layer, the route with numbered waypoints, markers and sea marks.
 // o.tip(i) gives a waypoint's label (else its name and stop), o.min(i) a lighter one; o.legs labels the legs over 5 min
 function printMap(el, big, o = {}){
-  const r = trip.route, L0 = LAYERS[settings.sheetLayer] || LAYERS[settings.layer], bw = !!settings.sheetBw;
+  const r = trip.route, L0 = LAYERS[printLayer()], bw = !!settings.sheetBw;
   const m = L.map(el, { preferCanvas: true, zoomSnap: o.legs ? .25 : 1, zoomControl: false, attributionControl: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, touchZoom: false, boxZoom: false, keyboard: false });
   const base = (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', L0.opt) : L.tileLayer(L0.url, L0.opt)).addTo(m);
   const tilesIn = new Promise(res => { base.once('load', res); setTimeout(res, 6000); });
