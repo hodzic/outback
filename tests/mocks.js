@@ -75,8 +75,11 @@ async function install(ctx, opts = {}){
   // Open-Meteo Marine: sea surface 61–63 °F (opts.water 'none' or 'nomodel': no data, as in a slough; 'model': no NOAA water station)
   await ctx.route('https://marine-api.open-meteo.com/**', r => {
     const u = new URL(r.request().url()), s = Date.parse(u.searchParams.get('start_date') + 'T00:00Z'), e = Date.parse(u.searchParams.get('end_date') + 'T23:00Z');
-    const h = { time: [], sea_surface_temperature: [] };
-    for (let t = s, i = 0; t <= e; t += 36e5, i++){ h.time.push(new Date(t).toISOString().slice(0, 16)); h.sea_surface_temperature.push(opts.water === 'none' || opts.water === 'nomodel' ? null : 62 + Math.sin(i / 4)); }
+    const h = { time: [], sea_surface_temperature: [], wave_height: [], swell_wave_height: [], swell_wave_period: [], swell_wave_direction: [] };
+    const none = opts.water === 'none' || opts.water === 'nomodel';
+    for (let t = s, i = 0; t <= e; t += 36e5, i++){ h.time.push(new Date(t).toISOString().slice(0, 16)); h.sea_surface_temperature.push(none ? null : 62 + Math.sin(i / 4));
+      // swell 1.2–1.6 m at 12 s from the WNW, waves a bit higher with wind chop (none: no data, as in a slough)
+      h.swell_wave_height.push(none ? null : 1.4 + .2 * Math.sin(i / 5)); h.wave_height.push(none ? null : 1.7 + .2 * Math.sin(i / 5)); h.swell_wave_period.push(none ? null : 12); h.swell_wave_direction.push(none ? null : 290); }
     json(r, { timezone: 'GMT', hourly: h });
   });
   await ctx.route('https://api.weather.gov/**', r => {

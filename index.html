@@ -89,6 +89,8 @@ table.acts td,table.acts th{padding:5px 3px}
 .read{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .cell{padding:6px 8px;background:var(--paper);min-width:0}
 .cell.wide{grid-column:1/-1}
+/* lightning as one slim full-width row when the boxes would otherwise leave an empty one */
+.cell.slim{grid-column:1/-1;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 8px} .cell.slim .v{font-size:17px}
 .tempc .v{font-size:28px}
 .tempc .lo{color:var(--flood)} .tempc .hi{color:var(--warn)}
 /* readouts wrap instead of truncating */
@@ -106,7 +108,7 @@ table.acts td,table.acts th{padding:5px 3px}
 #windV,#sunV,#moonV{font-size:clamp(15px,4.6vw,18px);white-space:nowrap}
 .v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
 .now{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin:8px 0 0;padding:6px 10px;background:var(--wash);border-radius:10px;font-variant-numeric:tabular-nums}
-.now .ri{min-width:0;height:38px} .now .ri[hidden]{display:none}
+.now .ri{min-width:0;height:38px} .now .ri[hidden]{display:none} .now .ri.swellc{grid-column:1/-1}
 .now .k{font-size:12px;line-height:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .now b{display:block;font-size:16px;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl{display:grid;grid-template-columns:auto 1fr;gap:0 8px;font-variant-numeric:tabular-nums} .tl .flood{color:var(--flood)} .tl .ebb{color:var(--ebb)}
@@ -340,7 +342,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Swell: Open-Meteo Marine. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
       </details>
@@ -374,10 +376,11 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <div class="cell tidal"><div class="k" id="tideK">Tide</div><div class="v" id="tideV">–</div><div class="s" id="tideS">&nbsp;</div></div>
           <div class="cell curc"><div class="k" id="curK">Current</div><div class="v" id="curV">–</div><div class="s" id="curS">&nbsp;</div></div>
           <div class="cell waterc"><div class="k" id="waterK">Water</div><div class="v" id="waterV">–</div><div class="s" id="waterS">&nbsp;</div></div>
+          <div class="cell swellc"><div class="k">Swell</div><div class="v" id="swellV">–</div><div class="s" id="swellS">&nbsp;</div></div>
           <div class="cell elevc"><div class="k">Elevation</div><div class="v" id="elevV">–</div><div class="s" id="elevS">&nbsp;</div></div>
           <div class="cell"><div class="k" id="windK">Wind</div><div class="v" id="windV">–</div></div>
           <div class="cell"><div class="k">Pressure · mb</div><div class="v" id="presV">–</div><div class="s" id="presS">&nbsp;</div></div>
-          <div class="cell"><div class="k">Lightning</div><div class="v" id="ltgV">–</div><div class="s" id="ltgS">&nbsp;</div></div>
+          <div class="cell ltgc"><div class="k">Lightning</div><div class="v" id="ltgV">–</div><div class="s" id="ltgS">&nbsp;</div></div>
           <div class="cell"><div class="k">Sun</div><div class="v" id="sunV">–</div><div class="s" id="sunS">&nbsp;</div></div>
           <div class="cell"><div class="k" id="moonK">Moon</div><div class="v" id="moonV">–</div><div class="s" id="moonS">&nbsp;</div></div>
         </div>
@@ -386,6 +389,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <div class="now" id="atRead" aria-live="polite">
           <div class="ri tidal"><div class="k">Tide</div><b id="atTide">–</b></div>
           <div class="ri curc"><div class="k">Current</div><b id="atCur">–</b></div>
+          <div class="ri swellc"><div class="k">Swell</div><b id="atSwell">–</b></div>
           <div class="ri"><div class="k">Wind</div><b id="atWind">–</b></div>
           <div class="ri"><div class="k" id="atSky">Air</div><b id="atAir">–</b></div>
           <div class="ri"><div class="k">Pressure</div><b id="atPres">–</b></div>
@@ -645,7 +649,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-16f';
+const APP_VERSION = '2026-10-16k';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -913,7 +917,7 @@ function onView(i){
   state.view = i; settings.view = i; saveSettings(); document.body.dataset.view = i;
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', +b.dataset.view === i));
   if (i === 0) renderList();
-  if (i === 1 && trip) render();
+  if (i === 1 && trip){ render(); showMoved(); }
   if (i === 2) setTimeout(() => map.invalidateSize(), 0);
 }
 let viewT;
@@ -1225,12 +1229,15 @@ async function waterNoaa(c){
   return { ...out, v: parseFloat(x.v), at: gmt(x.t) };
 }
 async function waterModel(c){
-  const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4), hourly: 'sea_surface_temperature', temperature_unit: 'fahrenheit', timezone: 'GMT', start_date: shiftDay(trip.date, -1), end_date: shiftDay(trip.date, 1) });
+  const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4), hourly: 'sea_surface_temperature,wave_height,swell_wave_height,swell_wave_period,swell_wave_direction', temperature_unit: 'fahrenheit', timezone: 'GMT', start_date: shiftDay(trip.date, -1), end_date: shiftDay(trip.date, 1) });
   const j = await (await fetch('https://marine-api.open-meteo.com/v1/marine?' + q)).json();
   if (j.error || !j.hourly) return null;
+  const H = j.hourly, t = H.time.map(x => Date.parse(x + 'Z'));
   const a = dayStart() + 6 * 36e5, b = dayStart() + 20 * 36e5; // daytime
-  const vs = j.hourly.time.map((t, i) => [Date.parse(t + 'Z'), j.hourly.sea_surface_temperature[i]]).filter(([t, v]) => v != null && t >= a && t <= b).map(x => x[1]);
-  return vs.length ? { lo: Math.min(...vs), hi: Math.max(...vs) } : null;
+  const vs = t.map((x, i) => [x, H.sea_surface_temperature?.[i]]).filter(([x, v]) => v != null && x >= a && x <= b).map(x => x[1]);
+  // swell and total wave height (metres), hourly, for the open water nearest the route
+  const sw = H.swell_wave_height?.some(v => v != null) ? { t, h: H.wave_height || [], sh: H.swell_wave_height, sp: H.swell_wave_period || [], sd: H.swell_wave_direction || [] } : null;
+  return vs.length || sw ? { ...(vs.length ? { lo: Math.min(...vs), hi: Math.max(...vs) } : {}), swell: sw } : null;
 }
 // Elevation profile along the route (Open-Meteo, 90 m DEM), up to 100 samples.
 const routeKey = r => r.map(p => p[0] + ',' + p[1]).join(';');
@@ -1274,13 +1281,17 @@ const validTz = z => { try{ return !!z && z !== 'GMT' && !!new Intl.DateTimeForm
 
 async function getForecast(){
   if (!navigator.onLine){ toast('You are offline. Connect to get a forecast.'); return; }
-  const btn = $('#fcBtn'); btn.disabled = true; btn.textContent = 'Loading…';
-  const errs = [], before = fcSnap(), was = trip.fetchedAt; let envMsg = '';
+  const id = trip.id; if (fcBusy.has(id)) return;
+  const busy = t => fcBusyUpd(id, t); busy('Loading…');
+  const errs = [], before = fcSnap(), was = trip.fetchedAt, name = trip.name; let envMsg = '';
+  // another trip opened while this one loads: keep its results out of that trip
+  const gone = () => trip?.id !== id, stop = () => toast(`Forecast for ${name} stopped: another trip was opened. Tap Get forecast there again.`, 5000);
   try{
     const c = centroid();
     if ((!trip.envSet && act().detect) || isTidal()){
       try{
         const nb = await loadNearby();
+        if (gone()) return stop();
         if (!trip.envSet){
           const near = nb.tide[0] ? distNm(c, [nb.tide[0].lat, nb.tide[0].lng]) : Infinity, was = trip.env;
           trip.env = act().detect(near);
@@ -1291,7 +1302,7 @@ async function getForecast(){
           if (!trip.tide || distNm(c, [trip.tide.lat, trip.tide.lng]) > 25) trip.tide = nb.tide[0] || null;
           if (hasCurrents() && (!trip.current || distNm(c, [trip.current.lat, trip.current.lng]) > 25)) trip.current = nb.current[0] || null;
         }
-      }catch(e){ if (isTidal()) errs.push('stations'); else if (!trip.envSet) trip.env = act().detect(Infinity); }
+      }catch(e){ if (gone()) return stop(); if (isTidal()) errs.push('stations'); else if (!trip.envSet) trip.env = act().detect(Infinity); }
     }
     const data = trip.data || {};
     const none = () => Promise.reject(new Error('none nearby'));
@@ -1303,6 +1314,7 @@ async function getForecast(){
       hasElev() && trip.route.length > 1 ? fetchElev(trip.route) : null,
       trip.activity === 'paddle' ? fetchWater(c) : null
     ]);
+    if (gone()) return stop();
     if (t.status === 'fulfilled') data.tide = t.value; else { data.tide = null; errs.push('tides (' + t.reason.message + ')'); }
     if (cu.status === 'fulfilled'){ if (cu.value) Object.assign(data, cu.value); else data.current = null; } else { data.current = null; errs.push('currents (' + cu.reason.message + ')'); }
     if (w.status === 'fulfilled'){ data.wx = w.value; if (validTz(w.value.tz) && w.value.tz !== trip.tz){ trip.tz = w.value.tz; if (todayIso() === trip.date) state.tMin = Math.floor(nowMin() / 5) * 5; } }
@@ -1317,17 +1329,26 @@ async function getForecast(){
     const moved = before && after && before.date === after.date && distNm(before.c, after.c) < 5
       ? after.v.map(([k, v], i) => [k, before.v[i][1], v]).filter(([, a, b]) => a !== b) : null;
     changed();
-    btn.textContent = 'Saving map…';
-    trip.mapTiles = await cacheTiles(); changed();
-    if (trip.route.length) for (const P of Object.values(POI)) if (settings[P.key]) poiFetch(P, L.latLngBounds(trip.route.map(ll2)).pad(.3)).then(() => poiRefresh(P)).catch(() => {});
+    busy('Saving map…');
+    const tiles = await cacheTiles(busy);
+    if (gone()) idb.get('trips', id).then(t => t && idb.put('trips', { ...t, mapTiles: tiles })).catch(() => {});
+    else { trip.mapTiles = tiles; changed(); }
+    if (!gone() && trip.route.length) for (const P of Object.values(POI)) if (settings[P.key]) poiFetch(P, L.latLngBounds(trip.route.map(ll2)).pad(.3)).then(() => poiRefresh(P)).catch(() => {});
     const since = was ? new Date(was).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() }) : '';
-    toast(envMsg + (errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${trip.mapTiles ? trip.mapTiles + ' map tiles stored for offline.' : 'The map could not be saved for offline.'}`) + (moved && !moved.length ? ` No change since ${since}.` : ''), envMsg ? 6000 : 4500);
-    if (moved?.length) openSheet(`<h2 style="margin:0 0 4px">Forecast changes</h2><p class="muted" style="margin:0 0 8px">Since ${esc(since)}</p>
+    toast((gone() ? name + ': ' : '') + envMsg + (errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${tiles ? tiles + ' map tiles stored for offline.' : 'The map could not be saved for offline.'}`) + (moved && !moved.length ? ` No change since ${since}.` : ''), envMsg ? 6000 : 4500);
+    if (moved?.length){ fcMoved = { id, html: `<h2 style="margin:0 0 4px">Forecast changes</h2><p class="muted" style="margin:0 0 8px">Since ${esc(since)}</p>
       <table class="fcmv">${moved.map(([k, a, b]) => `<tr><th>${k}</th><td>${esc(a || 'none')}</td><td>→</td><td><b>${esc(b || 'none')}</b></td></tr>`).join('')}</table>
-      <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn primary" data-close>OK</button></div>`);
-  }finally{ btn.disabled = false; btn.textContent = 'Get forecast'; }
+      <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn primary" data-close>OK</button></div>` }; showMoved(); }
+  }finally{ busy(null); }
 }
 $('#fcBtn').onclick = getForecast;
+// Get forecast is busy per trip: another trip's button stays ready while this one loads
+const fcBusy = new Map();
+function fcBusyUpd(id, t){ if (t) fcBusy.set(id, t); else fcBusy.delete(id); fcBtnState(); }
+function fcBtnState(){ const b = $('#fcBtn'), t = trip && fcBusy.get(trip.id); b.disabled = !!t; b.textContent = t || 'Get forecast'; }
+// the forecast-change dialog shows on its trip's Trip tab: right away, or when you come back to it
+let fcMoved = null;
+function showMoved(){ if (fcMoved && trip?.id === fcMoved.id && state.view === 1 && !sheet.open){ openSheet(fcMoved.html); fcMoved = null; } }
 // The day's headline numbers as shown, so Get forecast can say what moved since the last one
 function fcSnap(){
   if (!trip.data?.wx) return null;
@@ -1339,6 +1360,7 @@ function fcSnap(){
     ['Sky', dy.sky || ''], ['Rain', dy.pop != null ? dy.pop + '%' : ''],
     ['Pressure', dy.p ? (Math.abs(d) < 1 ? 'steady' : `${d > 0 ? 'rising' : 'falling'} ${Math.abs(d).toFixed(0)} mb`) : ''],
     ['Thunder', dy.th ? dy.th.v + '%' : ''],
+    ['Swell', hasSwell() ? (sd => sd ? `${sd.v} ${sd.way}`.trim() : '')(swellDay(sunTimes(trip.date, c[0], c[1]))) : ''],
     ['Water', trip.activity === 'paddle' && trip.data.water ? (renderWater(), $('#waterV').textContent) : '']] };
 }
 
@@ -1376,17 +1398,17 @@ async function downloadTiles(urls, { polite, onProgress } = {}){
   await Promise.all(Array.from({ length: polite ? 1 : 6 }, worker));
   return saved;
 }
-async function cacheTiles(){
+async function cacheTiles(busy = () => {}){
   if (!('caches' in window)) return 0;
   const pts = trip.route.length ? trip.route.map(ll2) : [centroid()];
   let b = L.latLngBounds(pts);
   b = L.latLngBounds([b.getSouth() - .03, b.getWest() - .04], [b.getNorth() + .03, b.getEast() + .04]);
   const polite = LAYERS[settings.layer].polite;
   const urls = tileUrls(LAYERS[settings.layer], b, 10, polite ? 15 : 16, polite ? 600 : 1500);
-  const n = await downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Map ${Math.round(d / urls.length * 100)}%`; } });
+  const n = await downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) busy(`Map ${Math.round(d / urls.length * 100)}%`); } });
   if (seaLayer){ // sea marks too, gently: OpenSeaMap is a volunteer server
     const sm = tileUrls(SEAMARKS, b, 10, 15, 600);
-    await downloadTiles(sm, { polite: true, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Sea marks ${Math.round(d / sm.length * 100)}%`; } });
+    await downloadTiles(sm, { polite: true, onProgress: d => { if (d % 25 === 0) busy(`Sea marks ${Math.round(d / sm.length * 100)}%`); } });
   }
   return n;
 }
@@ -1478,11 +1500,33 @@ function renderWater(){
   const ago = t => { const h = (Date.now() - t) / 36e5; return h < 1 ? 'just now' : h < 36 ? Math.round(h) + ' h ago' : Math.round(h / 24) + ' days ago'; };
   let v = '–', src = trip.data ? (trip.activity === 'paddle' ? 'No reading or forecast here' : ' ') : ' ', lo = null;
   if (n?.lo != null){ v = range(n.lo, n.hi); src = `Measured at ${n.name} (NOAA)`; lo = n.lo; }
-  else if (m){ v = range(m.lo, m.hi); src = `Forecast (Open-Meteo model)${n ? ` · ${temp(n.v)} at ${n.name} ${ago(n.at)}` : ''}`; lo = m.lo; }
+  else if (m?.lo != null){ v = range(m.lo, m.hi); src = `Forecast (Open-Meteo model)${n ? ` · ${temp(n.v)} at ${n.name} ${ago(n.at)}` : ''}`; lo = m.lo; }
   else if (n){ v = temp(n.v) + tUnit(); src = `At ${n.name} ${ago(n.at)} (NOAA)`; lo = n.v; }
   const cold = lo != null && lo < COLD_F;
   $('#waterV').textContent = v; $('#waterV').classList.toggle('warn', cold);
   $('#waterS').textContent = src + (cold ? ' · cold: dress for immersion' : '');
+}
+// Ocean swell on paddle trips in the bay or on the coast (Open-Meteo Marine model)
+const hasSwell = () => trip.activity === 'paddle' && isTidal();
+// feet like the tides, except for km users
+const waveH = m => u().spd === 'km/h' ? m.toFixed(1) + ' m' : Math.round(m * 3.28084) + ' ft';
+// the way forecasts say it: 7 ft every 12 s from W
+const swellWay = (p, d) => `${p != null ? ' every ' + Math.round(p) + ' s' : ''}${d != null ? ' from ' + compass(d) : ''}`;
+function swellAt(t){
+  const s = trip.data?.water?.model?.swell; if (!s) return null;
+  let i = s.t.findIndex(x => x > t) - 1; if (i < 0 || s.sh[i] == null) return null;
+  return { sh: s.sh[i], sp: s.sp[i], sd: s.sd[i], h: s.h[i] };
+}
+const swellTxt = w => waveH(w.sh) + swellWay(w.sp, w.sd);
+// the day's swell in daylight: its range, the period and direction at its biggest, and the biggest waves with wind chop
+function swellDay(sun){
+  const s = trip.data?.water?.model?.swell; if (!s) return null;
+  const a = sun.rise || dayStart() + 6 * 36e5, b = sun.set || dayStart() + 18 * 36e5;
+  const is = s.t.map((x, i) => i).filter(i => s.t[i] >= a && s.t[i] <= b && s.sh[i] != null); if (!is.length) return null;
+  const top = is.reduce((p, i) => s.sh[i] > s.sh[p] ? i : p, is[0]), lo = Math.min(...is.map(i => s.sh[i])), hw = Math.max(...is.map(i => s.h[i] ?? 0));
+  const r = waveH(lo) === waveH(s.sh[top]) ? waveH(lo) : `${waveH(lo).split(' ')[0]}–${waveH(s.sh[top])}`;
+  const way = swellWay(s.sp[top], s.sd[top]).trim();
+  return { v: r, way, s: `${way ? way[0].toUpperCase() + way.slice(1) + ' · ' : ''}${hw ? `waves up to ${waveH(hw)} with wind chop` : 'in daylight'}` };
 }
 function render(){
   const t = tAt(), nm = routeNm(trip.route), legs = Math.max(0, trip.route.length - 1), es = elevStats();
@@ -1521,6 +1565,7 @@ function render(){
     if (sp >= .1) ac.classList.add(flood ? 'flood' : 'ebb');
     drawCurArrow(sp >= .1 ? dir : null, sp, flood);
   } else { ac.textContent = '–'; drawCurArrow(null); }
+  const asw = swellAt(t); $('#atSwell').textContent = asw ? swellTxt(asw) : '–';
   const aw = $('#atWind');
   aw.textContent = w ? `${Math.round(wU(w.ws))} G${Math.round(wU(w.wg))} ${wUnit()} ${compass(w.wd)}` : '–';
   aw.classList.toggle('warn', !!w && w.wg >= gust());
@@ -1556,6 +1601,8 @@ function render(){
   cv.innerHTML = fl.length || eb.length ? [fl.length && `<span class="flood">${Math.abs(top(fl).v).toFixed(1)}</span>`, eb.length && `<span class="ebb">-${Math.abs(top(eb).v).toFixed(1)}</span>`].filter(Boolean).join(' / ') + ' kt' : '–';
   $('#curS').innerHTML = dy.cur.length ? `<div class="tl">${dy.cur.map(e => `<span>${hmS(e.t)}</span><span class="${e.type}">${e.type === 'slack' ? 'Slack' : `${e.type === 'flood' ? 'Flood' : 'Ebb'} ${e.v.toFixed(1)}`}</span>`).join('')}</div>` : ' ';
   renderWater();
+  document.querySelectorAll('.swellc').forEach(el => el.hidden = !hasSwell());
+  { const sd = swellDay(sun); $('#swellV').textContent = sd ? sd.v : '–'; $('#swellS').textContent = sd ? sd.s : trip.data ? 'No swell forecast here' : ' '; }
   $('#elevV').textContent = es ? `+${ft(es.up)} / −${ft(es.down)}` : '–';
   $('#elevS').textContent = es ? `High ${ft(es.hi)} · low ${ft(es.lo)}` : (trip.route.length > 1 ? 'Tap Get forecast for the profile' : ' ');
 
@@ -1593,6 +1640,8 @@ function render(){
     const big = ph.fraction > .9 && ph.dist < 362000 ? ' · supermoon' : '';
     $('#moonS').textContent = `${nm}, ${Math.round(ph.fraction * 100)}% lit${big}${tides}`;
   }
+  { const lc = $('.cell.ltgc'), n = [...document.querySelectorAll('.read .cell')].filter(e => e !== lc && !e.hidden && !e.classList.contains('wide')).length;
+    lc.classList.toggle('slim', n % 2 === 0); }
 
   const st = $('#status'); st.classList.remove('warn');
   if (!trip.fetchedAt) st.textContent = 'No forecast yet. Plot a route, then tap Get forecast. It also saves the map for offline use.';
@@ -2067,7 +2116,7 @@ async function openTrip(t){
   setDrawing(false); scaleCtl._update();
   state.tMin = todayIso() === trip.date ? Math.floor(nowMin() / 5) * 5 : Math.floor(trip.start / 5) * 5;
   state.nextWp = null; drawRoute(); drawMarks(); drawPark(); drawTracks(); drawStations(); render(); renderList(); showToNext();
-  fitTrip();
+  fitTrip(); fcBtnState(); showMoved();
 }
 
 /* ---------- drawing ---------- */
