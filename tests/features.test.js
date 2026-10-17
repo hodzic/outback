@@ -27,6 +27,7 @@ module.exports = async (browser, url, check) => {
     c('inland hike detected as trail', await page.evaluate(() => trip.env) === 'trail');
     c('no tide cells on a trail', !(await page.isVisible('#tideV')) && !(await page.isVisible('#curV')));
     c('no swell on a hike', !(await page.isVisible('#swellV')) && !(await page.isVisible('#atSwell')));
+    c('no empty box on a hike: lightning takes a slim full row', await page.evaluate(() => { const v = [...document.querySelectorAll('.read .cell')].filter(e => !e.hidden && !e.classList.contains('wide') && !e.classList.contains('slim')); return v.length % 2 === 0 && $('.cell.ltgc').classList.contains('slim'); }));
     c('elevation gain shown', /^\+[\d,]+ ft/.test(await page.text('#elevV')), await page.text('#elevV'));
     c('climb included in duration', /climb \+[\d,]+ ft/.test(await page.text('#legs')), await page.text('#legs'));
     { await page.evaluate(() => { settings.graph = 'elev'; render(); });

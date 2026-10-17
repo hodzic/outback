@@ -89,6 +89,8 @@ table.acts td,table.acts th{padding:5px 3px}
 .read{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .cell{padding:6px 8px;background:var(--paper);min-width:0}
 .cell.wide{grid-column:1/-1}
+/* lightning as one slim full-width row when the boxes would otherwise leave an empty one */
+.cell.slim{grid-column:1/-1;display:flex;align-items:baseline;flex-wrap:wrap;gap:0 8px} .cell.slim .v{font-size:17px}
 .tempc .v{font-size:28px}
 .tempc .lo{color:var(--flood)} .tempc .hi{color:var(--warn)}
 /* readouts wrap instead of truncating */
@@ -378,7 +380,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <div class="cell elevc"><div class="k">Elevation</div><div class="v" id="elevV">–</div><div class="s" id="elevS">&nbsp;</div></div>
           <div class="cell"><div class="k" id="windK">Wind</div><div class="v" id="windV">–</div></div>
           <div class="cell"><div class="k">Pressure · mb</div><div class="v" id="presV">–</div><div class="s" id="presS">&nbsp;</div></div>
-          <div class="cell"><div class="k">Lightning</div><div class="v" id="ltgV">–</div><div class="s" id="ltgS">&nbsp;</div></div>
+          <div class="cell ltgc"><div class="k">Lightning</div><div class="v" id="ltgV">–</div><div class="s" id="ltgS">&nbsp;</div></div>
           <div class="cell"><div class="k">Sun</div><div class="v" id="sunV">–</div><div class="s" id="sunS">&nbsp;</div></div>
           <div class="cell"><div class="k" id="moonK">Moon</div><div class="v" id="moonV">–</div><div class="s" id="moonS">&nbsp;</div></div>
         </div>
@@ -647,7 +649,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-16h';
+const APP_VERSION = '2026-10-16i';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1344,7 +1346,7 @@ function fcSnap(){
     ['Sky', dy.sky || ''], ['Rain', dy.pop != null ? dy.pop + '%' : ''],
     ['Pressure', dy.p ? (Math.abs(d) < 1 ? 'steady' : `${d > 0 ? 'rising' : 'falling'} ${Math.abs(d).toFixed(0)} mb`) : ''],
     ['Thunder', dy.th ? dy.th.v + '%' : ''],
-    ['Swell', hasSwell() ? swellDay(sunTimes(trip.date, c[0], c[1]))?.v || '' : ''],
+    ['Swell', hasSwell() ? (sd => sd ? `${sd.v} ${sd.way}`.trim() : '')(swellDay(sunTimes(trip.date, c[0], c[1]))) : ''],
     ['Water', trip.activity === 'paddle' && trip.data.water ? (renderWater(), $('#waterV').textContent) : '']] };
 }
 
@@ -1509,8 +1511,8 @@ function swellDay(sun){
   const is = s.t.map((x, i) => i).filter(i => s.t[i] >= a && s.t[i] <= b && s.sh[i] != null); if (!is.length) return null;
   const top = is.reduce((p, i) => s.sh[i] > s.sh[p] ? i : p, is[0]), lo = Math.min(...is.map(i => s.sh[i])), hw = Math.max(...is.map(i => s.h[i] ?? 0));
   const r = waveH(lo) === waveH(s.sh[top]) ? waveH(lo) : `${waveH(lo).split(' ')[0]}–${waveH(s.sh[top])}`;
-  return { v: r + swellWay(s.sp[top], s.sd[top]),
-    s: `${hw ? `Waves up to ${waveH(hw)} with wind chop · ` : ''}in daylight, open water nearest` };
+  const way = swellWay(s.sp[top], s.sd[top]).trim();
+  return { v: r, way, s: `${way ? way[0].toUpperCase() + way.slice(1) + ' · ' : ''}${hw ? `waves up to ${waveH(hw)} with wind chop` : 'in daylight'}` };
 }
 function render(){
   const t = tAt(), nm = routeNm(trip.route), legs = Math.max(0, trip.route.length - 1), es = elevStats();
@@ -1624,6 +1626,8 @@ function render(){
     const big = ph.fraction > .9 && ph.dist < 362000 ? ' · supermoon' : '';
     $('#moonS').textContent = `${nm}, ${Math.round(ph.fraction * 100)}% lit${big}${tides}`;
   }
+  { const lc = $('.cell.ltgc'), n = [...document.querySelectorAll('.read .cell')].filter(e => e !== lc && !e.hidden && !e.classList.contains('wide')).length;
+    lc.classList.toggle('slim', n % 2 === 0); }
 
   const st = $('#status'); st.classList.remove('warn');
   if (!trip.fetchedAt) st.textContent = 'No forecast yet. Plot a route, then tap Get forecast. It also saves the map for offline use.';
