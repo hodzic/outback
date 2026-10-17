@@ -910,6 +910,21 @@ module.exports = async (browser, url, check) => {
     c('forecast changes listed in one dialog: air, wind, rain', mv && mv.some(t => /^Air\d+–\d+°F→\d+–\d+°F$/.test(t)) && mv.some(t => /wind/.test(t)) && mv.some(t => /^Rain40%→10%$/.test(t)) && !mv.some(t => /Sky|Thunder/.test(t)), JSON.stringify(mv));
     await page.click('#sheet [data-close]');
     c('closing it leaves nothing on the page', !(await page.evaluate(() => sheet.open)) && !(await page.evaluate(() => 'fcDiff' in trip)));
+    // moved to the map while it loaded: the dialog waits for the Trip tab
+    await page.evaluate(() => { const w = trip.data.wx; w.temp = w.temp.map(v => v + 4); render(); const f = fetchWx; fetchWx = async c => { await new Promise(r => setTimeout(r, 900)); return f(c); }; });
+    await page.click('#fcBtn'); await view(page, 2); await waitForecast(page);
+    c('forecast changes wait while you are on the map', !(await page.evaluate(() => sheet.open)));
+    await view(page, 1);
+    c('and show when you come back to the trip', await page.evaluate(() => sheet.open && /Air/.test(sheet.textContent)));
+    await page.click('#sheet [data-close]');
+    // another trip opened while it loaded: nothing lands in that trip, no dialog there
+    const ids = await page.evaluate(async () => { const o = newTrip(); o.name = 'Other'; await idb.put('trips', o); return [trip.id, o.id]; });
+    await page.evaluate(() => { const w = trip.data.wx; w.temp = w.temp.map(v => v + 4); render(); });
+    await page.click('#fcBtn');
+    await page.evaluate(async id => openTrip(await idb.get('trips', id)), ids[1]); await waitForecast(page);
+    c('a forecast still loading stays out of a trip opened meanwhile', await page.evaluate(id => trip.id === id && !trip.data && !trip.fetchedAt && !trip.mapTiles && !sheet.open, ids[1]) && /stopped/.test(await page.text('#toast')), await page.text('#toast'));
+    await page.evaluate(async id => openTrip(await idb.get('trips', id)), ids[0]);
+    c('back on the first trip: no stale dialog', !(await page.evaluate(() => sheet.open)));
     await ctx.close(); }
 
   { // Android: Chrome won't share .json or .gpx, so they're saved under their own name, with a pointer to the Files app
