@@ -340,7 +340,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Swell: Open-Meteo Marine. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
       </details>
@@ -374,6 +374,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <div class="cell tidal"><div class="k" id="tideK">Tide</div><div class="v" id="tideV">–</div><div class="s" id="tideS">&nbsp;</div></div>
           <div class="cell curc"><div class="k" id="curK">Current</div><div class="v" id="curV">–</div><div class="s" id="curS">&nbsp;</div></div>
           <div class="cell waterc"><div class="k" id="waterK">Water</div><div class="v" id="waterV">–</div><div class="s" id="waterS">&nbsp;</div></div>
+          <div class="cell swellc"><div class="k">Swell</div><div class="v" id="swellV">–</div><div class="s" id="swellS">&nbsp;</div></div>
           <div class="cell elevc"><div class="k">Elevation</div><div class="v" id="elevV">–</div><div class="s" id="elevS">&nbsp;</div></div>
           <div class="cell"><div class="k" id="windK">Wind</div><div class="v" id="windV">–</div></div>
           <div class="cell"><div class="k">Pressure · mb</div><div class="v" id="presV">–</div><div class="s" id="presS">&nbsp;</div></div>
@@ -386,6 +387,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <div class="now" id="atRead" aria-live="polite">
           <div class="ri tidal"><div class="k">Tide</div><b id="atTide">–</b></div>
           <div class="ri curc"><div class="k">Current</div><b id="atCur">–</b></div>
+          <div class="ri swellc"><div class="k">Swell</div><b id="atSwell">–</b></div>
           <div class="ri"><div class="k">Wind</div><b id="atWind">–</b></div>
           <div class="ri"><div class="k" id="atSky">Air</div><b id="atAir">–</b></div>
           <div class="ri"><div class="k">Pressure</div><b id="atPres">–</b></div>
@@ -645,7 +647,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-16f';
+const APP_VERSION = '2026-10-16g';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1225,12 +1227,15 @@ async function waterNoaa(c){
   return { ...out, v: parseFloat(x.v), at: gmt(x.t) };
 }
 async function waterModel(c){
-  const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4), hourly: 'sea_surface_temperature', temperature_unit: 'fahrenheit', timezone: 'GMT', start_date: shiftDay(trip.date, -1), end_date: shiftDay(trip.date, 1) });
+  const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4), hourly: 'sea_surface_temperature,wave_height,swell_wave_height,swell_wave_period,swell_wave_direction', temperature_unit: 'fahrenheit', timezone: 'GMT', start_date: shiftDay(trip.date, -1), end_date: shiftDay(trip.date, 1) });
   const j = await (await fetch('https://marine-api.open-meteo.com/v1/marine?' + q)).json();
   if (j.error || !j.hourly) return null;
+  const H = j.hourly, t = H.time.map(x => Date.parse(x + 'Z'));
   const a = dayStart() + 6 * 36e5, b = dayStart() + 20 * 36e5; // daytime
-  const vs = j.hourly.time.map((t, i) => [Date.parse(t + 'Z'), j.hourly.sea_surface_temperature[i]]).filter(([t, v]) => v != null && t >= a && t <= b).map(x => x[1]);
-  return vs.length ? { lo: Math.min(...vs), hi: Math.max(...vs) } : null;
+  const vs = t.map((x, i) => [x, H.sea_surface_temperature?.[i]]).filter(([x, v]) => v != null && x >= a && x <= b).map(x => x[1]);
+  // swell and total wave height (metres), hourly, for the open water nearest the route
+  const sw = H.swell_wave_height?.some(v => v != null) ? { t, h: H.wave_height || [], sh: H.swell_wave_height, sp: H.swell_wave_period || [], sd: H.swell_wave_direction || [] } : null;
+  return vs.length || sw ? { ...(vs.length ? { lo: Math.min(...vs), hi: Math.max(...vs) } : {}), swell: sw } : null;
 }
 // Elevation profile along the route (Open-Meteo, 90 m DEM), up to 100 samples.
 const routeKey = r => r.map(p => p[0] + ',' + p[1]).join(';');
@@ -1339,6 +1344,7 @@ function fcSnap(){
     ['Sky', dy.sky || ''], ['Rain', dy.pop != null ? dy.pop + '%' : ''],
     ['Pressure', dy.p ? (Math.abs(d) < 1 ? 'steady' : `${d > 0 ? 'rising' : 'falling'} ${Math.abs(d).toFixed(0)} mb`) : ''],
     ['Thunder', dy.th ? dy.th.v + '%' : ''],
+    ['Swell', hasSwell() ? swellDay(sunTimes(trip.date, c[0], c[1]))?.v || '' : ''],
     ['Water', trip.activity === 'paddle' && trip.data.water ? (renderWater(), $('#waterV').textContent) : '']] };
 }
 
@@ -1478,11 +1484,31 @@ function renderWater(){
   const ago = t => { const h = (Date.now() - t) / 36e5; return h < 1 ? 'just now' : h < 36 ? Math.round(h) + ' h ago' : Math.round(h / 24) + ' days ago'; };
   let v = '–', src = trip.data ? (trip.activity === 'paddle' ? 'No reading or forecast here' : ' ') : ' ', lo = null;
   if (n?.lo != null){ v = range(n.lo, n.hi); src = `Measured at ${n.name} (NOAA)`; lo = n.lo; }
-  else if (m){ v = range(m.lo, m.hi); src = `Forecast (Open-Meteo model)${n ? ` · ${temp(n.v)} at ${n.name} ${ago(n.at)}` : ''}`; lo = m.lo; }
+  else if (m?.lo != null){ v = range(m.lo, m.hi); src = `Forecast (Open-Meteo model)${n ? ` · ${temp(n.v)} at ${n.name} ${ago(n.at)}` : ''}`; lo = m.lo; }
   else if (n){ v = temp(n.v) + tUnit(); src = `At ${n.name} ${ago(n.at)} (NOAA)`; lo = n.v; }
   const cold = lo != null && lo < COLD_F;
   $('#waterV').textContent = v; $('#waterV').classList.toggle('warn', cold);
   $('#waterS').textContent = src + (cold ? ' · cold: dress for immersion' : '');
+}
+// Ocean swell on paddle trips in the bay or on the coast (Open-Meteo Marine model)
+const hasSwell = () => trip.activity === 'paddle' && isTidal();
+// feet like the tides, except for km users
+const waveH = m => u().spd === 'km/h' ? m.toFixed(1) + ' m' : (m * 3.28084).toFixed(1) + ' ft';
+function swellAt(t){
+  const s = trip.data?.water?.model?.swell; if (!s) return null;
+  let i = s.t.findIndex(x => x > t) - 1; if (i < 0 || s.sh[i] == null) return null;
+  return { sh: s.sh[i], sp: s.sp[i], sd: s.sd[i], h: s.h[i] };
+}
+const swellTxt = w => `${waveH(w.sh)}${w.sp != null ? ' ' + Math.round(w.sp) + ' s' : ''}${w.sd != null ? ' ' + compass(w.sd) : ''}`;
+// the day's swell in daylight: its range, the period and direction at its biggest, and the biggest waves with wind chop
+function swellDay(sun){
+  const s = trip.data?.water?.model?.swell; if (!s) return null;
+  const a = sun.rise || dayStart() + 6 * 36e5, b = sun.set || dayStart() + 18 * 36e5;
+  const is = s.t.map((x, i) => i).filter(i => s.t[i] >= a && s.t[i] <= b && s.sh[i] != null); if (!is.length) return null;
+  const top = is.reduce((p, i) => s.sh[i] > s.sh[p] ? i : p, is[0]), lo = Math.min(...is.map(i => s.sh[i])), hw = Math.max(...is.map(i => s.h[i] ?? 0));
+  const r = waveH(lo) === waveH(s.sh[top]) ? waveH(lo) : `${waveH(lo).split(' ')[0]}–${waveH(s.sh[top])}`;
+  return { v: `${r}${s.sp[top] != null ? ' · ' + Math.round(s.sp[top]) + ' s' : ''}${s.sd[top] != null ? ' ' + compass(s.sd[top]) : ''}`,
+    s: `${hw ? `Waves up to ${waveH(hw)} with wind chop · ` : ''}in daylight, open water nearest` };
 }
 function render(){
   const t = tAt(), nm = routeNm(trip.route), legs = Math.max(0, trip.route.length - 1), es = elevStats();
@@ -1521,6 +1547,7 @@ function render(){
     if (sp >= .1) ac.classList.add(flood ? 'flood' : 'ebb');
     drawCurArrow(sp >= .1 ? dir : null, sp, flood);
   } else { ac.textContent = '–'; drawCurArrow(null); }
+  const asw = swellAt(t); $('#atSwell').textContent = asw ? swellTxt(asw) : '–';
   const aw = $('#atWind');
   aw.textContent = w ? `${Math.round(wU(w.ws))} G${Math.round(wU(w.wg))} ${wUnit()} ${compass(w.wd)}` : '–';
   aw.classList.toggle('warn', !!w && w.wg >= gust());
@@ -1556,6 +1583,8 @@ function render(){
   cv.innerHTML = fl.length || eb.length ? [fl.length && `<span class="flood">${Math.abs(top(fl).v).toFixed(1)}</span>`, eb.length && `<span class="ebb">-${Math.abs(top(eb).v).toFixed(1)}</span>`].filter(Boolean).join(' / ') + ' kt' : '–';
   $('#curS').innerHTML = dy.cur.length ? `<div class="tl">${dy.cur.map(e => `<span>${hmS(e.t)}</span><span class="${e.type}">${e.type === 'slack' ? 'Slack' : `${e.type === 'flood' ? 'Flood' : 'Ebb'} ${e.v.toFixed(1)}`}</span>`).join('')}</div>` : ' ';
   renderWater();
+  document.querySelectorAll('.swellc').forEach(el => el.hidden = !hasSwell());
+  { const sd = swellDay(sun); $('#swellV').textContent = sd ? sd.v : '–'; $('#swellS').textContent = sd ? sd.s : trip.data ? 'No swell forecast here' : ' '; }
   $('#elevV').textContent = es ? `+${ft(es.up)} / −${ft(es.down)}` : '–';
   $('#elevS').textContent = es ? `High ${ft(es.hi)} · low ${ft(es.lo)}` : (trip.route.length > 1 ? 'Tap Get forecast for the profile' : ' ');
 

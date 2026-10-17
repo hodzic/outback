@@ -26,6 +26,7 @@ module.exports = async (browser, url, check) => {
     await page.click('#fcBtn'); await waitForecast(page);
     c('inland hike detected as trail', await page.evaluate(() => trip.env) === 'trail');
     c('no tide cells on a trail', !(await page.isVisible('#tideV')) && !(await page.isVisible('#curV')));
+    c('no swell on a hike', !(await page.isVisible('#swellV')) && !(await page.isVisible('#atSwell')));
     c('elevation gain shown', /^\+[\d,]+ ft/.test(await page.text('#elevV')), await page.text('#elevV'));
     c('climb included in duration', /climb \+[\d,]+ ft/.test(await page.text('#legs')), await page.text('#legs'));
     { await page.evaluate(() => { settings.graph = 'elev'; render(); });
