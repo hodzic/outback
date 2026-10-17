@@ -649,7 +649,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-16j';
+const APP_VERSION = '2026-10-16k';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1281,8 +1281,9 @@ const validTz = z => { try{ return !!z && z !== 'GMT' && !!new Intl.DateTimeForm
 
 async function getForecast(){
   if (!navigator.onLine){ toast('You are offline. Connect to get a forecast.'); return; }
-  const btn = $('#fcBtn'); btn.disabled = true; btn.textContent = 'Loading…';
-  const errs = [], before = fcSnap(), was = trip.fetchedAt, id = trip.id, name = trip.name; let envMsg = '';
+  const id = trip.id; if (fcBusy.has(id)) return;
+  const busy = t => fcBusyUpd(id, t); busy('Loading…');
+  const errs = [], before = fcSnap(), was = trip.fetchedAt, name = trip.name; let envMsg = '';
   // another trip opened while this one loads: keep its results out of that trip
   const gone = () => trip?.id !== id, stop = () => toast(`Forecast for ${name} stopped: another trip was opened. Tap Get forecast there again.`, 5000);
   try{
@@ -1328,8 +1329,8 @@ async function getForecast(){
     const moved = before && after && before.date === after.date && distNm(before.c, after.c) < 5
       ? after.v.map(([k, v], i) => [k, before.v[i][1], v]).filter(([, a, b]) => a !== b) : null;
     changed();
-    btn.textContent = 'Saving map…';
-    const tiles = await cacheTiles();
+    busy('Saving map…');
+    const tiles = await cacheTiles(busy);
     if (gone()) idb.get('trips', id).then(t => t && idb.put('trips', { ...t, mapTiles: tiles })).catch(() => {});
     else { trip.mapTiles = tiles; changed(); }
     if (!gone() && trip.route.length) for (const P of Object.values(POI)) if (settings[P.key]) poiFetch(P, L.latLngBounds(trip.route.map(ll2)).pad(.3)).then(() => poiRefresh(P)).catch(() => {});
@@ -1338,9 +1339,13 @@ async function getForecast(){
     if (moved?.length){ fcMoved = { id, html: `<h2 style="margin:0 0 4px">Forecast changes</h2><p class="muted" style="margin:0 0 8px">Since ${esc(since)}</p>
       <table class="fcmv">${moved.map(([k, a, b]) => `<tr><th>${k}</th><td>${esc(a || 'none')}</td><td>→</td><td><b>${esc(b || 'none')}</b></td></tr>`).join('')}</table>
       <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn primary" data-close>OK</button></div>` }; showMoved(); }
-  }finally{ btn.disabled = false; btn.textContent = 'Get forecast'; }
+  }finally{ busy(null); }
 }
 $('#fcBtn').onclick = getForecast;
+// Get forecast is busy per trip: another trip's button stays ready while this one loads
+const fcBusy = new Map();
+function fcBusyUpd(id, t){ if (t) fcBusy.set(id, t); else fcBusy.delete(id); fcBtnState(); }
+function fcBtnState(){ const b = $('#fcBtn'), t = trip && fcBusy.get(trip.id); b.disabled = !!t; b.textContent = t || 'Get forecast'; }
 // the forecast-change dialog shows on its trip's Trip tab: right away, or when you come back to it
 let fcMoved = null;
 function showMoved(){ if (fcMoved && trip?.id === fcMoved.id && state.view === 1 && !sheet.open){ openSheet(fcMoved.html); fcMoved = null; } }
@@ -1393,17 +1398,17 @@ async function downloadTiles(urls, { polite, onProgress } = {}){
   await Promise.all(Array.from({ length: polite ? 1 : 6 }, worker));
   return saved;
 }
-async function cacheTiles(){
+async function cacheTiles(busy = () => {}){
   if (!('caches' in window)) return 0;
   const pts = trip.route.length ? trip.route.map(ll2) : [centroid()];
   let b = L.latLngBounds(pts);
   b = L.latLngBounds([b.getSouth() - .03, b.getWest() - .04], [b.getNorth() + .03, b.getEast() + .04]);
   const polite = LAYERS[settings.layer].polite;
   const urls = tileUrls(LAYERS[settings.layer], b, 10, polite ? 15 : 16, polite ? 600 : 1500);
-  const n = await downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Map ${Math.round(d / urls.length * 100)}%`; } });
+  const n = await downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) busy(`Map ${Math.round(d / urls.length * 100)}%`); } });
   if (seaLayer){ // sea marks too, gently: OpenSeaMap is a volunteer server
     const sm = tileUrls(SEAMARKS, b, 10, 15, 600);
-    await downloadTiles(sm, { polite: true, onProgress: d => { if (d % 25 === 0) $('#fcBtn').textContent = `Sea marks ${Math.round(d / sm.length * 100)}%`; } });
+    await downloadTiles(sm, { polite: true, onProgress: d => { if (d % 25 === 0) busy(`Sea marks ${Math.round(d / sm.length * 100)}%`); } });
   }
   return n;
 }
@@ -2111,7 +2116,7 @@ async function openTrip(t){
   setDrawing(false); scaleCtl._update();
   state.tMin = todayIso() === trip.date ? Math.floor(nowMin() / 5) * 5 : Math.floor(trip.start / 5) * 5;
   state.nextWp = null; drawRoute(); drawMarks(); drawPark(); drawTracks(); drawStations(); render(); renderList(); showToNext();
-  fitTrip(); showMoved();
+  fitTrip(); fcBtnState(); showMoved();
 }
 
 /* ---------- drawing ---------- */

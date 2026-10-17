@@ -921,7 +921,9 @@ module.exports = async (browser, url, check) => {
     const ids = await page.evaluate(async () => { const o = newTrip(); o.name = 'Other'; await idb.put('trips', o); return [trip.id, o.id]; });
     await page.evaluate(() => { const w = trip.data.wx; w.temp = w.temp.map(v => v + 4); render(); });
     await page.click('#fcBtn');
-    await page.evaluate(async id => openTrip(await idb.get('trips', id)), ids[1]); await waitForecast(page);
+    await page.evaluate(async id => openTrip(await idb.get('trips', id)), ids[1]);
+    c("the other trip's Get forecast stays ready meanwhile", await page.evaluate(() => fcBusy.size === 1 && !$('#fcBtn').disabled && $('#fcBtn').textContent === 'Get forecast'), await page.text('#fcBtn'));
+    await page.waitForFunction(() => !fcBusy.size, null, { timeout: 30000 });
     c('a forecast still loading stays out of a trip opened meanwhile', await page.evaluate(id => trip.id === id && !trip.data && !trip.fetchedAt && !trip.mapTiles && !sheet.open, ids[1]) && /stopped/.test(await page.text('#toast')), await page.text('#toast'));
     await page.evaluate(async id => openTrip(await idb.get('trips', id)), ids[0]);
     c('back on the first trip: no stale dialog', !(await page.evaluate(() => sheet.open)));
