@@ -900,6 +900,14 @@ module.exports = async (browser, url, check) => {
     await view(page, 1);
     await page.evaluate(() => map.setView([38.5, -121.0], 12)); await page.click('#fcBtn'); await waitForecast(page);
     c('forecast with the trip off screen fits the trip instead', await page.evaluate(() => L.latLng(trip.anchor.c).distanceTo([37.705, -122.59]) < 5000));
+    c('a forecast with nothing new says so in the toast, no dialog', /No change since /.test(await page.text('#toast')) && !(await page.evaluate(() => sheet.open)), await page.text('#toast'));
+    // something moved: one dialog lists it, then it's gone (nothing kept on the page)
+    await page.evaluate(() => { const w = trip.data.wx; w.temp = w.temp.map(v => v - 3); w.wg = w.wg.map(v => v + 6); w.pop = w.pop.map(() => 40); render(); });
+    await page.click('#fcBtn'); await waitForecast(page);
+    const mv = await page.evaluate(() => sheet.open && [...sheet.querySelectorAll('.fcmv tr')].map(r => r.textContent));
+    c('forecast changes listed in one dialog: air, wind, rain', mv && mv.some(t => /^Air\d+–\d+°F→\d+–\d+°F$/.test(t)) && mv.some(t => /wind/.test(t)) && mv.some(t => /^Rain40%→10%$/.test(t)) && !mv.some(t => /Sky|Thunder/.test(t)), JSON.stringify(mv));
+    await page.click('#sheet [data-close]');
+    c('closing it leaves nothing on the page', !(await page.evaluate(() => sheet.open)) && !(await page.evaluate(() => 'fcDiff' in trip)));
     await ctx.close(); }
 
   { // Android: Chrome won't share .json or .gpx, so they're saved under their own name, with a pointer to the Files app

@@ -113,6 +113,7 @@ table.acts td,table.acts th{padding:5px 3px}
 .now b.flood{color:var(--flood)} .now b.ebb{color:var(--ebb)} .now b.warn{color:var(--warn)}
 #status{margin:6px 0;font-size:13px;color:var(--muted)}
 #status.warn{color:var(--warn)}
+.fcmv{border-collapse:collapse;font-size:15px}.fcmv th{text-align:left;font-weight:600;padding:4px 12px 4px 0}.fcmv td{padding:4px 6px 4px 0}
 .help h3{font-size:15px;margin:12px 0 4px}
 #printView{position:fixed;inset:0;z-index:2600;background:#fff;overflow-y:auto;color:#000}
 #printView[hidden]{display:none}
@@ -644,7 +645,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-16e';
+const APP_VERSION = '2026-10-16f';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1274,7 +1275,7 @@ const validTz = z => { try{ return !!z && z !== 'GMT' && !!new Intl.DateTimeForm
 async function getForecast(){
   if (!navigator.onLine){ toast('You are offline. Connect to get a forecast.'); return; }
   const btn = $('#fcBtn'); btn.disabled = true; btn.textContent = 'Loading…';
-  const errs = []; let envMsg = '';
+  const errs = [], before = fcSnap(), was = trip.fetchedAt; let envMsg = '';
   try{
     const c = centroid();
     if ((!trip.envSet && act().detect) || isTidal()){
@@ -1312,14 +1313,34 @@ async function getForecast(){
     trip.data = data; trip.fetchedAt = Date.now();
     if (!trip.route.length || !map.getBounds().contains(centroid())) fitTrip(true); // keep the view you set up, if it shows the trip
     trip.anchor = { c: [map.getCenter().lat, map.getCenter().lng], z: map.getZoom() };
+    const after = fcSnap();
+    const moved = before && after && before.date === after.date && distNm(before.c, after.c) < 5
+      ? after.v.map(([k, v], i) => [k, before.v[i][1], v]).filter(([, a, b]) => a !== b) : null;
     changed();
     btn.textContent = 'Saving map…';
     trip.mapTiles = await cacheTiles(); changed();
     if (trip.route.length) for (const P of Object.values(POI)) if (settings[P.key]) poiFetch(P, L.latLngBounds(trip.route.map(ll2)).pad(.3)).then(() => poiRefresh(P)).catch(() => {});
-    toast(envMsg + (errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${trip.mapTiles ? trip.mapTiles + ' map tiles stored for offline.' : 'The map could not be saved for offline.'}`), envMsg ? 6000 : 4500);
+    const since = was ? new Date(was).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() }) : '';
+    toast(envMsg + (errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${trip.mapTiles ? trip.mapTiles + ' map tiles stored for offline.' : 'The map could not be saved for offline.'}`) + (moved && !moved.length ? ` No change since ${since}.` : ''), envMsg ? 6000 : 4500);
+    if (moved?.length) openSheet(`<h2 style="margin:0 0 4px">Forecast changes</h2><p class="muted" style="margin:0 0 8px">Since ${esc(since)}</p>
+      <table class="fcmv">${moved.map(([k, a, b]) => `<tr><th>${k}</th><td>${esc(a || 'none')}</td><td>→</td><td><b>${esc(b || 'none')}</b></td></tr>`).join('')}</table>
+      <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn primary" data-close>OK</button></div>`);
   }finally{ btn.disabled = false; btn.textContent = 'Get forecast'; }
 }
 $('#fcBtn').onclick = getForecast;
+// The day's headline numbers as shown, so Get forecast can say what moved since the last one
+function fcSnap(){
+  if (!trip.data?.wx) return null;
+  const c = centroid(), dy = dayFacts(sunTimes(trip.date, c[0], c[1])), dt = dayTemps();
+  const wnd = h => h ? `${Math.round(wU(h.ws))} G${Math.round(wU(h.wg))} ${compass(h.wd)}` : '', d = dy.p && dy.p.b - dy.p.a;
+  return { date: trip.date, c, v: [
+    ['Air', dt ? `${temp(dt.lo).replace('°', '')}–${temp(dt.hi)}${tUnit()}` : ''],
+    ['AM wind', wnd(dy.am)], ['PM wind', wnd(dy.pm)],
+    ['Sky', dy.sky || ''], ['Rain', dy.pop != null ? dy.pop + '%' : ''],
+    ['Pressure', dy.p ? (Math.abs(d) < 1 ? 'steady' : `${d > 0 ? 'rising' : 'falling'} ${Math.abs(d).toFixed(0)} mb`) : ''],
+    ['Thunder', dy.th ? dy.th.v + '%' : ''],
+    ['Water', trip.activity === 'paddle' && trip.data.water ? (renderWater(), $('#waterV').textContent) : '']] };
+}
 
 /* ---------- offline tiles: Get forecast saves the map around the route ---------- */
 const lon2tile = (lng, n) => Math.floor((lng + 180) / 360 * n);
