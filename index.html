@@ -106,7 +106,7 @@ table.acts td,table.acts th{padding:5px 3px}
 #windV,#sunV,#moonV{font-size:clamp(15px,4.6vw,18px);white-space:nowrap}
 .v.flood{color:var(--flood)} .v.ebb{color:var(--ebb)} .v.warn{color:var(--warn)}
 .now{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin:8px 0 0;padding:6px 10px;background:var(--wash);border-radius:10px;font-variant-numeric:tabular-nums}
-.now .ri{min-width:0;height:38px} .now .ri[hidden]{display:none}
+.now .ri{min-width:0;height:38px} .now .ri[hidden]{display:none} .now .ri.swellc{grid-column:1/-1}
 .now .k{font-size:12px;line-height:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .now b{display:block;font-size:16px;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl{display:grid;grid-template-columns:auto 1fr;gap:0 8px;font-variant-numeric:tabular-nums} .tl .flood{color:var(--flood)} .tl .ebb{color:var(--ebb)}
@@ -647,7 +647,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-16g';
+const APP_VERSION = '2026-10-16h';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1493,13 +1493,15 @@ function renderWater(){
 // Ocean swell on paddle trips in the bay or on the coast (Open-Meteo Marine model)
 const hasSwell = () => trip.activity === 'paddle' && isTidal();
 // feet like the tides, except for km users
-const waveH = m => u().spd === 'km/h' ? m.toFixed(1) + ' m' : (m * 3.28084).toFixed(1) + ' ft';
+const waveH = m => u().spd === 'km/h' ? m.toFixed(1) + ' m' : Math.round(m * 3.28084) + ' ft';
+// the way forecasts say it: 7 ft every 12 s from W
+const swellWay = (p, d) => `${p != null ? ' every ' + Math.round(p) + ' s' : ''}${d != null ? ' from ' + compass(d) : ''}`;
 function swellAt(t){
   const s = trip.data?.water?.model?.swell; if (!s) return null;
   let i = s.t.findIndex(x => x > t) - 1; if (i < 0 || s.sh[i] == null) return null;
   return { sh: s.sh[i], sp: s.sp[i], sd: s.sd[i], h: s.h[i] };
 }
-const swellTxt = w => `${waveH(w.sh)}${w.sp != null ? ' ' + Math.round(w.sp) + ' s' : ''}${w.sd != null ? ' ' + compass(w.sd) : ''}`;
+const swellTxt = w => waveH(w.sh) + swellWay(w.sp, w.sd);
 // the day's swell in daylight: its range, the period and direction at its biggest, and the biggest waves with wind chop
 function swellDay(sun){
   const s = trip.data?.water?.model?.swell; if (!s) return null;
@@ -1507,7 +1509,7 @@ function swellDay(sun){
   const is = s.t.map((x, i) => i).filter(i => s.t[i] >= a && s.t[i] <= b && s.sh[i] != null); if (!is.length) return null;
   const top = is.reduce((p, i) => s.sh[i] > s.sh[p] ? i : p, is[0]), lo = Math.min(...is.map(i => s.sh[i])), hw = Math.max(...is.map(i => s.h[i] ?? 0));
   const r = waveH(lo) === waveH(s.sh[top]) ? waveH(lo) : `${waveH(lo).split(' ')[0]}–${waveH(s.sh[top])}`;
-  return { v: `${r}${s.sp[top] != null ? ' · ' + Math.round(s.sp[top]) + ' s' : ''}${s.sd[top] != null ? ' ' + compass(s.sd[top]) : ''}`,
+  return { v: r + swellWay(s.sp[top], s.sd[top]),
     s: `${hw ? `Waves up to ${waveH(hw)} with wind chop · ` : ''}in daylight, open water nearest` };
 }
 function render(){
