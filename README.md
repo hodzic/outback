@@ -69,7 +69,7 @@ Three views; swipe between them or use the tabs at the bottom.
   [aisstream.io](https://aisstream.io) (free API key, stored only on the device; Settings, or the first tap).
   Ships are coloured by type (cargo green, tanker red, passenger blue, tug/pilot teal, high-speed orange)
   and sized by length, with a dashed 15-minute projected track (dots every 5 minutes). Tap one for name, type,
-  size, speed, course, destination, distance from you and photo links (VesselFinder, MarineTraffic).
+  size, speed, course, destination and distance from you.
   With location on, a ship that will pass within 0.5 nm in the next 20 minutes turns the button red,
   vibrates and shows a warning. Needs a connection; not every boat sends AIS. Key `demo` shows made-up ships.
   Name, type and size (sent only every ~6 minutes) are remembered on the device, so known ships show them at once.

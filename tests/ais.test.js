@@ -58,7 +58,7 @@ module.exports = async (browser, url, check) => {
     const pop = await page.text('.shipPop');
     c('popup: name, type, size, speed', /BIG CARGO/.test(pop) && /Cargo · 228 × 32 m/.test(pop) && /12\.0 kt · course 180°T/.test(pop), pop);
     c('popup: destination and passing distance', /→ OAKLAND · ETA/.test(pop) && /Passes .* from you in \d+ min/.test(pop), pop);
-    c('popup links to vessel photos', (await page.getAttribute('.shipPop a', 'href')).endsWith('/367000001'));
+    c('popup has no outside links', await page.locator('.shipPop a').count() === 0);
     await page.evaluate(() => map.closePopup());
     await page.evaluate(() => map.setView([37.5, -122.0], 13)); await page.waitForTimeout(1000);
     c('panning far resubscribes to the new area', subs.length === 2 && subs[1].BoundingBoxes[0][0][0] < 37.5 && subs[1].BoundingBoxes[0][1][0] > 37.5, subs.length);
