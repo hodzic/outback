@@ -31,9 +31,38 @@ function findViewportGeoref(doc){
     const corners = [];
     for (let j = 0; j < lpts.length / 2; j++) corners.push({ lp: [lpts[j*2], lpts[j*2+1]], gp: [gpts[j*2], gpts[j*2+1]] });
     const nearest = (u, v) => corners.reduce((b, c) => { const d = (c.lp[0]-u)**2 + (c.lp[1]-v)**2; return d < b.d ? { d, gp: c.gp } : b; }, { d: Infinity, gp: null }).gp;
-    return { pageIndex: i, bbox, topLeft: nearest(0,1), topRight: nearest(1,1), bottomLeft: nearest(0,0) };
+    let name = ''; try{ name = vp0.get('Name').asString(); }catch{}
+    return { pageIndex: i, bbox, name, topLeft: nearest(0,1), topRight: nearest(1,1), bottomLeft: nearest(0,0) };
   }
   return null;
+}
+
+// MuPDF keeps PDF numbers as 32-bit floats (~0.15 m at these latitudes); when the GPTS array is readable in the file, take its full digits.
+function exactCorners(vp, bytes){
+  const found = [...new TextDecoder('latin1').decode(bytes).matchAll(/\/GPTS\s*\[([-\d.\s]+)\]/g)].map(m => m[1].trim().split(/\s+/).map(Number));
+  const near = (a, b) => Math.abs(a - b) < 1e-5;
+  for (const k of ['topLeft', 'topRight', 'bottomLeft']){
+    const c = vp[k], hits = found.flatMap(g => g.flatMap((v, j) => j % 2 === 0 && near(v, c[0]) && near(g[j + 1], c[1]) ? [[v, g[j + 1]]] : []));
+    if (hits.length && hits.every(h => h[0] === hits[0][0] && h[1] === hits[0][1])) vp[k] = hits[0];
+  }
+}
+
+// A page that is just one JPEG filling the viewport (Outback's own Save as GeoPDF): use that JPEG as is,
+// so re-importing an export keeps the original picture instead of a re-rendered, re-compressed copy.
+function soleJpeg(doc, i, bbox){
+  try{
+    const page = doc.loadPage(i), po = page.getObject(), mb = page.getBounds();
+    if (bbox.some((v, k) => Math.abs(v - [mb[0], mb[1], mb[2], mb[3]][k]) > 0.5)) return null;
+    const contents = po.get('Contents');
+    if (!contents.isStream()) return null;
+    const m = contents.readStream().asString().match(/^\s*q\s+[\d.]+\s+0\s+0\s+[\d.]+\s+0\s+0\s+cm\s+\/(\S+)\s+Do\s+Q\s*$/);
+    if (!m) return null;
+    const res = po.getInheritable('Resources');
+    if (!res.get('Font').isNull()) return null;
+    const img = res.get('XObject', m[1]);
+    if (img.get('Subtype').asName() !== 'Image' || img.get('Filter').asName() !== 'DCTDecode' || !/^Device(RGB|Gray)$/.test(img.get('ColorSpace').asName())) return null;
+    return { imageBlob: new Blob([img.readRawStream().asUint8Array().slice()], { type: 'image/jpeg' }), imageWidth: img.get('Width').asNumber(), imageHeight: img.get('Height').asNumber() };
+  }catch{ return null; }
 }
 
 function parseCoordLines(text){
@@ -105,9 +134,14 @@ export function printedScale(text){
 
 export async function parseGeoPdf(file){
   await load();
-  const doc = mupdf.Document.openDocument(new Uint8Array(await file.arrayBuffer()), 'application/pdf');
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const doc = mupdf.Document.openDocument(bytes, 'application/pdf');
   const vp = findViewportGeoref(doc);
+  if (vp) exactCorners(vp, bytes);
   if (vp){
+    const geo = { topLeft: vp.topLeft, topRight: vp.topRight, bottomLeft: vp.bottomLeft, name: vp.name, method: 'embedded metadata', labels: [] };
+    const sole = soleJpeg(doc, vp.pageIndex, vp.bbox);
+    if (sole) return { ...sole, ...geo };
     const { canvas, mediaBox: mb } = await renderFullPage(doc.loadPage(vp.pageIndex), 2000);
     const W = mb[2]-mb[0], H = mb[3]-mb[1], b = vp.bbox;
     const x0 = Math.min(b[0], b[2]) - mb[0], x1 = Math.max(b[0], b[2]) - mb[0];
@@ -115,7 +149,7 @@ export async function parseGeoPdf(file){
     const cx = x0 / W * canvas.width, cy = y0 / H * canvas.height, cw = (x1 - x0) / W * canvas.width, ch = (y1 - y0) / H * canvas.height;
     const crop = document.createElement('canvas'); crop.width = cw; crop.height = ch;
     crop.getContext('2d').drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
-    return { imageBlob: await jpeg(crop), imageWidth: cw, imageHeight: ch, topLeft: vp.topLeft, topRight: vp.topRight, bottomLeft: vp.bottomLeft, method: 'embedded metadata', labels: [] };
+    return { imageBlob: await jpeg(crop), imageWidth: cw, imageHeight: ch, ...geo };
   }
   const auto = await autoDetect(doc);
   if (auto) return auto;
