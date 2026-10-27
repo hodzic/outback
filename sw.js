@@ -1,7 +1,7 @@
 // Outback service worker: app shell + offline map tiles.
 // hodzic.github.io hosts several apps on one origin and they share Cache Storage,
 // so only ever delete caches this app owns (old Paddle/Outback shell versions).
-const SHELL = 'outback-shell-2026-10-27b';
+const SHELL = 'outback-shell-2026-10-27c';
 const TILES = 'paddle-tiles'; // name kept so tiles saved before the rename stay usable
 const OWN = k => /^(paddle|outback)-shell-/.test(k);
 const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './pdfmap.js', './align.js', './data/watertrail.json', './vendor/Leaflet.ImageOverlay.Rotated.js', './vendor/html2canvas.min.js'];
@@ -12,14 +12,20 @@ const REMOTE = [
 const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org', 'basemap.nationalmap.gov', 'tiles.openseamap.org'];
 const STATIC_HOSTS = ['cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
+// A new version installs in the background and waits until the page asks it to take over (Update available, Reload).
+// Versions up to 2026-10-27b have no such prompt, so an update over one of those still takes over by itself.
+const LAST_WITHOUT_PROMPT = '2026-10-27b';
 self.addEventListener('install', e => {
   e.waitUntil((async () => {
     const c = await caches.open(SHELL);
-    await c.addAll(LOCAL);
+    // bypass the HTTP cache: GitHub Pages lets browsers keep files for 10 minutes, which would fill the new cache with the old version
+    await c.addAll(LOCAL.map(u => new Request(u, { cache: 'reload' })));
     await Promise.all(REMOTE.map(u => c.add(u).catch(() => {})));
-    self.skipWaiting();
+    const old = (await caches.keys()).filter(k => OWN(k) && k !== SHELL).map(k => k.replace(/^(paddle|outback)-shell-/, ''));
+    if (old.some(v => v <= LAST_WITHOUT_PROMPT)) self.skipWaiting();
   })());
 });
+self.addEventListener('message', e => { if (e.data?.type === 'SKIP_WAITING') self.skipWaiting(); });
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {

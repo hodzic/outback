@@ -207,7 +207,8 @@ Trips made at the old /paddle/ address still load, because storage is per origin
 The version (shown next to *About*) is the release date in US Pacific time plus a letter for each release
 that day: `2026-10-05a`, `2026-10-05b`, then `2026-10-06a`. Before each release run `npm run bump`; it
 updates `APP_VERSION` in `index.html` and the service worker cache name in `sw.js`, which makes installed
-copies pick up the update.
+copies pick up the update. The new version downloads in the background (checked again whenever the app comes back to the
+front) and waits; an *Update available* toast, or *Check for updates* under *About*, switches to it and reloads.
 
 ## Tests
 
