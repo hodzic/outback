@@ -854,6 +854,11 @@ module.exports = async (browser, url, check) => {
     await page.click('#nAlign');
     await page.waitForFunction(() => /No water found/.test(document.querySelector('#toast').textContent), null, { timeout: 30000 }).catch(() => {});
     c('map without water: Auto-align says no water found', /No water found on this map/.test(await page.text('#toast')), await page.text('#toast'));
+    // brochures over aerial photos paint rivers strong blue (0,112,248), not light blue
+    c('strong-blue rivers on a photo count as water', await page.evaluate(async () => { const A = await import('./align.js'), W = 300, H = 200, px = new Uint8ClampedArray(W * H * 4);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++){ const i = (y * W + x) * 4, river = Math.abs(y - 100 - 30 * Math.sin(x / 40)) < 9;
+        px.set(river ? [0, 112, 248, 255] : [70 + (x * 7 + y * 13) % 40, 90 + (x * 11) % 30, 50, 255], i); }
+      const w = A.findWater(px, W, H); return !!w && w.comps.length === 1 && w.color[0] < 10 && w.color[2] > 240; }));
     await page.click('#nCancel');
     c('no page errors (align)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 

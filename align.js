@@ -66,12 +66,12 @@ function hsv(r, g, b){
   const h = !d ? 0 : mx === r ? 60 * (((g - b) / d) % 6) : mx === g ? 60 * ((b - r) / d + 2) : 60 * ((r - g) / d + 4);
   return [(h + 360) % 360, mx ? d / mx : 0, mx / 255];
 }
-// Most common light-blue colour, or null when there is too little of it.
+// Most common water blue, light (park maps) or strong (brochures drawn over aerial photos), or null when there is too little of it.
 function waterColor(px, n){
   const bins = new Map();
   for (let i = 0; i < n; i += 2){ // every other pixel is plenty
     const r = px[i*4], g = px[i*4+1], b = px[i*4+2];
-    if (b < 150 || r < 90 || b - r < 22 || g - b > 12) continue;
+    if (b < 150 || b - r < 22 || g - b > 12) continue;
     const k = (r >> 3) << 10 | (g >> 3) << 5 | (b >> 3), e = bins.get(k);
     if (e){ e.n++; e.r += r; e.g += g; e.b += b; } else bins.set(k, { n: 1, r, g, b });
   }

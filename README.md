@@ -109,7 +109,7 @@ Three views; swipe between them or use the tabs at the bottom.
 - **Checkpoints**: ⚑ on a waypoint's popup marks it (drawn as a rounded square) for the next-checkpoint location mode.
 - **Overlay PDF maps** (from the GPS Map app): import a park brochure PDF; it is placed from GeoPDF metadata or
   printed "GPS Coordinates" labels when present, a PDF with neither but with a printed scale ("1:24,000", "1 inch = 2,000 feet") comes in at true size, north up, over the area you're viewing; then you drag 4 points (or the centre) to line it up; *⟳ 90°* turns a sideways brochure in place.
-  **Auto-align** refines a rough placement from the water drawn on the map: it finds the map's light-blue water,
+  **Auto-align** refines a rough placement from the water drawn on the map: it finds the map's blue water (light or strong blue),
   gets OpenStreetMap water for the area (Overpass API; kept with the map, so re-aligning works offline) and fits a
   shift, turn and scale that lays one shoreline on the other (`align.js`, all on the phone). The OSM water shows as a
   dashed blue line, the toast gives the mismatch before and after, and *Undo align* puts the points back. It needs
