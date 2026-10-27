@@ -1,5 +1,6 @@
 // Edge cases and regressions found in testing.
-const { hold, open, waitForecast, seedRoute, ready, view } = require('./harness');
+const fs = require('fs'), path = require('path');
+const { overrides, hold, open, waitForecast, seedRoute, ready, view } = require('./harness');
 const GG = [[37.80, -122.45], [37.81, -122.42], [37.82, -122.40]];
 module.exports = async (browser, url, check) => {
   const c = (n, ok, i) => check('edge', n, ok, i);
@@ -257,4 +258,29 @@ module.exports = async (browser, url, check) => {
     c('service worker caches Leaflet', keys.some(u => u.includes('leaflet.min.js')), keys.length + ' entries');
     await ctx.setOffline(true); await page.reload().catch(e => errors.push(e.message)); await ready(page);
     c('app opens offline', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+
+  { // updates: a newer version waits, a toast offers it, tapping it reloads into the new version
+    const { ctx, page, errors } = await open(browser, url, { serviceWorkers: 'allow' });
+    const swSrc = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+    await page.goto(url); await ready(page);
+    await page.evaluate(() => navigator.serviceWorker.ready); await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+    const shell = () => page.evaluate(async () => (await caches.keys()).filter(k => k.startsWith('outback-shell-')).sort());
+    const settled = async v => { for (let i = 0; i < 50 && (await shell()).join() !== 'outback-shell-' + v; i++) await page.waitForTimeout(200); };
+    overrides.set('/sw.js', swSrc.replace(/outback-shell-[\w-]+/, 'outback-shell-2099-01-01a'));
+    await page.evaluate(() => swReg.update());
+    await page.waitForFunction(() => /Update available/.test(document.querySelector('#toast').textContent), null, { timeout: 15000 });
+    c('a new version waits and a toast offers it', await page.evaluate(() => !!swReg.waiting && $('#toast').classList.contains('show')) && /ready/.test(await page.evaluate(() => $('#updS').textContent)));
+    const loads = () => page.evaluate(() => performance.timeOrigin); // changes with each page load
+    const l0 = await loads();
+    await page.click('#toast'); await page.waitForTimeout(1500); await ready(page); await settled('2099-01-01a');
+    c('the page reloads itself, even one opened before the first install', await loads() !== l0);
+    c('tapping it reloads into the new version', (await shell()).join() === 'outback-shell-2099-01-01a', (await shell()).join());
+    // an update over a version from before the prompt takes over by itself, as those versions expect
+    overrides.set('/sw.js', swSrc.replace(/outback-shell-[\w-]+/, 'outback-shell-2099-01-02a'));
+    await page.evaluate(async () => { await caches.open('outback-shell-2026-10-27b'); });
+    const l1 = await loads();
+    await page.evaluate(() => swReg.update()); await page.waitForTimeout(2500); await ready(page); await settled('2099-01-02a');
+    c('over a version without the prompt it updates by itself', (await shell()).join() === 'outback-shell-2099-01-02a' && await loads() !== l1, (await shell()).join());
+    overrides.clear();
+    c('no page errors (updates)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 };

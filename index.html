@@ -347,6 +347,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
         <p class="muted"><a href="/">All apps</a></p>
+        <div class="row"><button class="btn" id="updBtn">Check for updates</button><span class="muted grow" id="updS"></span></div>
       </details>
     </div>
   </section>
@@ -652,7 +653,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-27b';
+const APP_VERSION = '2026-10-27c';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3200,7 +3201,7 @@ document.addEventListener('click', e => { if (e.target.closest('[data-help]')) o
 function sunMode(){ document.body.classList.toggle('sun', !!settings.sun); document.querySelectorAll('[data-sun]').forEach(b => b.setAttribute('aria-pressed', !!settings.sun));
   if (trip) drawRoute(); }
 sunMode();
-$('#toast').addEventListener('click', e => { const h = e.currentTarget.dataset.help; if (h){ e.currentTarget.classList.remove('show', 'link'); openHelp(h); } });
+$('#toast').addEventListener('click', e => { const h = e.currentTarget.dataset.help; if (h){ e.currentTarget.classList.remove('show', 'link'); h === 'update' ? applyUpdate() : openHelp(h); } });
 // Sea marks legend: the buoys and beacons drawn in their chart colours
 const SM_C = { R: '#d40000', G: '#00a000', Y: '#f0c000', B: '#111', W: '#fff', O: '#f07800' };
 function smSvg({ shape = 'pillar', bands = 'R', vert = false, top = '', n = '' }){
@@ -3502,7 +3503,37 @@ if (!settings.firstRun){ settings.firstRun = Date.now(); saveSettings(); }
   for (const id of settings.shownMaps || []){ try{ const m = await idb.get('trailMaps', id); if (m) showPdfMap(m, true); }catch{} }
 })();
 addEventListener('offline', () => toast('Offline. Saved trips and maps still work.'));
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+/* ---------- updates: a new version downloads in the background and waits; you say when to switch ---------- */
+let swReg = null, updWorker = null;
+const offerUpdate = w => { updWorker = w; $('#updS').textContent = 'A new version is ready.'; $('#updBtn').textContent = 'Update now';
+  toast('Update available. Tap here to reload.', 15000, 'update'); };
+function applyUpdate(){ if (!updWorker) return; if (saveT) saveNow(); updWorker.postMessage({ type: 'SKIP_WAITING' }); }
+if ('serviceWorker' in navigator){
+  // the first install also takes control; only an update replacing a running version reloads
+  // (checked at each change, not at page load: a page opened before the first install gets updates too)
+  let ctl = navigator.serviceWorker.controller, reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if (ctl && !reloading){ reloading = true; location.reload(); } ctl = navigator.serviceWorker.controller; });
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    swReg = reg;
+    if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
+    reg.addEventListener('updatefound', () => { const w = reg.installing;
+      w?.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w); }); });
+    // an installed app can stay open for days: look again on coming back, and offer one still waiting
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') return;
+      if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting); else reg.update().catch(() => {}); });
+  }).catch(() => {});
+}
+$('#updBtn').onclick = async () => {
+  if (updWorker) return applyUpdate();
+  const st = $('#updS');
+  if (!swReg){ st.textContent = 'Updates need the installed app or a reload.'; return; }
+  st.textContent = 'Checking…';
+  try{ await swReg.update(); }catch{ st.textContent = 'Could not check (offline?).'; return; }
+  const w = swReg.installing || swReg.waiting;
+  if (!w){ st.textContent = `Up to date (${APP_VERSION}).`; return; }
+  if (w.state === 'installed') return offerUpdate(w);
+  st.textContent = 'Downloading the update…';
+};
 </script>
 </body>
 </html>
