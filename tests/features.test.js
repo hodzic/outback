@@ -784,6 +784,14 @@ module.exports = async (browser, url, check) => {
     c('Add copies it to the phone, placed over Tomales Bay', m.size === 559295 && m.method === 'built-in, National Park Service' && Math.abs(m.topLeft[0] - 38.27) < 0.01 && Math.abs(m.topLeft[1] + 123.04) < 0.01, JSON.stringify(m.topLeft));
     c('built-in map shown and the map zooms to it', await page.locator('img.leaflet-image-layer').count() === 1 && await page.evaluate(() => map.getBounds().contains([38.18, -122.94])));
     await page.click('#mapsBtn'); await page.waitForSelector('#sheet [data-rmpdf]');
+    // Save as GeoPDF: one page with the map, its placement as GeoPDF metadata that Outback reads back exactly
+    await page.evaluate(() => { shareFile = async (name, data, type) => { window.__geo = { name, data, type }; return true; }; });
+    await page.click('#sheet [data-geopdf="builtin-tomales-bay"]'); await page.waitForFunction(() => window.__geo);
+    const g = await page.evaluate(async () => { const m = await idb.get('trailMaps', 'builtin-tomales-bay'), { name, data, type } = window.__geo;
+      const r = await (await import('./pdfmap.js')).parseGeoPdf(new File([data], name, { type })), img = await createImageBitmap(m.imageBlob);
+      const off = (a, b) => Math.hypot((a[0] - b[0]) * 111000, (a[1] - b[1]) * 87000);
+      return { name, type, method: r.method, err: Math.max(off(r.topLeft, m.topLeft), off(r.topRight, m.topRight), off(r.bottomLeft, m.bottomLeft)), aspect: [r.imageWidth / r.imageHeight, img.width / img.height] }; });
+    c('Save as GeoPDF: a PDF whose GeoPDF placement matches the map', g.type === 'application/pdf' && /GeoPDF\.pdf$/.test(g.name) && g.method === 'embedded metadata' && g.err < 2 && Math.abs(g.aspect[0] - g.aspect[1]) < .01, JSON.stringify(g));
     c('added built-in moves to your maps, no longer offered', !(await page.locator('#sheet [data-builtin="builtin-tomales-bay"]').count()) && /Tomales Bay boat-in camping/.test(await page.text('#sheet')));
     await page.click('#sheet [data-rmpdf]'); await page.waitForSelector('#sheet [data-builtin="builtin-tomales-bay"]');
     c('deleting it offers it again', await page.evaluate(async () => !(await idb.get('trailMaps', 'builtin-tomales-bay')) && shownMaps.size === 0));

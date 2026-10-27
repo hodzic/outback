@@ -309,6 +309,7 @@ dialog::backdrop{background:rgba(18,50,74,.4)}
 .sh .item{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
 .sh .item img{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--line);flex:none}
 .sh .item .grow{flex:1;min-width:0} .sh .item small{display:block;color:var(--muted)}
+.linkb{background:none;border:0;padding:2px 0;text-align:left;white-space:nowrap;font:inherit;font-size:13px;color:inherit;text-decoration:underline;cursor:pointer}
 .sh .add{width:100%;margin-top:10px}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tabs) + 12px);z-index:3000;background:var(--ink);color:#fff;
   padding:10px 16px;border-radius:12px;font-size:15px;max-width:90vw;opacity:0;pointer-events:none;transition:opacity .2s}
@@ -525,6 +526,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li>Drag the 4 pink points onto the spots they belong, or <b>✥</b> to move the whole map. The others follow as you drag one. The PDF slider on the right makes it see-through.</li>
           <li>Map came in sideways (some brochures are printed that way)? Tap <b>⟳ 90°</b> until it reads the right way up, then place it.</li>
           <li><b>Save</b> keeps it; <b>Cancel</b> drops the change. Later, <b>Adjust</b> in the PDF list brings the points back.</li>
+          <li><b>Save as GeoPDF</b> (under the map's name in the PDF list) makes a one-page PDF of the map with its placement built in, for another phone or a GeoPDF app like Avenza or Gaia. Opening it in Outback places it right away.</li>
         </ul>
         <h3>Auto-align</h3>
         <ul>
@@ -650,7 +652,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-27a';
+const APP_VERSION = '2026-10-27b';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2428,7 +2430,7 @@ async function mapsSheet(){
   const urls = [];
   openSheet(`<h2>Overlay PDF maps</h2><p class="muted">Overlay a park or trail map PDF on the map. Saved on this phone; works offline. <a href="#helpPdf" id="pdfHelp">How to place one</a></p>
     <div>${maps.map(m => { const u = URL.createObjectURL(m.imageBlob); urls.push(u); const on = shownMaps.has(m.id);
-      return `<div class="item"><img src="${u}" alt=""><div class="grow"><b>${esc(m.name)}</b><small>${fmtSize(m.imageBlob.size)} · ${esc(m.method || '')}</small></div>
+      return `<div class="item"><img src="${u}" alt=""><div class="grow"><b>${esc(m.name)}</b><small>${fmtSize(m.imageBlob.size)} · ${esc(m.method || '')}</small><button class="linkb" data-geopdf="${esc(m.id)}">Save as GeoPDF</button></div>
       <button class="btn${on ? ' primary' : ''}" data-pdfmap="${esc(m.id)}">${on ? 'Hide' : 'Use'}</button><button class="btn" data-adjust="${esc(m.id)}">Adjust</button><button class="btn" data-rmpdf="${esc(m.id)}" aria-label="Delete ${esc(m.name)}">✕</button></div>`; }).join('') || '<p class="muted">None yet.</p>'}</div>
     ${(() => { const have = new Set(maps.map(m => m.id)), todo = BUILTIN_MAPS.filter(b => !have.has(b.id));
       return todo.length ? `<h3>Built-in maps</h3><p class="muted">Already placed; one tap to add.</p>${todo.map(b => `<div class="item"><img src="${b.thumb}" alt=""><div class="grow"><b>${esc(b.name)}</b><small>${fmtSize(b.size)} · ${esc(b.by)}</small></div><button class="btn" data-builtin="${b.id}">Add</button></div>`).join('')}` : ''; })()}
@@ -2438,6 +2440,32 @@ async function mapsSheet(){
   sheet.addEventListener('close', () => urls.forEach(u => URL.revokeObjectURL(u)), { once: true });
 }
 $('#mapsBtn').onclick = mapsSheet;
+// A placed overlay as a one-page GeoPDF (ISO 32000 geospatial: /VP with GPTS), so the placement travels with it:
+// other phones, Outback's own import, Avenza, Gaia. The page is the map image; its corners carry the coordinates.
+async function geoPdf(m){
+  const bmp = await createImageBitmap(m.imageBlob), W = bmp.width, H = bmp.height;
+  let jpg = m.imageBlob;
+  if (jpg.type !== 'image/jpeg'){ const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(bmp, 0, 0); jpg = await new Promise(r => c.toBlob(r, 'image/jpeg', .9)); }
+  const k = 792 / Math.max(W, H), pw = (W * k).toFixed(2), ph = (H * k).toFixed(2);
+  const tl = m.topLeft, tr = m.topRight, bl = m.bottomLeft, br = [tr[0] + bl[0] - tl[0], tr[1] + bl[1] - tl[1]];
+  const str = t => { t = String(t); return '<FEFF' + Array.from({ length: t.length }, (_, i) => t.charCodeAt(i).toString(16).padStart(4, '0')).join('') + '>'; }; // UTF-16BE text string
+  const wkt = 'GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433]]';
+  const measure = `<< /Type /Measure /Subtype /GEO /Bounds [0 0 0 1 1 1 1 0] /LPTS [0 0 0 1 1 1 1 0] /GPTS [${[bl, tl, tr, br].flat().map(v => v.toFixed(8)).join(' ')}] /GCS << /Type /GEOGCS /EPSG 4326 /WKT (${wkt}) >> /PDU [/M /SQM /DEG] >>`;
+  const content = `q ${pw} 0 0 ${ph} 0 0 cm /Im0 Do Q`, img = new Uint8Array(await jpg.arrayBuffer()), enc = new TextEncoder();
+  const objs = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R /VP [<< /Type /Viewport /BBox [0 0 ${pw} ${ph}] /Name ${str(m.name)} /Measure ${measure} >>] >>`,
+    [`<< /Type /XObject /Subtype /Image /Width ${W} /Height ${H} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.length} >>\nstream\n`, img, '\nendstream'],
+    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
+    `<< /Title ${str(m.name)} /Producer (Outback) >>`];
+  const parts = [enc.encode('%PDF-1.7\n%\xe2\xe3\xcf\xd3\n')], offs = []; let at = parts[0].length;
+  const add = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); at += b.length; };
+  objs.forEach((o, i) => { offs.push(at); add(`${i + 1} 0 obj\n`); [].concat(o).forEach(add); add('\nendobj\n'); });
+  const xref = at;
+  add(`xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offs.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('')}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
 $('#pdfFile').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   toast('Reading PDF…', 30000);
@@ -3257,6 +3285,8 @@ sheet.addEventListener('click', async e => {
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
   if (ds.pdfmap){ const m = await idb.get('trailMaps', ds.pdfmap), on = !shownMaps.has(ds.pdfmap); showPdfMap(m, on, on); if (on) sheet.close(); else mapsSheet(); return; }
   if (ds.builtin) return addBuiltin(ds.builtin);
+  if (ds.geopdf){ const m = await idb.get('trailMaps', ds.geopdf); if (!m) return;
+    return shareFile(`${m.name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Map'} GeoPDF.pdf`, await geoPdf(m), 'application/pdf'); }
   if (ds.adjust) return startNudge(await idb.get('trailMaps', ds.adjust), false);
   if (ds.rmpdf){ if (!confirm('Delete this overlay PDF map?')) return; showPdfMap({ id: ds.rmpdf }, false); await idb.del('trailMaps', ds.rmpdf); return mapsSheet(); }
 });
