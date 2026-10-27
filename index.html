@@ -222,9 +222,9 @@ body.sun #coords{font-weight:700}
 .mbar{background:var(--paper);border:2px solid var(--magenta);
   border-radius:14px;padding:8px 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .mbar .txt{flex:1;font-size:15px;min-width:0}
-#drawBar{padding:4px 4px 4px 10px;gap:4px;border-width:1.5px;border-radius:12px;flex-wrap:nowrap}
-#drawBar .txt{font-size:12px;line-height:1.2;color:var(--muted)}
-#drawBar .btn{min-height:32px;padding:0 10px;font-size:14px}
+#drawBar{padding:4px 4px 4px 8px;gap:3px;border-width:1.5px;border-radius:12px;flex-wrap:nowrap}
+#drawBar .txt{font-size:12px;line-height:1.2;color:var(--muted);white-space:nowrap;overflow:hidden}
+#drawBar .btn{min-height:32px;padding:0 7px;font-size:14px}
 #coords{align-self:flex-end;background:rgba(255,255,255,.9);border:1px solid var(--line);
   border-radius:8px;padding:2px 8px;font-size:12px;font-variant-numeric:tabular-nums}
 #miniBox{background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 3px rgba(18,50,74,.18)}
@@ -258,6 +258,7 @@ body.sun #coords{font-weight:700}
 #lnBtn.on{background:var(--ink);border-color:var(--ink)}
 .poi.ln{border-color:#2E8B57} .poi.wt{width:28px;height:28px;line-height:24px;font-size:15px;border-width:3px;border-color:#C8167E}
 .wtp p{margin:4px 0} .wtp details{margin:3px 0} .wtp summary{font-weight:700;cursor:pointer}
+#drawBtn.hid{text-decoration:line-through;color:var(--muted)}
 #pkBtn{position:absolute;left:10px;bottom:104px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:18px;font-weight:800;padding:0;color:#1F6FB2}
 #pkBtn.on{background:#1F6FB2;color:#fff;border-color:#1F6FB2}
 #seaBtn{position:absolute;right:10px;bottom:140px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:22px;padding:0}
@@ -427,9 +428,9 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     </div>
     <div id="miniBox"><button id="mini" aria-label="Conditions; open trip details"></button>
       <div id="timeBar" hidden><canvas id="tChart" aria-label="Day graph; drag to pick a time"></canvas><button id="tMapNow" class="btn">Now</button></div></div>
-    <div id="drawBar" class="mbar" hidden><span class="txt">Tap to add, drag to move</span>
+    <div id="drawBar" class="mbar" hidden><span class="txt">Tap: add<br>Drag: move</span>
       <button id="markBtn" class="btn">Marker</button>
-      <button id="undoBtn" class="btn">Undo</button><button id="clearRoute" class="btn">Clear</button><button id="doneBtn" class="btn">Done</button></div>
+      <button id="undoBtn" class="btn">Undo</button><button id="clearRoute" class="btn">Clear</button><button id="hideRoute" class="btn">Hide</button><button id="doneBtn" class="btn">Done</button></div>
     <div id="mapBar" class="mbar" hidden></div>
     <div id="coords" hidden><div id="coordTxt"></div><div id="toNext" hidden></div></div>
     </div>
@@ -653,7 +654,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-27d';
+const APP_VERSION = '2026-10-27e';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1017,6 +1018,10 @@ function fitTrip(refit){
 function drawRoute(){
   routeLayer.clearLayers(); wpSize();
   const r = trip.route;
+  // Hidden only while looking: editing always shows it
+  const show = !state.routeHidden || state.drawing;
+  $('#drawBtn').classList.toggle('hid', !show); $('#drawBtn').setAttribute('aria-label', show ? 'Edit the route' : 'Show the route');
+  if (show) routeLayer.addTo(map); else routeLayer.remove();
   if (r.length > 1) L.polyline(r.map(ll2), { color: '#C8167E', weight: settings.sun ? 6 : 4, opacity: .9, interactive: false }).addTo(routeLayer);
   r.forEach((p, i) => {
     if (i){
@@ -2112,7 +2117,7 @@ addEventListener('pagehide', () => { if (saveT) saveNow(); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveT) saveNow(); });
 async function openTrip(t){
   if (saveT && trip) await saveNow();
-  trip = normTrip(t); state.legs.clear(); state.showStations = false; LS.set('lastTrip', t.id);
+  trip = normTrip(t); state.legs.clear(); state.routeHidden = false; state.showStations = false; LS.set('lastTrip', t.id);
   if (trip.route.length > MAX_WPS * 1.5){ // imported before routes were simplified
     const n0 = trip.route.length; trip.route = simplifyTo(trip.route, MAX_WPS); trip.updated = Date.now(); idb.put('trips', trip).catch(() => {});
     setTimeout(() => toast(`This route had ${n0.toLocaleString()} points; simplified to ${trip.route.length} waypoints to keep the app fast.`, 5000), 300);
@@ -2132,7 +2137,8 @@ function setDrawing(on){
   state.parkMode = false;
   if (trip){ drawRoute(); drawMarks(); drawPark(); }
 }
-$('#drawBtn').onclick = () => setDrawing(!state.drawing);
+$('#drawBtn').onclick = () => { if (state.routeHidden){ state.routeHidden = false; drawRoute(); return toast('Route shown. Tap Route again to edit.'); } setDrawing(!state.drawing); };
+$('#hideRoute').onclick = () => { state.routeHidden = true; setDrawing(false); toast('Route hidden. Tap Route to show it.'); };
 $('#doneBtn').onclick = () => setDrawing(false);
 $('#markBtn').onclick = () => { state.markMode = !state.markMode; $('#markBtn').classList.toggle('on', state.markMode); if (state.markMode) toast('Tap the map where the marker goes.'); };
 $('#undoBtn').onclick = () => { if (state.undo.length) trip.route = state.undo.pop(); else trip.route.pop(); state.legs.clear(); changed(); };
