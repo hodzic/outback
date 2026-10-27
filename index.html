@@ -653,7 +653,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-27c';
+const APP_VERSION = '2026-10-27d';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2467,13 +2467,15 @@ async function geoPdf(m){
   add(`xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${offs.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('')}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Info 6 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
   return new Blob(parts, { type: 'application/pdf' });
 }
+// "Lake GeoPDF", "Lake-GeoPDF-2", "Lake GeoPDF (1)" -> "Lake": the export adds GeoPDF to the file name, the phone may add a copy number
+const mapName = n => n.replace(/[\s_-]*GeoPDF(?:[\s_-]*(?:\(\d+\)|\d+))*\s*$/i, '').trim() || n;
 $('#pdfFile').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   toast('Reading PDF…', 30000);
   try{
     const mod = await loadPdfMod();
     const res = await Promise.race([mod.parseGeoPdf(f), new Promise((_, rej) => setTimeout(() => rej(new Error('Timed out. The PDF may be too large.')), 60000))]);
-    const name = (prompt('Name this map', f.name.replace(/\.pdf$/i, '')) || '').trim() || f.name;
+    const name = (prompt('Name this map', mapName(res.name || f.name.replace(/\.pdf$/i, ''))) || '').trim() || f.name;
     let { topLeft: tl, topRight: tr, bottomLeft: bl } = res;
     if (!tl && res.mPerPx){ // true size from the printed scale, north up, centred on the view
       const c = map.getCenter(), dLat = res.imageHeight * res.mPerPx / 2 / 111320, dLon = res.imageWidth * res.mPerPx / 2 / (111320 * Math.cos(c.lat * Math.PI / 180));
@@ -3287,7 +3289,7 @@ sheet.addEventListener('click', async e => {
   if (ds.pdfmap){ const m = await idb.get('trailMaps', ds.pdfmap), on = !shownMaps.has(ds.pdfmap); showPdfMap(m, on, on); if (on) sheet.close(); else mapsSheet(); return; }
   if (ds.builtin) return addBuiltin(ds.builtin);
   if (ds.geopdf){ const m = await idb.get('trailMaps', ds.geopdf); if (!m) return;
-    return shareFile(`${m.name.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Map'} GeoPDF.pdf`, await geoPdf(m), 'application/pdf'); }
+    return shareFile(`${mapName(m.name).replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Map'} GeoPDF.pdf`, await geoPdf(m), 'application/pdf'); }
   if (ds.adjust) return startNudge(await idb.get('trailMaps', ds.adjust), false);
   if (ds.rmpdf){ if (!confirm('Delete this overlay PDF map?')) return; showPdfMap({ id: ds.rmpdf }, false); await idb.del('trailMaps', ds.rmpdf); return mapsSheet(); }
 });

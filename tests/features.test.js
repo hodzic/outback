@@ -790,8 +790,12 @@ module.exports = async (browser, url, check) => {
     const g = await page.evaluate(async () => { const m = await idb.get('trailMaps', 'builtin-tomales-bay'), { name, data, type } = window.__geo;
       const r = await (await import('./pdfmap.js')).parseGeoPdf(new File([data], name, { type })), img = await createImageBitmap(m.imageBlob);
       const off = (a, b) => Math.hypot((a[0] - b[0]) * 111000, (a[1] - b[1]) * 87000);
-      return { name, type, method: r.method, err: Math.max(off(r.topLeft, m.topLeft), off(r.topRight, m.topRight), off(r.bottomLeft, m.bottomLeft)), aspect: [r.imageWidth / r.imageHeight, img.width / img.height] }; });
+      const again = await (await import('./pdfmap.js')).parseGeoPdf(new File([await geoPdf({ ...m, name: 'Tomales-GeoPDF-2', imageBlob: r.imageBlob })], 'x.pdf'));
+      return { name, type, method: r.method, same: m.imageBlob.type === 'image/jpeg' && r.imageBlob.size === m.imageBlob.size && r.imageWidth === img.width && again.imageBlob.size === m.imageBlob.size,
+        names: [r.name, again.name, mapName(again.name), mapName('Lake GeoPDF (1)'), mapName('Lake_geopdf'), mapName('GeoPDF')], err: Math.max(off(r.topLeft, m.topLeft), off(r.topRight, m.topRight), off(r.bottomLeft, m.bottomLeft)), aspect: [r.imageWidth / r.imageHeight, img.width / img.height] }; });
     c('Save as GeoPDF: a PDF whose GeoPDF placement matches the map', g.type === 'application/pdf' && /GeoPDF\.pdf$/.test(g.name) && g.method === 'embedded metadata' && g.err < 2 && Math.abs(g.aspect[0] - g.aspect[1]) < .01, JSON.stringify(g));
+    c('re-importing an export keeps the original JPEG, not a re-rendered copy', g.same, JSON.stringify(g));
+    c('the map name comes back without the added GeoPDF', JSON.stringify(g.names) === JSON.stringify([g.names[0], 'Tomales-GeoPDF-2', 'Tomales', 'Lake', 'Lake', 'GeoPDF']) && !/GeoPDF/.test(g.names[0]), JSON.stringify(g.names));
     c('added built-in moves to your maps, no longer offered', !(await page.locator('#sheet [data-builtin="builtin-tomales-bay"]').count()) && /Tomales Bay boat-in camping/.test(await page.text('#sheet')));
     await page.click('#sheet [data-rmpdf]'); await page.waitForSelector('#sheet [data-builtin="builtin-tomales-bay"]');
     c('deleting it offers it again', await page.evaluate(async () => !(await idb.get('trailMaps', 'builtin-tomales-bay')) && shownMaps.size === 0));
