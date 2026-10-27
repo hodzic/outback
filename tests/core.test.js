@@ -187,6 +187,16 @@ module.exports = async (browser, url, check) => {
   c('route editing bar is one compact row', await page.evaluate(() => document.querySelector('#drawBar').getBoundingClientRect().height <= 48), await page.evaluate(() => document.querySelector('#drawBar').getBoundingClientRect().height));
   c('Draw toggles draw mode and shows as on', await page.evaluate(() => state.drawing && document.querySelector('#drawBtn').classList.contains('on')));
   await page.click('#doneBtn');
+  // Route show/hide while looking at the map: Hide in the Route bar
+  const rt = () => page.evaluate(() => ({ hid: document.querySelector('#drawBtn').classList.contains('hid'), wps: document.querySelectorAll('.wp').length, line: map.hasLayer(routeLayer), drawing: state.drawing }));
+  c('route shown by default', await rt().then(x => x.line && !x.hid));
+  await page.click('#drawBtn'); await page.click('#hideRoute');
+  c('Hide in the Route bar hides the route, ends editing, strikes through Route', await rt().then(x => !x.line && x.wps === 0 && x.hid && !x.drawing && !x.hid === false) && !(await page.isVisible('#drawBar')), JSON.stringify(await rt()));
+  await page.click('#drawBtn');
+  c('tapping Route then shows it again without editing', await rt().then(x => x.line && x.wps > 0 && !x.hid && !x.drawing), JSON.stringify(await rt()));
+  await page.click('#drawBtn'); await page.click('#hideRoute');
+  await page.evaluate(() => openTrip(trip));
+  c('opening a trip shows its route', await rt().then(x => x.line && !x.hid));
 
   // Trips view: import
   await view(page, 0);
