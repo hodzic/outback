@@ -657,7 +657,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-27i';
+const APP_VERSION = '2026-10-28a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2445,14 +2445,43 @@ async function mapsSheet(){
     <div>${maps.map(m => { const u = URL.createObjectURL(m.imageBlob); urls.push(u); const on = shownMaps.has(m.id);
       return `<div class="item"><img src="${u}" alt=""><div class="grow"><b>${esc(m.name)}</b><small>${fmtSize(m.imageBlob.size)} · ${esc(m.method || '')}</small><button class="linkb" data-geopdf="${esc(m.id)}">Save as GeoPDF</button></div>
       <button class="btn${on ? ' primary' : ''}" data-pdfmap="${esc(m.id)}">${on ? 'Hide' : 'Use'}</button><button class="btn" data-adjust="${esc(m.id)}">Adjust</button><button class="btn" data-rmpdf="${esc(m.id)}" aria-label="Delete ${esc(m.name)}">✕</button></div>`; }).join('') || '<p class="muted">None yet.</p>'}</div>
+    <button class="btn primary add" id="addPdf">Add an overlay PDF map…</button>
+    <button class="btn add" id="libBtn">Map library: placed maps to download</button>
     ${(() => { const have = new Set(maps.map(m => m.id)), todo = BUILTIN_MAPS.filter(b => !have.has(b.id));
       return todo.length ? `<h3>Built-in maps</h3><p class="muted">Already placed; one tap to add.</p>${todo.map(b => `<div class="item"><img src="${b.thumb}" alt=""><div class="grow"><b>${esc(b.name)}</b><small>${fmtSize(b.size)} · ${esc(b.by)}</small></div><button class="btn" data-builtin="${b.id}">Add</button></div>`).join('')}` : ''; })()}
-    <button class="btn primary add" id="addPdf">Add an overlay PDF map…</button>
     ${gm ? '<button class="btn add" id="copyGps">Copy overlay PDF maps from GPS Map</button>' : ''}
     <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" data-close>Close</button></div>`);
   sheet.addEventListener('close', () => urls.forEach(u => URL.revokeObjectURL(u)), { once: true });
 }
 $('#mapsBtn').onclick = mapsSheet;
+// Map library: maps already placed, published at hodzic.github.io/outback-maps (catalog.json, images, thumbnails)
+const LIB = 'https://hodzic.github.io/outback-maps/';
+let libCat = null;
+async function libSheet(){
+  openSheet(`<h2>Map library</h2><p class="muted">Overlay maps already placed, nearest first. Add one and it's saved on this phone.</p>
+    <div id="libList"><p class="muted">Loading…</p></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="libBack">Back</button><span class="grow"></span><button class="btn" data-close>Close</button></div>`);
+  try{ const r = await fetch(LIB + 'catalog.json', { cache: 'no-cache' }); if (!r.ok) throw new Error(r.status); libCat = await r.json(); }
+  catch{ if ($('#libList')) $('#libList').innerHTML = '<p class="muted">Can’t reach the map library. Check the connection and try again.</p>'; return; }
+  const have = new Set((await idb.all('trailMaps')).map(m => m.id)), c = map.getCenter();
+  const mid = m => L.latLng((m.topRight[0] + m.bottomLeft[0]) / 2, (m.topRight[1] + m.bottomLeft[1]) / 2);
+  const rows = libCat.maps.map(m => ({ m, nm: c.distanceTo(mid(m)) / 1852, added: have.has('lib-' + m.id) || have.has('builtin-' + m.id) })).sort((a, b) => a.nm - b.nm);
+  if (!$('#libList')) return;
+  $('#libList').innerHTML = rows.map(({ m, nm, added }) => `<div class="item"><img src="${esc(LIB + m.thumb)}" alt=""><div class="grow"><b>${esc(m.name)}</b>
+    <small>${nm < 2 ? 'Here' : fmtD(nm, 0) + ' away'} · ${fmtSize(m.size)} · ${esc(m.source || '')}${m.license ? ' · ' + esc(m.license) : ''}</small></div>
+    ${added ? '<span class="muted">Added</span>' : `<button class="btn" data-libadd="${esc(m.id)}">Add</button>`}</div>`).join('') || '<p class="muted">The library is empty.</p>';
+}
+async function libAdd(id){
+  const e = libCat?.maps.find(m => m.id === id); if (!e) return;
+  if (BUILTIN_MAPS.some(b => b.id === 'builtin-' + id)) return addBuiltin('builtin-' + id); // same map ships with the app
+  toast(`Getting ${e.name}…`, 30000);
+  try{
+    const r = await fetch(LIB + e.image); if (!r.ok) throw new Error(r.status);
+    const m = { id: 'lib-' + e.id, name: e.name, imageBlob: await r.blob(), imageWidth: e.width, imageHeight: e.height, topLeft: e.topLeft, topRight: e.topRight, bottomLeft: e.bottomLeft,
+      method: `map library${e.source ? ', ' + e.source : ''}`, detectedLabels: [], createdAt: Date.now() };
+    await idb.put('trailMaps', m); sheet.close(); showPdfMap(m, true, true); toast(`${e.name} added. It's saved on this phone.`);
+  }catch{ toast('Could not get the map. Check the connection and try again.', 4000); }
+}
 // A placed overlay as a one-page GeoPDF (ISO 32000 geospatial: /VP with GPTS), so the placement travels with it:
 // other phones, Outback's own import, Avenza, Gaia. The page is the map image; its corners carry the coordinates.
 async function geoPdf(m){
@@ -3286,6 +3315,9 @@ sheet.addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   const ds = b.dataset;
   if (b.id === 'addPdf'){ sheet.close(); return $('#pdfFile').click(); }
+  if (b.id === 'libBtn') return libSheet();
+  if (b.id === 'libBack') return mapsSheet();
+  if (ds.libadd) return libAdd(ds.libadd);
   if (b.id === 'copyGps') return copyGpsMaps();
   if (b.id === 'planCopy') return toast(await copyText($('#planTxt').value) ? 'Trip plan copied. Paste it into the forum post.' : 'Could not copy; select the text and copy it.');
   if (b.id === 'planCopyImg'){ try{ await navigator.clipboard.write([new ClipboardItem({ 'image/png': planImg })]); return toast('Map image copied. Paste it next to the text.'); }
