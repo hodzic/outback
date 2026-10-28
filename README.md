@@ -117,12 +117,11 @@ Three views; swipe between them or use the tabs at the bottom.
   the map placed within a few hundred metres first; maps without water say so. *Overlay PDF maps* in Help (the ? button)
   (linked from the PDF list) explains placing and Auto-align.
   Opacity slider on the right. Overlay PDF maps saved in GPS Map (same origin) can be copied in.
-  **Built-in maps** ship already placed (`maps/`, listed in `BUILTIN_MAPS`): *Add* in the PDF list copies one into the
-  phone's maps, where it works like an imported one. Now: NPS Tomales Bay boat-in camping (public domain),
-  Del Valle Regional Park (EBRPD, GeoPDF placement refined by Auto-align: shoreline median 8 m) the
-  Sacramento–San Joaquin Delta boating map (California Coastal Commission, 2005; placed from its GeoPDF data), and the five
-  SF Bay Area Water Trail maps (2017; cropped to the map, placed from their Water Trail launch icons, typically within
-  100–200 m).
+  **Map library** (in the PDF list): placed maps from [outback-maps](https://github.com/hodzic/outback-maps), served at
+  https://hodzic.github.io/outback-maps/ (`catalog.json` with each map's corners). *Add* copies one into the phone's maps,
+  where it works like an imported one. It holds the maps that used to ship with the app (NPS Tomales Bay boat-in camping,
+  Del Valle Regional Park, the Sacramento–San Joaquin Delta boating map, the five SF Bay Area Water Trail maps) and the
+  Cosumnes River Preserve paddling map. Maps added when they shipped with the app (`builtin-…`) stay on the phone.
 - **Tomales Bay and San Francisco Bay** in Help (the ? button) links the official info: NPS boat-in camping, map and
   kayaking pages for Tomales Bay; the SF Bay Water Trail, its web map and conditions page, and the Dolphin Club's Bay guide.
 
