@@ -98,6 +98,16 @@ module.exports = async (browser, url, check) => {
   await ev(a, () => syncShare(trip));
   c('and goes out once GitHub is back', JSON.parse(github.gists.get(id).content).trip.start === 750);
 
+  // token expired: the link keeps working, her change waits, she is told once and can paste a new one
+  delete github.users['tok-alice'];
+  await ev(a, () => { trip.start = 765; changed(); return syncShare(trip, true); }); await a.waitForTimeout(200);
+  c('an expired token: she is told, even on a background save', /token expired/.test(await a.text('#toast')) && await ev(a, () => $('#toast').dataset.help === 'ghToken'));
+  c('the change waits on the phone', JSON.parse(github.gists.get(id).content).trip.start === 750 && await ev(a, () => trip.start === 765));
+  github.users['tok-alice3'] = 'alice';
+  await a.click('#toast'); await a.waitForSelector('#ghTok');
+  c('the toast opens the token sheet, not Help', await ev(a, () => $('#helpPage').hidden)); await a.fill('#ghTok', 'tok-alice3'); await a.click('#ghSave'); await a.waitForTimeout(600);
+  c('tapping it takes a new token, and the change goes out', JSON.parse(github.gists.get(id).content).trip.start === 765 && await ev(a, () => settings.ghToken === 'tok-alice3'));
+
   // Stop sharing: the link goes away; Bob keeps his copy
   await view(a, 1); await a.click('#sharePlan'); await a.waitForSelector('#planLink');
   c('a shared trip offers its link', (await a.text('#planLink')) === 'Link');
