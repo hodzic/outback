@@ -341,10 +341,11 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
         <label class="f" for="sAis">AIS ships: AISStream API key (free at aisstream.io; "demo" for sample ships)</label><input class="f" id="sAis" type="text" autocomplete="off" spellcheck="false">
+        <div class="f" id="ghSet" style="margin-top:10px"></div>
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Swell: Open-Meteo Marine. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Swell: Open-Meteo Marine. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps. Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch. Share links (optional): a trip you share is kept as a secret gist on your GitHub account; anyone with the link can read it.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
         <p class="muted"><a href="/">All apps</a></p>
@@ -410,6 +411,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </div>
 
       <div class="row" style="flex-wrap:wrap"><button class="btn primary" id="sharePlan">Share or print</button><span class="grow"></span><button class="btn danger" id="deleteTrip">Delete trip</button></div>
+      <p class="muted" id="shareInfo" hidden></p>
     </div>
   </section>
 
@@ -654,7 +656,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-27e';
+const APP_VERSION = '2026-10-27f';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1542,6 +1544,7 @@ function render(){
   const tidal = isTidal(), hike = hasElev();
   if (document.activeElement !== $('#tripName')) $('#tripName').value = trip.name;
   $('#tabTrip').textContent = trip.name; $('#tripChip').textContent = trip.name;
+  shareInfo();
   $('#date').value = trip.date;
   $('#start').textContent = hm(dayStart() + trip.start * 6e4);
   $('#dow').textContent = new Date(trip.date + 'T12:00').toLocaleDateString('en-US', { weekday: 'short' }) + ',';
@@ -2041,6 +2044,7 @@ $('#clearRoute').onclick = () => {
 $('#deleteTrip').onclick = async () => {
   if (!confirm(`Delete "${trip.name}"?`)) return;
   const id = trip.id;
+  if (trip.share?.own && settings.ghToken && confirm('Also stop sharing it? OK deletes its link; Cancel keeps the link working for the people who have it.')) gh('/gists/' + trip.share.id, { method: 'DELETE' }).catch(() => {});
   clearTimeout(saveT); saveT = null; await idb.del('trips', id);
   const rest = (await idb.all('trips')).sort((a, b) => b.updated - a.updated);
   let t = rest[0]; if (!t){ t = newTrip(); await idb.put('trips', t); }
@@ -2111,7 +2115,7 @@ function changed(){
 }
 function saveNow(){
   clearTimeout(saveT); saveT = null;
-  if (trip) return idb.put('trips', trip).then(() => { LS.set('lastTrip', trip.id); clearTimeout(listT); listT = setTimeout(renderList, 50); }).catch(() => {});
+  if (trip) return idb.put('trips', trip).then(() => { LS.set('lastTrip', trip.id); clearTimeout(listT); listT = setTimeout(renderList, 50); queuePush(); }).catch(() => {});
 }
 addEventListener('pagehide', () => { if (saveT) saveNow(); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveT) saveNow(); });
@@ -2126,6 +2130,7 @@ async function openTrip(t){
   state.tMin = todayIso() === trip.date ? Math.floor(nowMin() / 5) * 5 : Math.floor(trip.start / 5) * 5;
   state.nextWp = null; drawRoute(); drawMarks(); drawPark(); drawTracks(); drawStations(); render(); renderList(); showToNext();
   fitTrip(); fcBtnState(); showMoved();
+  if (trip.share && Date.now() - (trip.share.at || 0) > SHARE_EVERY) syncShare(trip, true);
 }
 
 /* ---------- drawing ---------- */
@@ -3030,6 +3035,8 @@ function sharePlanSheet(again){
   openSheet(`<h2>Share or print</h2>
     <textarea id="planTxt" class="f" readonly rows="6" style="width:100%;font:13px/1.35 ui-monospace,Menlo,monospace;white-space:pre-wrap"></textarea>
     <img id="planPrev" alt="Route map" hidden style="display:block;width:100%;max-height:180px;object-fit:contain;margin-top:8px;border:1px solid var(--line,#ddd);border-radius:8px">
+    <h3 class="shh">Live link</h3>
+    ${opt(`<button class="btn primary" id="planLink">${trip.share?.own ? 'Link' : 'Share link'}</button>`, trip.share?.own ? 'Shared: everyone with the link gets your changes' : 'Friends open the trip in Outback and get your later changes')}
     <h3 class="shh">The plan</h3>
     ${opt('<button class="btn primary" id="planCopy">Copy text</button>', 'The text above, for a club forum, email or chat')}
     ${opt('<button class="btn primary" id="planCopyImg" disabled>Copy map</button>', 'The route map above, as a picture')}
@@ -3053,7 +3060,7 @@ function sharePlanSheet(again){
     $('#planPrev').src = URL.createObjectURL(b); $('#planPrev').hidden = false; $('#planCopyImg').disabled = false; }).catch(() => {});
 }
 $('#sharePlan').onclick = () => sharePlanSheet();
-async function copyText(t){ try{ await navigator.clipboard.writeText(t); return true; }catch{ const a = $('#planTxt'); a?.select(); try{ return document.execCommand('copy'); }catch{ return false; } } }
+async function copyText(t, field = '#planTxt'){ try{ await navigator.clipboard.writeText(t); return true; }catch{ const a = $(field); a?.select(); try{ return document.execCommand('copy'); }catch{ return false; } } }
 
 let pMap = null, dMap = null;
 let printBack = false;   // opened from Share or print: closing goes back there
@@ -3290,7 +3297,13 @@ sheet.addEventListener('click', async e => {
     const ok = await shareFile(p.name, p.data, p.type, p.from, true);
     if (!pendingShare) sheet.close(); return p.res(ok); }
   if (b.id === 'planGpx') return shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml');
-  if (b.id === 'planJson') return shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip }, null, 1), 'application/json');
+  if (b.id === 'planJson') return shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip: { ...trip, share: undefined } }, null, 1), 'application/json');
+  if (b.id === 'planLink') return trip.share?.own ? linkSheet() : shareLink();
+  if (b.id === 'ghSave') return ghSave();
+  if (b.id === 'linkShare') return shareUrlOut();
+  if (b.id === 'linkCopy') return toast(await copyText(shareUrl(trip.share.id), '#linkTxt') ? 'Link copied.' : 'Could not copy; select the link and copy it.');
+  if (b.id === 'linkStop') return stopSharing();
+  if ((b.id === 'syncTake' || b.id === 'syncKeep') && pendingSync) return resolveSync(b.id === 'syncTake');
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
   if (ds.pdfmap){ const m = await idb.get('trailMaps', ds.pdfmap), on = !shownMaps.has(ds.pdfmap); showPdfMap(m, on, on); if (on) sheet.close(); else mapsSheet(); return; }
   if (ds.builtin) return addBuiltin(ds.builtin);
@@ -3349,7 +3362,7 @@ function readyToShare(name, data, type, from, why){
     sheet.addEventListener('close', () => { if (pendingShare?.res === res){ pendingShare = null; res(false); } }, { once: true }); });
 }
 // What an imported copy of a trip changes, in plain words; [] when it's the same plan.
-const SAME_IGNORE = ['id', 'updated', 'data', 'fetchedAt', 'tracks', 'prog'];
+const SAME_IGNORE = ['id', 'updated', 'data', 'fetchedAt', 'tracks', 'prog', 'share', 'anchor'];
 function tripChanges(a, b){
   const J = JSON.stringify, ch = [], at = m => new Date(2000, 0, 1, 0, m).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   if (a.name !== b.name) ch.push(`Name: ${a.name} → ${b.name}`);
@@ -3384,7 +3397,7 @@ async function applyImport(both){
   if (both){ t = { ...inc, id: newTrip().id, name: inc.name === mine.name ? inc.name + ' (shared)' : inc.name }; }
   else {
     const ids = new Set(mine.tracks.map(k => k.id));
-    t = { ...inc, id: mine.id, tracks: [...mine.tracks, ...inc.tracks.filter(k => !ids.has(k.id))] };
+    t = { ...inc, id: mine.id, share: mine.share, tracks: [...mine.tracks, ...inc.tracks.filter(k => !ids.has(k.id))] };
     if (!inc.data && mine.data && mine.date === inc.date && JSON.stringify(mine.route) === JSON.stringify(inc.route)){ t.data = mine.data; t.fetchedAt = mine.fetchedAt; }
   }
   t.updated = Date.now();
@@ -3421,7 +3434,7 @@ $('#file').onchange = async e => {
     } else {
       const j = JSON.parse(text);
       if (j.kind === 'backup') return await restoreBackup(j);
-      t = j.trip || j;
+      t = j.trip || j; delete t.share;
       if (!Array.isArray(t.route) || !t.date) throw new Error('Not an Outback trip file');
       t.name = String(t.name || f.name.replace(/\.json(\.txt)?$/i, ''));
       t.id = t.id || newTrip().id;
@@ -3436,10 +3449,191 @@ $('#file').onchange = async e => {
   }catch(err){ toast('Import failed: ' + err.message, 4000); }
 };
 
+/* ---------- live links: a trip shared through a secret GitHub gist ---------- */
+// Share link puts the trip in a secret gist on your GitHub account; the link opens it in Outback anywhere.
+// Your own copies (any device with your token) send their changes to the gist. Everyone else gets a copy
+// that is theirs to change; when you change the trip they get the update, or a choice if they changed theirs.
+const GH = 'https://api.github.com', GIST_FILE = 'outback-trip.json';
+let SHARE_EVERY = 6e4; // look for updates at most this often per trip (anonymous GitHub reads: 60 an hour)
+const hash53 = str => { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i < str.length; i++){ const c = str.charCodeAt(i); h1 = Math.imul(h1 ^ c, 2654435761); h2 = Math.imul(h2 ^ c, 1597334677); }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36); };
+const sigOf = (t, skip) => hash53(JSON.stringify(Object.keys(t).filter(k => !skip.includes(k) && t[k] !== undefined).sort().map(k => [k, t[k]])));
+const planSig = t => sigOf(t, SAME_IGNORE);                       // the plan: what counts as "you changed your copy"
+const fullSig = t => sigOf(t, ['id', 'updated', 'share', 'prog']); // everything the link carries, forecast included
+const shareBody = t => JSON.stringify({ app: 'Outback', version: 2, trip: { ...t, share: undefined, prog: undefined } }, null, 1);
+const shareUrl = id => `${location.origin}${location.pathname}#trip=${id}`;
+const isMe = login => !!settings.ghUser && login.toLowerCase() === settings.ghUser.toLowerCase();
+const gistVer = g => g.history?.[0]?.version || g.updated_at;
+async function gh(path, { method = 'GET', body, auth = true } = {}){
+  const h = { Accept: 'application/vnd.github+json' };
+  if (body) h['Content-Type'] = 'application/json';
+  if (auth && settings.ghToken) h.Authorization = 'Bearer ' + settings.ghToken;
+  const r = await fetch(GH + path, { method, headers: h, body: body && JSON.stringify(body), cache: 'no-cache' });
+  if (r.status === 204) return null;
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok){ const e = new Error(r.status === 403 && /rate limit/i.test(j.message || '') ? 'GitHub is busy for this network; try again in a while.' : j.message || `GitHub error ${r.status}`); e.status = r.status; throw e; }
+  return j;
+}
+async function readGist(id){
+  let g;
+  try{ g = await gh('/gists/' + id); }catch(e){ if (e.status === 401 && settings.ghToken) g = await gh('/gists/' + id, { auth: false }); else throw e; }
+  const f = g.files?.[GIST_FILE]; if (!f) throw new Error('This link is not an Outback trip.');
+  const j = JSON.parse(f.truncated ? await (await fetch(f.raw_url)).text() : f.content);
+  if (!j.trip || !Array.isArray(j.trip.route)) throw new Error('This link is not an Outback trip.');
+  return { trip: normTrip(j.trip), ver: gistVer(g), owner: g.owner?.login || '' };
+}
+function shareInfo(){
+  const s = trip.share, el = $('#shareInfo'); el.hidden = !s; if (!s) return;
+  el.textContent = s.own ? '🔗 Shared by link: everyone with it gets your changes.' : `🔗 From ${s.owner ? '@' + s.owner + '’s' : 'a'} link: you get their updates.`;
+}
+function ghSettings(){
+  $('#ghSet').innerHTML = settings.ghToken ? `Share links: GitHub @${esc(settings.ghUser)} <button class="btn" id="ghOut">Remove</button>` : 'Share links: GitHub not set up <button class="btn" id="ghIn">Set up</button>';
+}
+$('#ghSet').onclick = e => {
+  if (e.target.id === 'ghIn') tokenSheet();
+  if (e.target.id === 'ghOut' && confirm('Remove the GitHub token from this device? Your links keep working; changes made here stop going to them.')){ delete settings.ghToken; delete settings.ghUser; saveSettings(); ghSettings(); }
+};
+let tokenThen = null;
+function tokenSheet(then = null){
+  tokenThen = then;
+  openSheet(`<h2>Share links</h2>
+    <p class="muted">A link lets friends open a trip in Outback on any phone, and get your changes later. Outback keeps the trip as a secret gist on your GitHub account: anyone with the link can read it, only you can change it.</p>
+    <p class="muted">Once on each of your devices: <a href="https://github.com/settings/tokens/new?scopes=gist&amp;description=Outback%20trip%20links" target="_blank" rel="noopener">make a GitHub token</a> with only <b>gist</b> ticked, then paste it here. It stays on this device and is never in backups.</p>
+    <input class="f" id="ghTok" placeholder="ghp_…" autocomplete="off" spellcheck="false" style="width:100%">
+    <div class="row" style="margin-top:12px"><button class="btn primary" id="ghSave">Save</button><span class="grow"></span><button class="btn" data-close>Cancel</button></div>`);
+}
+async function ghSave(){
+  const tok = $('#ghTok').value.trim(); if (!tok) return;
+  const b = $('#ghSave'); b.disabled = true; b.textContent = 'Checking…';
+  try{
+    settings.ghToken = tok; const u = await gh('/user');
+    settings.ghUser = u.login; saveSettings(); ghSettings(); sheet.close(); toast(`GitHub @${u.login} set up for share links.`);
+    const then = tokenThen; tokenThen = null; then?.();
+  }catch(e){ delete settings.ghToken; b.disabled = false; b.textContent = 'Save'; toast(e.status === 401 ? 'GitHub did not accept that token.' : 'Could not check the token: ' + e.message, 4500); }
+}
+async function shareLink(){
+  if (!settings.ghToken) return tokenSheet(shareLink);
+  if (trip.share && !confirm(`This trip came from @${trip.share.owner}’s link. Make your own link for it? Your copy stops getting their updates.`)) return;
+  toast('Making the link…', 15000);
+  try{
+    const t = trip, body = shareBody(t), full = fullSig(t), plan = planSig(t);
+    const g = await gh('/gists', { method: 'POST', body: { description: `Outback trip: ${t.name}`, public: false, files: { [GIST_FILE]: { content: body } } } });
+    t.share = { id: g.id, owner: g.owner?.login || settings.ghUser, own: true, ver: gistVer(g), sent: full, sig: plan, at: Date.now() };
+    await idb.put('trips', t); if (t === trip){ render(); linkSheet(); }
+    toast('Link ready. Share it with your group.');
+  }catch(e){ toast('Could not make the link: ' + e.message, 4500); }
+}
+function linkSheet(){
+  openSheet(`<h2>Trip link</h2>
+    <p class="muted">Anyone with this link can open ${esc(trip.name)} in Outback. Your changes reach them; their changes stay on their phones.</p>
+    <input class="f" id="linkTxt" readonly value="${esc(shareUrl(trip.share.id))}" style="width:100%" onfocus="this.select()">
+    <div class="row" style="margin-top:12px"><button class="btn primary" id="linkShare">Share…</button><button class="btn" id="linkCopy">Copy</button><span class="grow"></span><button class="btn" data-close>Close</button></div>
+    <div class="row" style="margin-top:14px"><button class="btn danger" id="linkStop">Stop sharing</button><span class="muted">The link stops working.</span></div>`);
+}
+async function shareUrlOut(){
+  const url = shareUrl(trip.share.id);
+  if (navigator.share){ try{ await navigator.share({ title: trip.name, text: `${trip.name}: trip plan in Outback`, url }); return; }catch(e){ if (e.name === 'AbortError') return; } }
+  toast(await copyText(url, '#linkTxt') ? 'Link copied.' : 'Could not copy; select the link and copy it.');
+}
+async function stopSharing(){
+  if (!confirm('Stop sharing? The link stops working. Copies people already have stay on their phones but get no more updates.')) return;
+  const t = trip;
+  try{ if (settings.ghToken) await gh('/gists/' + t.share.id, { method: 'DELETE' }); }catch(e){ if (e.status !== 404) return toast('Could not stop sharing: ' + e.message, 4500); }
+  delete t.share; await idb.put('trips', t); sheet.close(); render(); toast('Sharing stopped.');
+}
+// Your own copy: changes go to the link a moment after you stop editing
+let pushT;
+function queuePush(){ const t = trip; if (!t?.share?.own || !settings.ghToken || fullSig(t) === t.share.sent) return; clearTimeout(pushT); pushT = setTimeout(() => syncShare(t, true), 3000); }
+const syncing = new Set();
+let pendingSync = null;
+// Bring a shared trip and its link together: take their update, send yours, or ask when both changed
+async function syncShare(t, quiet = false){
+  const s = t.share; if (!s || syncing.has(t.id)) return; syncing.add(t.id);
+  try{
+    const r = await readGist(s.id); s.at = Date.now();
+    const mine = s.own ? fullSig(t) !== s.sent : planSig(t) !== s.sig;
+    if (r.ver !== s.ver){
+      if (!mine) return await takeRemote(t, r);
+      pendingSync = { t, r };
+      const ch = tripChanges(t, r.trip);
+      return openSheet(s.own ? `<h2>${esc(t.name)} changed on another device</h2>
+          <p class="muted">The link has a newer version, and this device has changes it hasn’t sent. The other version, compared with this one:</p>
+          <ul style="margin:6px 0 0;padding-left:20px">${(ch.length ? ch : ['Forecast or tracks']).map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+          <div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="btn primary" id="syncTake">Use the other version</button><button class="btn" id="syncKeep">Keep this one</button></div>`
+        : `<h2>@${esc(r.owner)} updated ${esc(t.name)}</h2>
+          <p class="muted">You changed your copy too. Their version, compared with yours:</p>
+          <ul style="margin:6px 0 0;padding-left:20px">${(ch.length ? ch : ['Forecast or tracks']).map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+          <div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="btn primary" id="syncTake">Take their update</button><button class="btn" id="syncKeep">Keep mine</button></div>
+          <p class="muted" style="margin-top:8px">Taking it replaces your changes; your recorded tracks stay.</p>`);
+    }
+    if (s.own && mine) await pushShare(t);
+    else await keep(t);
+  }catch(e){
+    if (e.status === 404){ const own = s.own; delete t.share; await keep(t); toast(own ? `The link for ${t.name} was deleted on GitHub.` : `${t.name} is no longer shared by @${s.owner}. Your copy stays.`, 5000); }
+    else if (!quiet) toast('Could not reach GitHub: ' + e.message, 4500);
+  }finally{ syncing.delete(t.id); }
+}
+async function keep(t){ if (t === trip){ await saveNow(); render(); } else await idb.put('trips', t); }
+async function pushShare(t){
+  if (!settings.ghToken) return;
+  const s = t.share, body = shareBody(t), full = fullSig(t), plan = planSig(t);
+  const g = await gh('/gists/' + s.id, { method: 'PATCH', body: { description: `Outback trip: ${t.name}`, files: { [GIST_FILE]: { content: body } } } });
+  Object.assign(s, { ver: gistVer(g), sent: full, sig: plan, at: Date.now() }); await keep(t);
+}
+// Their version replaces this copy; recorded tracks from both stay, and the newer forecast wins
+async function takeRemote(t, r){
+  const s = t.share, inc = r.trip, ids = new Set(t.tracks.map(k => k.id));
+  const n = { ...inc, id: t.id, tracks: [...t.tracks, ...inc.tracks.filter(k => !ids.has(k.id))], updated: Date.now(),
+    share: { ...s, ver: r.ver, sig: planSig(inc), sent: fullSig({ ...inc, tracks: [...t.tracks, ...inc.tracks.filter(k => !ids.has(k.id))] }), at: Date.now() } };
+  const geo = x => JSON.stringify(x.route.map(p => [p[0], p[1]]));
+  if ((t.fetchedAt || 0) > (inc.fetchedAt || 0) && t.date === inc.date && geo(t) === geo(inc)){ n.data = t.data; n.fetchedAt = t.fetchedAt; }
+  const ch = tripChanges(t, n), fc = n.fetchedAt !== t.fetchedAt;
+  await idb.put('trips', n);
+  if (trip?.id !== n.id) return;
+  const v = state.view; await openTrip(n); if (state.view !== v) showView(v, false);
+  const who = s.own ? 'another device' : '@' + r.owner;
+  if (ch.length) openSheet(`<h2>${esc(n.name)} updated</h2><p class="muted">Changes from ${esc(who)}:</p>
+    <ul style="margin:6px 0 0;padding-left:20px">${[...ch, ...(fc ? ['Forecast'] : [])].map(c => `<li>${esc(c)}</li>`).join('')}</ul>
+    <div class="row" style="margin-top:12px"><span class="grow"></span><button class="btn primary" data-close>OK</button></div>`);
+  else if (fc) toast(`Forecast updated from ${who}.`, 4000);
+}
+async function resolveSync(take){
+  const { t, r } = pendingSync; pendingSync = null; sheet.close();
+  try{
+    if (take) return await takeRemote(t, r);
+    t.share.ver = r.ver;
+    if (t.share.own) await pushShare(t);
+    else { t.share.sig = planSig(r.trip); await keep(t); toast('Kept your version. You’ll still get later updates.', 4000); }
+  }catch(e){ toast('Could not reach GitHub: ' + e.message, 4500); }
+}
+// #trip=<gist id>: add the trip from the link, or open the copy already here
+async function openLink(id){
+  history.replaceState(null, '', location.pathname + location.search);
+  const all = await idb.all('trips'), have = all.find(t => t.share?.id === id);
+  if (have){ await openTrip(normTrip(have)); showView(1); return syncShare(trip); }
+  toast('Opening the shared trip…', 15000);
+  try{
+    const r = await readGist(id), own = isMe(r.owner), same = all.find(t => t.id === r.trip.id && !t.share);
+    if (same){ // the same trip came earlier as a file: link it, then show what's new
+      same.share = { id, owner: r.owner, own, ver: null, sig: planSig(same), sent: fullSig(same), at: 0 };
+      await idb.put('trips', same); await openTrip(normTrip(same)); showView(1); toast(`Linked ${same.name} to @${r.owner}’s link.`); return syncShare(trip);
+    }
+    const t = { ...r.trip, id: all.some(x => x.id === r.trip.id) ? newTrip().id : r.trip.id, updated: Date.now(),
+      share: { id, owner: r.owner, own, ver: r.ver, sig: planSig(r.trip), sent: fullSig(r.trip), at: Date.now() } };
+    await idb.put('trips', t); await openTrip(t); showView(1);
+    toast(own ? `Opened your shared trip ${t.name}. Changes here go to the link.` : `Added ${t.name} from @${r.owner}. You’ll get their updates.`, 5000);
+  }catch(e){ toast(e.status === 404 ? 'This trip link no longer works: it was deleted or never existed.' : 'Could not open the link: ' + e.message, 5000); }
+}
+const linkFromHash = () => { const m = location.hash.match(/^#trip=([0-9a-f]{8,})$/i); if (m) openLink(m[1]); };
+addEventListener('hashchange', linkFromHash);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && trip?.share && Date.now() - (trip.share.at || 0) > SHARE_EVERY) syncShare(trip, true); });
+ghSettings();
+
 /* ---------- backup ---------- */
 // One file with every trip, PDF map and setting. Restore merges: newer copies of a trip win, maps are added.
 const DAY = 864e5, NAG_DAYS = 14;
-const SKIP_SETTINGS = ['view', 'shownMaps', 'lastBackup', 'backupNag', 'firstRun', 'prog'];
+const SKIP_SETTINGS = ['view', 'shownMaps', 'lastBackup', 'backupNag', 'firstRun', 'prog', 'ghToken', 'ghUser']; // a backup file never carries the GitHub token
 const toDataUrl = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
 function fromDataUrl(u){
   const [h, d] = String(u).split(','), bin = atob(d), a = new Uint8Array(bin.length);
@@ -3507,6 +3701,7 @@ if (!settings.firstRun){ settings.firstRun = Date.now(); saveSettings(); }
   if (!t){ t = newTrip(); try{ await idb.put('trips', t); }catch{} }
   await openTrip(t);
   if (todayIso() === trip.date) setNow();
+  linkFromHash();
   showView(settings.view ?? 1, false);
   for (const id of settings.shownMaps || []){ try{ const m = await idb.get('trailMaps', id); if (m) showPdfMap(m, true); }catch{} }
 })();

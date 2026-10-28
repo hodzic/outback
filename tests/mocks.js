@@ -18,6 +18,32 @@ async function install(ctx, opts = {}){
     r.fulfill({ body: fs.readFileSync(path.join(LEAF, f)), contentType: f.endsWith('css') ? 'text/css' : 'application/javascript', headers: CORS });
   });
   await ctx.route('https://fonts.googleapis.com/**', r => r.fulfill({ body: '', contentType: 'text/css' }));
+  // GitHub gists for trip links. opts.github is shared between contexts (two phones, one GitHub):
+  // { users: { token: login }, gists: Map, down: bool }; each change gets a new version id.
+  const gh = opts.github || (opts.github = {});
+  gh.users = gh.users || { 'tok-alice': 'alice', 'tok-alice2': 'alice', 'tok-bob': 'bob' }; gh.gists = gh.gists || new Map(); gh.n = gh.n || 0; gh.calls = gh.calls || [];
+  await ctx.route('https://api.github.com/**', r => {
+    const q = r.request(), u = new URL(q.url()), m = q.method(), tok = (q.headers().authorization || '').replace(/^Bearer /, '');
+    gh.calls.push(`${m} ${u.pathname}${tok ? ' ' + tok : ''}`);
+    const out = (status, b) => r.fulfill({ status, body: b === undefined ? '' : JSON.stringify(b), contentType: 'application/json', headers: CORS });
+    if (gh.down) return r.abort();
+    const login = tok ? gh.users[tok] : null;
+    if (tok && !login) return out(401, { message: 'Bad credentials' });
+    const view = (id, g) => ({ id, owner: { login: g.owner }, updated_at: g.at, history: [{ version: g.ver }], files: { [g.name]: { content: g.content, truncated: false, raw_url: 'https://gist.githubusercontent.com/x' } } });
+    const save = (g, files) => { for (const [name, f] of Object.entries(files)){ g.name = name; g.content = f.content; } g.ver = 'v' + (++gh.n); g.at = new Date().toISOString(); };
+    if (u.pathname === '/user') return login ? out(200, { login }) : out(401, { message: 'Requires authentication' });
+    if (u.pathname === '/gists' && m === 'POST'){
+      if (!login) return out(401, { message: 'Requires authentication' });
+      const id = 'abc' + (100000 + gh.gists.size), g = { owner: login }; save(g, JSON.parse(q.postData()).files); gh.gists.set(id, g); return out(201, view(id, g));
+    }
+    const id = u.pathname.split('/')[2], g = gh.gists.get(id);
+    if (!g) return out(404, { message: 'Not Found' });
+    if (m === 'GET') return out(200, view(id, g));
+    if (login !== g.owner) return out(404, { message: 'Not Found' });
+    if (m === 'PATCH'){ save(g, JSON.parse(q.postData()).files); return out(200, view(id, g)); }
+    if (m === 'DELETE'){ gh.gists.delete(id); return out(204); }
+    return out(405, {});
+  });
   for (const h of TILE_HOSTS)
     await ctx.route(`https://${h}/**`, r => opts.tilesFail && h === 'gis.charttools.noaa.gov' ? r.fulfill({ status: 500 }) : r.fulfill({ body: PNG, contentType: 'image/png', headers: CORS }));
 
