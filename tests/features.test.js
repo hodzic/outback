@@ -61,10 +61,10 @@ module.exports = async (browser, url, check) => {
       await view(page, 1); await page.click('#fcBtn'); await waitForecast(page);
       const r = { v: await page.text('#waterV'), s: await page.text('#waterS'), warn: await page.evaluate(() => $('#waterV').classList.contains('warn')), shown: await page.isVisible('#waterV'), page, ctx, errors };
       return r; };
-    let w = await water({});
-    c('water: measured at the NOAA station on the trip day, cold warning', /^5[6-8]° – 5[6-8]°F$/.test(w.v) && /Measured at San Francisco \(NOAA\) · cold: dress for immersion/.test(w.s) && w.warn, `${w.v} | ${w.s}`);
+    let w = await water({}); // early in the UTC day the readings so far can round to a single value
+    c('water: measured at the NOAA station on the trip day, cold warning', /^5[6-8]°(?: – 5[6-8]°)?F$/.test(w.v) && /Measured at San Francisco \(NOAA\) · cold: dress for immersion/.test(w.s) && w.warn, `${w.v} | ${w.s}`);
     const txt = await w.page.evaluate(() => planText());
-    c('Share plan includes the water temperature', /Water: 5\d° – 5\d°F; Measured at San Francisco/.test(txt), txt.split('\n').filter(l => /Water/.test(l)).join());
+    c('Share plan includes the water temperature', /Water: 5\d°(?: – 5\d°)?F; Measured at San Francisco/.test(txt), txt.split('\n').filter(l => /Water/.test(l)).join());
     await w.page.click('#actSel [data-act=hike]');
     c('no water cell on a hike', !(await w.page.isVisible('#waterV')));
     c('no page errors (water)', w.errors.length === 0, w.errors.join(' | ')); await w.ctx.close();
