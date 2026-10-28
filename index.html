@@ -546,7 +546,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li>The first PDF import downloads the PDF reader (about 10 MB). Big PDFs can take a while.</li>
           <li>One page is used: the one with map data or GPS labels, otherwise the first page.</li>
-          <li><b>Built-in maps</b> (in the PDF list) come already placed: tap <b>Add</b> once while online. Now: Tomales Bay boat-in camping (National Park Service), Del Valle Regional Park (East Bay Regional Park District) Sacramento–San Joaquin Delta boating (California Coastal Commission, 2005: marinas, pump-outs and fuel docks may have changed), and the five SF Bay Area Water Trail maps (North Central, South Central and South Bay, North San Pablo Bay, Suisun Marsh; 2017). The Water Trail maps' tables and zoomed insets sit over parts of the map, at their own scale.</li>
+          <li><b>Map library</b> (in the PDF list): maps already placed, nearest first. Tap <b>Add</b> once while online; it's then saved on the phone. Among them: Tomales Bay boat-in camping (National Park Service), Del Valle Regional Park, Sacramento–San Joaquin Delta boating (2005: marinas, pump-outs and fuel docks may have changed), the five SF Bay Area Water Trail maps (2017; their tables and zoomed insets sit over parts of the map, at their own scale) and the Cosumnes River Preserve paddling map.</li>
           <li>Overlay PDF maps you saved in the GPS Map app can be copied in from the PDF list.</li>
           <li>Overlay PDF maps are included in <b>Back up</b>.</li>
         </ul>
@@ -660,7 +660,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-28c';
+const APP_VERSION = '2026-10-28d';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -2393,81 +2393,6 @@ async function copyGpsMaps(){
   toast(n ? `Copied ${n} overlay PDF map${n > 1 ? 's' : ''} from GPS Map.` : 'All GPS Map overlay PDF maps are already here.');
   mapsSheet();
 }
-// Built-in overlays: already placed, shipped with the app (maps/), copied into the phone's maps on Add
-const BUILTIN_MAPS = [{
-  id: 'builtin-tomales-bay', name: 'Tomales Bay boat-in camping (NPS)', src: 'maps/tomales-bay.jpg', thumb: 'maps/tomales-bay-thumb.jpg', size: 559295, by: 'National Park Service',
-  imageWidth: 1760, imageHeight: 2000,
-  topLeft: [38.2717311, -123.0365281], topRight: [38.2685383, -122.8404896], bottomLeft: [38.0984544, -123.0369001],
-  controlPoints: [{ px: 880, py: 160, lat: 38.2562726, lon: -122.9385386, name: 'Top edge' },
-    { px: 1619.2, py: 1000, lat: 38.1821554, lon: -122.8563587, name: 'Right edge' },
-    { px: 880, py: 1840, lat: 38.1107202, lon: -122.9388511, name: 'Bottom edge' },
-    { px: 140.8, py: 1000, lat: 38.1848373, lon: -123.021031, name: 'Left edge' }]
-}, {
-  id: 'builtin-del-valle', name: 'Del Valle Regional Park', src: 'maps/del-valle.jpg', thumb: 'maps/del-valle-thumb.jpg', size: 496626, by: 'East Bay Regional Park District',
-  imageWidth: 1189, imageHeight: 2000,
-  topLeft: [37.619052, -121.7704201], topRight: [37.6496622, -121.7164172], bottomLeft: [37.5468142, -121.7056485],
-  controlPoints: [{ px: 594.5, py: 160, lat: 37.6285781, lon: -121.7382369, name: 'Top edge' },
-    { px: 1093.88, py: 1000, lat: 37.6110944, lon: -121.6883516, name: 'Right edge' },
-    { px: 594.5, py: 1840, lat: 37.5678983, lon: -121.6838287, name: 'Bottom edge' },
-    { px: 95.12, py: 1000, lat: 37.5853819, lon: -121.7337141, name: 'Left edge' }]
-}, {
-  id: 'builtin-delta', name: 'Sacramento–San Joaquin Delta boating', src: 'maps/delta.jpg', thumb: 'maps/delta-thumb.jpg', size: 271306, by: 'California Coastal Commission, 2005',
-  imageWidth: 1122.83, imageHeight: 1283.03,
-  topLeft: [38.3152387, -121.859331], topRight: [38.3172529, -121.2631108], bottomLeft: [37.782965, -121.8424777],
-  controlPoints: [{ px: 561.42, py: 102.64, lat: 38.2736639, lon: -121.55987, name: 'Top edge' },
-    { px: 1033.01, py: 641.52, lat: 38.0509539, lon: -121.3023784, name: 'Right edge' },
-    { px: 561.42, py: 1180.39, lat: 37.826552, lon: -121.5457132, name: 'Bottom edge' },
-    { px: 89.83, py: 641.52, lat: 38.049262, lon: -121.8032048, name: 'Left edge' }]
-}, {
-  id: 'builtin-wt-north-central', name: 'SF Bay Water Trail: North Central Bay', src: 'maps/wt-north-central.jpg', thumb: 'maps/wt-north-central-thumb.jpg', size: 569854, by: 'SF Bay Area Water Trail, 2017',
-  imageWidth: 1664, imageHeight: 1486,
-  topLeft: [38.1603958, -122.572725], topRight: [38.1595509, -122.1107515], bottomLeft: [37.8335421, -122.5739957],
-  controlPoints: [{ px: 832, py: 118.9, lat: 38.1338251, lon: -122.3418399, name: 'Top edge' },
-    { px: 1530.9, py: 743, lat: 37.9961917, lon: -122.1483448, name: 'Right edge' },
-    { px: 832, py: 1367.1, lat: 37.859268, lon: -122.3429073, name: 'Bottom edge' },
-    { px: 133.1, py: 743, lat: 37.9969014, lon: -122.5364025, name: 'Left edge' }]
-}, {
-  id: 'builtin-wt-south-central', name: 'SF Bay Water Trail: South Central Bay', src: 'maps/wt-south-central.jpg', thumb: 'maps/wt-south-central-thumb.jpg', size: 495833, by: 'SF Bay Area Water Trail, 2017',
-  imageWidth: 1670, imageHeight: 1420,
-  topLeft: [37.9209989, -122.5656523], topRight: [37.9197804, -122.1098837], bottomLeft: [37.6162095, -122.5782487],
-  controlPoints: [{ px: 835, py: 113.6, lat: 37.8960065, lon: -122.3387757, name: 'Top edge' },
-    { px: 1536.4, py: 710, lat: 37.7674832, lon: -122.1526434, name: 'Right edge' },
-    { px: 835, py: 1306.4, lat: 37.6399834, lon: -122.3493567, name: 'Bottom edge' },
-    { px: 133.6, py: 710, lat: 37.7685067, lon: -122.535489, name: 'Left edge' }]
-}, {
-  id: 'builtin-wt-south', name: 'SF Bay Water Trail: South Bay', src: 'maps/wt-south.jpg', thumb: 'maps/wt-south-thumb.jpg', size: 519014, by: 'SF Bay Area Water Trail, 2017',
-  imageWidth: 1670, imageHeight: 1420,
-  topLeft: [37.7147491, -122.4211348], topRight: [37.7117974, -121.9605287], bottomLeft: [37.4026412, -122.426566],
-  controlPoints: [{ px: 835, py: 113.6, lat: 37.6883046, lon: -122.1912662, name: 'Top edge' },
-    { px: 1536.4, py: 710, lat: 37.5559796, lon: -122.0000928, name: 'Right edge' },
-    { px: 835, py: 1306.4, lat: 37.426134, lon: -122.1958285, name: 'Bottom edge' },
-    { px: 133.6, py: 710, lat: 37.558459, lon: -122.3870019, name: 'Left edge' }]
-}, {
-  id: 'builtin-wt-north-san-pablo', name: 'SF Bay Water Trail: North San Pablo Bay (Petaluma, Napa)', src: 'maps/wt-north-san-pablo.jpg', thumb: 'maps/wt-north-san-pablo-thumb.jpg', size: 530288, by: 'SF Bay Area Water Trail, 2017',
-  imageWidth: 1670, imageHeight: 1420,
-  topLeft: [38.3364915, -122.6478734], topRight: [38.3344846, -122.1814509], bottomLeft: [38.023195, -122.6501511],
-  controlPoints: [{ px: 835, py: 113.6, lat: 38.3104244, lon: -122.4148444, name: 'Top edge' },
-    { px: 1536.4, py: 710, lat: 38.1779969, lon: -122.2199035, name: 'Right edge' },
-    { px: 835, py: 1306.4, lat: 38.0472553, lon: -122.4167576, name: 'Bottom edge' },
-    { px: 133.6, py: 710, lat: 38.1796827, lon: -122.6116985, name: 'Left edge' }]
-}, {
-  id: 'builtin-wt-suisun', name: 'SF Bay Water Trail: Suisun Marsh', src: 'maps/wt-suisun.jpg', thumb: 'maps/wt-suisun-thumb.jpg', size: 468694, by: 'SF Bay Area Water Trail, 2017',
-  imageWidth: 1670, imageHeight: 1420,
-  topLeft: [38.2486878, -122.2530217], topRight: [38.2452238, -121.7945123], bottomLeft: [37.939542, -122.2567362],
-  controlPoints: [{ px: 835, py: 113.6, lat: 38.2222242, lon: -122.0240642, name: 'Top edge' },
-    { px: 1536.4, py: 710, lat: 38.0909281, lon: -121.8330503, name: 'Right edge' },
-    { px: 835, py: 1306.4, lat: 37.9625417, lon: -122.0271844, name: 'Bottom edge' },
-    { px: 133.6, py: 710, lat: 38.0938378, lon: -122.2181982, name: 'Left edge' }]
-}];
-async function addBuiltin(id){
-  const b = BUILTIN_MAPS.find(x => x.id === id);
-  toast(`Getting ${b.name}…`, 30000);
-  try{
-    const r = await fetch(b.src); if (!r.ok) throw new Error(r.status);
-    const { src, thumb, size, by, ...meta } = b, m = { ...meta, imageBlob: await r.blob(), method: `built-in, ${by}`, detectedLabels: [], createdAt: Date.now() };
-    await idb.put('trailMaps', m); sheet.close(); showPdfMap(m, true, true); toast(`${b.name} added. It's saved on this phone.`);
-  }catch{ toast('Could not get the map. Check the connection and try again.', 4000); }
-}
 async function mapsSheet(){
   const [maps, gm] = await Promise.all([idb.all('trailMaps'), gpsMapDb()]);
   gm?.close(); maps.sort((a, b) => b.createdAt - a.createdAt);
@@ -2478,8 +2403,6 @@ async function mapsSheet(){
       <button class="btn${on ? ' primary' : ''}" data-pdfmap="${esc(m.id)}">${on ? 'Hide' : 'Use'}</button><button class="btn" data-adjust="${esc(m.id)}">Adjust</button><button class="btn" data-rmpdf="${esc(m.id)}" aria-label="Delete ${esc(m.name)}">✕</button></div>`; }).join('') || '<p class="muted">None yet.</p>'}</div>
     <button class="btn primary add" id="addPdf">Add an overlay PDF map…</button>
     <button class="btn add" id="libBtn">Map library: placed maps to download</button>
-    ${(() => { const have = new Set(maps.map(m => m.id)), todo = BUILTIN_MAPS.filter(b => !have.has(b.id));
-      return todo.length ? `<h3>Built-in maps</h3><p class="muted">Already placed; one tap to add.</p>${todo.map(b => `<div class="item"><img src="${b.thumb}" alt=""><div class="grow"><b>${esc(b.name)}</b><small>${fmtSize(b.size)} · ${esc(b.by)}</small></div><button class="btn" data-builtin="${b.id}">Add</button></div>`).join('')}` : ''; })()}
     ${gm ? '<button class="btn add" id="copyGps">Copy overlay PDF maps from GPS Map</button>' : ''}
     <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn" data-close>Close</button></div>`);
   sheet.addEventListener('close', () => urls.forEach(u => URL.revokeObjectURL(u)), { once: true });
@@ -2497,7 +2420,7 @@ async function libSheet(){
   catch{ if ($('#libList')) $('#libList').innerHTML = '<p class="muted">Can’t reach the map library. Check the connection and try again.</p>'; return; }
   const have = new Set((await idb.all('trailMaps')).map(m => m.id)), c = map.getCenter();
   const mid = m => L.latLng((m.topRight[0] + m.bottomLeft[0]) / 2, (m.topRight[1] + m.bottomLeft[1]) / 2);
-  const rows = libCat.maps.map(m => ({ m, nm: c.distanceTo(mid(m)) / 1852, added: have.has('lib-' + m.id) || have.has('builtin-' + m.id) })).sort((a, b) => a.nm - b.nm);
+  const rows = libCat.maps.map(m => ({ m, nm: c.distanceTo(mid(m)) / 1852, added: have.has('lib-' + m.id) || have.has('builtin-' + m.id) /* added when it shipped with the app */ })).sort((a, b) => a.nm - b.nm);
   if (!$('#libList')) return;
   $('#libList').innerHTML = rows.map(({ m, nm, added }) => `<div class="item"><img src="${esc(LIB + m.thumb)}" alt=""><div class="grow"><b>${esc(m.name)}</b>
     <small>${nm < 2 ? 'Here' : fmtD(nm, 0) + ' away'} · ${fmtSize(m.size)} · ${esc(m.source || '')}${m.license ? ' · ' + esc(m.license) : ''}</small></div>
@@ -2505,7 +2428,6 @@ async function libSheet(){
 }
 async function libAdd(id){
   const e = libCat?.maps.find(m => m.id === id); if (!e) return;
-  if (BUILTIN_MAPS.some(b => b.id === 'builtin-' + id)) return addBuiltin('builtin-' + id); // same map ships with the app
   toast(`Getting ${e.name}…`, 30000);
   try{
     const r = await fetch(LIB + e.image); if (!r.ok) throw new Error(r.status);
@@ -3373,7 +3295,6 @@ sheet.addEventListener('click', async e => {
   if (ds.pick && pendingSync?.m){ pendingSync.pick[ds.pick] = ds.v; b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); return; }
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
   if (ds.pdfmap){ const m = await idb.get('trailMaps', ds.pdfmap), on = !shownMaps.has(ds.pdfmap); showPdfMap(m, on, on); if (on) sheet.close(); else mapsSheet(); return; }
-  if (ds.builtin) return addBuiltin(ds.builtin);
   if (ds.geopdf){ const m = await idb.get('trailMaps', ds.geopdf); if (!m) return;
     return shareFile(`${mapName(m.name).replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Map'} GeoPDF.pdf`, await geoPdf(m), 'application/pdf'); }
   if (ds.adjust) return startNudge(await idb.get('trailMaps', ds.adjust), false);

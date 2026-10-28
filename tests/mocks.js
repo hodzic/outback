@@ -18,8 +18,8 @@ async function install(ctx, opts = {}){
     r.fulfill({ body: fs.readFileSync(path.join(LEAF, f)), contentType: f.endsWith('css') ? 'text/css' : 'application/javascript', headers: CORS });
   });
   await ctx.route('https://fonts.googleapis.com/**', r => r.fulfill({ body: '', contentType: 'text/css' }));
-  // Map library (hodzic.github.io/outback-maps): a built-in map and one only in the library. opts.libDown: unreachable
-  const REPO = path.join(__dirname, '..'), libHits = ctx.libHits = [];
+  // Map library (hodzic.github.io/outback-maps): two maps, images from tests/fixtures. opts.libDown: unreachable
+  const FIX = path.join(__dirname, 'fixtures'), libHits = ctx.libHits = [];
   await ctx.route('https://hodzic.github.io/outback-maps/**', r => {
     const p = new URL(r.request().url()).pathname.replace('/outback-maps/', ''); libHits.push(p);
     if (opts.libDown) return r.abort();
@@ -27,9 +27,9 @@ async function install(ctx, opts = {}){
     if (p === 'catalog.json') return r.fulfill({ contentType: 'application/json', headers: CORS, body: JSON.stringify({ app: 'Outback', kind: 'map-library', version: 1, maps: [
       { id: 'tomales-bay', name: 'Tomales Bay boat-in camping (NPS)', image: 'maps/tomales-bay.jpg', thumb: 'thumbs/tomales-bay.jpg', size: 559295, width: 1760, height: 2000,
         topLeft: [38.2717311, -123.0365281], topRight: [38.2685383, -122.8404896], bottomLeft: [38.0984544, -123.0369001], source: 'National Park Service', license: 'Public domain (US federal work)' },
-      { id: 'test-lake', name: 'Test Lake trails', image: 'maps/test-lake.jpg', thumb: 'thumbs/test-lake.jpg', size: fs.statSync(path.join(REPO, 'maps/del-valle.jpg')).size, width: 1189, height: 2000, ...corners, source: 'Test Parks' }] }) });
-    const f = { 'maps/test-lake.jpg': 'maps/del-valle.jpg', 'thumbs/test-lake.jpg': 'maps/del-valle-thumb.jpg', 'thumbs/tomales-bay.jpg': 'maps/tomales-bay-thumb.jpg', 'maps/tomales-bay.jpg': 'maps/tomales-bay.jpg' }[p];
-    return f ? r.fulfill({ body: fs.readFileSync(path.join(REPO, f)), contentType: 'image/jpeg', headers: CORS }) : r.fulfill({ status: 404, headers: CORS });
+      { id: 'test-lake', name: 'Test Lake trails', image: 'maps/test-lake.jpg', thumb: 'thumbs/test-lake.jpg', size: fs.statSync(path.join(FIX, 'tomales-bay.jpg')).size, width: 1760, height: 2000, ...corners, source: 'Test Parks' }] }) });
+    const f = { 'maps/test-lake.jpg': 'tomales-bay.jpg', 'thumbs/test-lake.jpg': 'tomales-bay-thumb.jpg', 'thumbs/tomales-bay.jpg': 'tomales-bay-thumb.jpg', 'maps/tomales-bay.jpg': 'tomales-bay.jpg' }[p];
+    return f ? r.fulfill({ body: fs.readFileSync(path.join(FIX, f)), contentType: 'image/jpeg', headers: CORS }) : r.fulfill({ status: 404, headers: CORS });
   });
   // GitHub gists for trip links. opts.github is shared between contexts (two phones, one GitHub):
   // { users: { token: login }, gists: Map, down: bool }; each change gets a new version id.

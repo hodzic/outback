@@ -19,18 +19,18 @@ module.exports = async (browser, url, check) => {
   await page.click('[data-libadd="test-lake"]');
   await page.waitForFunction(() => shownMaps.has('lib-test-lake'), null, { timeout: 15000 });
   const m = await page.evaluate(async () => { const m = await idb.get('trailMaps', 'lib-test-lake'); return { ...m, size: m.imageBlob.size, imageBlob: null }; });
-  c('Add saves it on the phone, placed', m.name === 'Test Lake trails' && m.topLeft[0] === 37.66 && m.imageWidth === 1189 && m.size > 100000 && /map library, Test Parks/.test(m.method), JSON.stringify({ ...m, controlPoints: null }));
+  c('Add saves it on the phone, placed', m.name === 'Test Lake trails' && m.topLeft[0] === 37.66 && m.imageWidth === 1760 && m.size > 100000 && /map library, Test Parks/.test(m.method), JSON.stringify({ ...m, controlPoints: null }));
   c('and shows it on the map', await page.locator('img.leaflet-image-layer').count() === 1);
   await page.click('#mapsBtn'); await page.waitForSelector('#libBtn'); await page.click('#libBtn'); await page.waitForSelector('#libList .item');
   c('an added map shows as Added', !(await page.locator('[data-libadd="test-lake"]').count()) && /Added/.test(await page.locator('#libList .item').first().innerText()));
-  // a library map that also ships with the app: added from the app's own copy
-  const hits = ctx.libHits.length;
-  await page.click('[data-libadd="tomales-bay"]');
-  await page.waitForFunction(() => shownMaps.has('builtin-tomales-bay'), null, { timeout: 15000 });
-  c('a map that ships with the app is added from the app, as the built-in', !ctx.libHits.slice(hits).includes('maps/tomales-bay.jpg') && await page.evaluate(async () => !(await idb.get('trailMaps', 'lib-tomales-bay'))));
+  // a map added back when it shipped with the app counts as added
+  await page.click('#sheet [data-close]');
+  await page.evaluate(async () => { const m = await idb.get('trailMaps', 'lib-test-lake'); await idb.put('trailMaps', { ...m, id: 'builtin-tomales-bay', name: 'Tomales Bay boat-in camping (NPS)' }); });
   await page.click('#mapsBtn'); await page.waitForSelector('#libBtn'); await page.click('#libBtn'); await page.waitForSelector('#libList .item');
+  c('a map added when it was built in shows as Added', !(await page.locator('[data-libadd="tomales-bay"]').count()));
+  c('the app no longer ships maps', await page.evaluate(() => typeof BUILTIN_MAPS === 'undefined') && !/Built-in maps/.test(await page.text('#sheet')));
   await page.click('#libBack'); await page.waitForSelector('#addPdf');
-  c('Back returns to the PDF maps sheet', await page.isVisible('#addPdf'));
+  c('Back returns to the PDF maps sheet, which has no built-in section', await page.isVisible('#addPdf') && !/Built-in maps/.test(await page.text('#sheet')));
   await page.click('#sheet [data-close]');
   c('no page errors', !errors.length, errors.join(' | '));
   await ctx.close();
