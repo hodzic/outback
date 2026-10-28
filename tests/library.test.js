@@ -14,6 +14,8 @@ module.exports = async (browser, url, check) => {
   c('each shows distance, size and source', /^Here · .*KB · Test Parks/.test(await page.locator('#libList .item small').first().innerText()), await page.locator('#libList .item small').first().innerText());
   c('thumbnails come from the library', await page.evaluate(() => [...document.querySelectorAll('#libList img')].every(i => i.src.startsWith(LIB + 'thumbs/'))));
   c('the catalog is fetched fresh, not from the app cache', ctx.libHits.includes('catalog.json'));
+  c('the sheet links to the library on the web', await page.getAttribute('#libWeb', 'href') === 'https://hodzic.github.io/outback-maps/' && await page.getAttribute('#libWeb', 'target') === '_blank');
+  c('About credits the library with its address', await page.evaluate(() => [...document.querySelectorAll('#vList a, details a')].some(a => a.href === 'https://hodzic.github.io/outback-maps/' && /hodzic\.github\.io\/outback-maps/.test(a.parentElement.textContent))));
   await page.click('[data-libadd="test-lake"]');
   await page.waitForFunction(() => shownMaps.has('lib-test-lake'), null, { timeout: 15000 });
   const m = await page.evaluate(async () => { const m = await idb.get('trailMaps', 'lib-test-lake'); return { ...m, size: m.imageBlob.size, imageBlob: null }; });
