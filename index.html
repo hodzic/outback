@@ -56,6 +56,7 @@ h2{font-size:17px;margin:0 0 8px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .seg button{border:0;background:var(--paper);padding:8px 14px;font-size:15px}
 .seg button.on{background:var(--ink);color:#fff}
+.mpick{display:flex;flex-direction:column;gap:6px;margin:4px 0 12px}.mpick .btn{text-align:left;justify-content:flex-start}.mpick .btn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chips button{border:1px solid var(--line);background:var(--paper);border-radius:18px;padding:6px 12px;font-size:14px}
 .chips button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
@@ -656,7 +657,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-27h';
+const APP_VERSION = '2026-10-27i';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3304,6 +3305,8 @@ sheet.addEventListener('click', async e => {
   if (b.id === 'linkCopy') return toast(await copyText(shareUrl(trip.share.id), '#linkTxt') ? 'Link copied.' : 'Could not copy; select the link and copy it.');
   if (b.id === 'linkStop') return stopSharing();
   if ((b.id === 'syncTake' || b.id === 'syncKeep') && pendingSync) return resolveSync(b.id === 'syncTake');
+  if (b.id === 'syncMerge' && pendingSync?.m) return applyMerge();
+  if (ds.pick && pendingSync?.m){ pendingSync.pick[ds.pick] = ds.v; b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); return; }
   if (b.id === 'aisSave' || b.id === 'aisDemo'){ settings.aisKey = b.id === 'aisDemo' ? 'demo' : $('#aisKey').value.trim(); if (!settings.aisKey) return; saveSettings(); $('#sAis').value = settings.aisKey; sheet.close(); return aisSet(true); }
   if (ds.pdfmap){ const m = await idb.get('trailMaps', ds.pdfmap), on = !shownMaps.has(ds.pdfmap); showPdfMap(m, on, on); if (on) sheet.close(); else mapsSheet(); return; }
   if (ds.builtin) return addBuiltin(ds.builtin);
@@ -3527,9 +3530,9 @@ async function shareLink(){
   if (trip.share && !confirm(`This trip came from @${trip.share.owner}’s link. Make your own link for it? Your copy stops getting their updates.`)) return;
   toast('Making the link…', 15000);
   try{
-    const t = trip, body = shareBody(t), full = fullSig(t), plan = planSig(t);
+    const t = trip, body = shareBody(t), full = fullSig(t), plan = planSig(t), base = baseOf(t);
     const g = await gh('/gists', { method: 'POST', body: { description: `Outback trip: ${t.name}`, public: false, files: { [GIST_FILE]: { content: body } } } });
-    t.share = { id: g.id, owner: g.owner?.login || settings.ghUser, own: true, ver: gistVer(g), sent: full, sig: plan, at: Date.now() };
+    t.share = { id: g.id, owner: g.owner?.login || settings.ghUser, own: true, ver: gistVer(g), sent: full, sig: plan, base, at: Date.now() };
     await idb.put('trips', t); if (t === trip){ render(); linkSheet(); }
     toast('Link ready. Share it with your group.');
   }catch(e){ if (e.status === 401) tokenSheet(shareLink); else toast('Could not make the link: ' + e.message, 4500); }
@@ -3565,6 +3568,7 @@ async function syncShare(t, quiet = false){
     const mine = s.own ? fullSig(t) !== s.sent : planSig(t) !== s.sig;
     if (r.ver !== s.ver){
       if (!mine) return await takeRemote(t, r);
+      if (s.base) return mergeSheet(t, r);
       pendingSync = { t, r };
       const ch = tripChanges(t, s.own || s.name == null || t.name === s.name ? r.trip : { ...r.trip, name: t.name });
       return openSheet(s.own ? `<h2>${esc(t.name)} changed on another device</h2>
@@ -3591,15 +3595,15 @@ function tokenGone(){ if (tokenNagged) return; tokenNagged = true; toast('Your G
 async function keep(t){ if (t === trip){ await saveNow(); render(); } else await idb.put('trips', t); }
 async function pushShare(t){
   if (!settings.ghToken) return;
-  const s = t.share, body = shareBody(t), full = fullSig(t), plan = planSig(t);
+  const s = t.share, body = shareBody(t), full = fullSig(t), plan = planSig(t), base = baseOf(t);
   const g = await gh('/gists/' + s.id, { method: 'PATCH', body: { description: `Outback trip: ${t.name}`, files: { [GIST_FILE]: { content: body } } } });
-  Object.assign(s, { ver: gistVer(g), sent: full, sig: plan, at: Date.now() }); await keep(t);
+  Object.assign(s, { ver: gistVer(g), sent: full, sig: plan, base, at: Date.now() }); await keep(t);
 }
 // Their version replaces this copy; recorded tracks from both stay, and the newer forecast wins
 async function takeRemote(t, r){
   const s = t.share, inc = r.trip, ids = new Set(t.tracks.map(k => k.id));
   const n = { ...inc, id: t.id, name: !s.own && s.name != null && t.name !== s.name ? t.name : inc.name, tracks: [...t.tracks, ...inc.tracks.filter(k => !ids.has(k.id))], updated: Date.now(),
-    share: { ...s, ver: r.ver, name: inc.name, sig: planSig(inc), sent: fullSig({ ...inc, tracks: [...t.tracks, ...inc.tracks.filter(k => !ids.has(k.id))] }), at: Date.now() } };
+    share: { ...s, ver: r.ver, name: inc.name, base: baseOf(inc), sig: planSig(inc), sent: fullSig({ ...inc, tracks: [...t.tracks, ...inc.tracks.filter(k => !ids.has(k.id))] }), at: Date.now() } };
   const geo = x => JSON.stringify(x.route.map(p => [p[0], p[1]]));
   if ((t.fetchedAt || 0) > (inc.fetchedAt || 0) && t.date === inc.date && geo(t) === geo(inc)){ n.data = t.data; n.fetchedAt = t.fetchedAt; }
   const ch = tripChanges(t, n), fc = n.fetchedAt !== t.fetchedAt;
@@ -3618,8 +3622,78 @@ async function resolveSync(take){
     if (take) return await takeRemote(t, r);
     t.share.ver = r.ver;
     if (t.share.own) await pushShare(t);
-    else { t.share.sig = planSig(r.trip); t.share.name = r.trip.name; await keep(t); toast('Kept your version. You’ll still get later updates.', 4000); }
+    else { t.share.sig = planSig(r.trip); t.share.name = r.trip.name; t.share.base = baseOf(r.trip); await keep(t); toast('Kept your version. You’ll still get later updates.', 4000); }
   }catch(e){ toast('Could not reach GitHub: ' + e.message, 4500); }
+}
+// Three-way merge: the link's version last seen here (base) against this copy (mine) and the link now (theirs).
+// Piece by piece: changed on one side only, that side wins; changed on both, you pick. Markers merge one by one.
+const baseOf = t => structuredClone(Object.fromEntries(Object.entries(t).filter(([k, v]) => v !== undefined && !['id', 'updated', 'share', 'prog', 'tracks', 'data', 'fetchedAt'].includes(k))));
+const MERGE_PIECES = [['name', 'Name', ['name']], ['day', 'Day', ['date']], ['start', 'Start', ['start']], ['activity', 'Activity', ['activity', 'env', 'envSet']],
+  ['route', 'Route', ['route']], ['parking', 'Parking', ['parking']], ['stations', 'Tide and current stations', ['tide', 'current']], ['anchor', '', ['anchor']]];
+const NOT_MERGED = ['id', 'updated', 'share', 'prog', 'tracks', 'data', 'fetchedAt', 'marks'];
+function pieceText(key, t){
+  const at = m => new Date(2000, 0, 1, 0, m).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (key === 'name') return t.name;
+  if (key === 'day') return fmtDay(t.date);
+  if (key === 'start') return at(t.start);
+  if (key === 'activity') return `${ACT[t.activity]?.name || t.activity}${t.env ? ' · ' + t.env : ''}`;
+  if (key === 'route') return `${t.route.length} waypoint${t.route.length === 1 ? '' : 's'}, ${fmtD(routeNm(t.route))}`;
+  if (key === 'parking') return t.parking?.name || (t.parking ? 'set' : 'none');
+  if (key === 'stations') return [t.tide?.name, t.current?.name].filter(Boolean).join(' · ') || 'none';
+  return 'changed';
+}
+const markText = (k, bk) => !k ? 'removed' : !bk ? 'added' : `${k.name || 'Marker'} at ${(+k.lat).toFixed(4)}, ${(+k.lng).toFixed(4)}`;
+function mergeTrips(b, m, th){
+  const J = x => JSON.stringify(x ?? null), plan = [];
+  const decide = (bv, mv, tv) => mv === bv ? 'theirs' : tv === bv || tv === mv ? 'mine' : 'ask';
+  const pieces = [...MERGE_PIECES], covered = new Set(pieces.flatMap(p => p[2]));
+  for (const k of new Set([...Object.keys(b), ...Object.keys(m), ...Object.keys(th)])) if (!covered.has(k) && !NOT_MERGED.includes(k)) pieces.push([k, 'Other trip settings', [k]]);
+  for (const [key, label, ks] of pieces){
+    const v = t => J(ks.map(k => t[k])), bv = v(b), mv = v(m), tv = v(th);
+    let pick = decide(bv, mv, tv); if (pick === 'ask' && !label) pick = 'mine';
+    plan.push({ key, label, ks, pick, changed: tv !== bv ? 'theirs' : mv !== bv ? 'mine' : '', mine: pieceText(key, m), theirs: pieceText(key, th) });
+  }
+  const byId = a => new Map((a || []).map(k => [k.id, k])), bm = byId(b.marks), mm = byId(m.marks), tm = byId(th.marks);
+  const ids = [...tm.keys(), ...[...mm.keys()].filter(id => !tm.has(id)), ...[...bm.keys()].filter(id => !tm.has(id) && !mm.has(id))];
+  for (const id of ids){
+    const bk = bm.get(id), mk = mm.get(id), tk = tm.get(id), name = (tk || mk || bk).name || 'Marker';
+    plan.push({ key: 'mark:' + id, label: `Marker “${name}”`, mark: true, mv: mk, tv: tk, pick: decide(J(bk), J(mk), J(tk)), changed: J(tk) !== J(bk) ? 'theirs' : J(mk) !== J(bk) ? 'mine' : '', mine: markText(mk, bk), theirs: markText(tk, bk) });
+  }
+  return plan;
+}
+function buildMerge(plan, picks, m, th){
+  const side = p => (p.pick === 'ask' ? picks[p.key] || 'theirs' : p.pick) === 'mine', out = {};
+  for (const p of plan) if (p.ks) for (const k of p.ks){ const src = side(p) ? m : th; if (src[k] !== undefined) out[k] = structuredClone(src[k]); }
+  out.marks = plan.filter(p => p.mark).map(p => structuredClone(side(p) ? p.mv : p.tv)).filter(Boolean);
+  return out;
+}
+function mergeSheet(t, r){
+  const s = t.share, plan = mergeTrips(s.base, t, r.trip);
+  pendingSync = { t, r, m: plan, pick: {} };
+  const who = s.own ? 'the other device' : '@' + r.owner, sh = p => p.label && p.pick !== 'ask';
+  const theirs = plan.filter(p => sh(p) && p.pick === 'theirs' && p.changed === 'theirs'), mine = plan.filter(p => sh(p) && p.pick === 'mine' && p.changed === 'mine'), ask = plan.filter(p => p.pick === 'ask');
+  const li = (a, f) => `<ul style="margin:4px 0 8px;padding-left:20px">${a.map(p => `<li>${esc(p.label)}: ${esc(p[f])}</li>`).join('')}</ul>`;
+  openSheet(`<h2>${s.own ? `${esc(t.name)} changed on another device` : `@${esc(r.owner)} updated ${esc(t.name)}`}</h2>
+    <p class="muted">${s.own ? 'This device has changes it hasn’t sent.' : 'You changed your copy too.'} Merge takes their changes and keeps yours${ask.length ? '; where you both changed the same thing, pick one' : ''}.</p>
+    ${theirs.length ? `<h3 class="shh">From ${esc(who)}</h3>${li(theirs, 'theirs')}` : ''}
+    ${mine.length ? `<h3 class="shh">${s.own ? 'This device’s, kept' : 'Yours, kept'}</h3>${li(mine, 'mine')}` : ''}
+    ${ask.length ? `<h3 class="shh">Both changed</h3>${ask.map(p => `<div><b>${esc(p.label)}</b><div class="mpick"><button class="btn on" data-pick="${esc(p.key)}" data-v="theirs">${s.own ? 'Other device' : 'Theirs'}: ${esc(p.theirs)}</button><button class="btn" data-pick="${esc(p.key)}" data-v="mine">${s.own ? 'This device' : 'Mine'}: ${esc(p.mine)}</button></div></div>`).join('')}` : ''}
+    <div class="row" style="margin-top:12px;flex-wrap:wrap"><button class="btn primary" id="syncMerge">Merge</button><button class="btn" id="syncTake">${s.own ? 'Use the other' : 'Take theirs'}</button><button class="btn" id="syncKeep">${s.own ? 'Keep this one' : 'Keep mine'}</button></div>
+    <p class="muted" style="margin-top:8px">Recorded tracks from both stay; the newer forecast for the day is kept.</p>`);
+}
+async function applyMerge(){
+  const { t, r, m: plan, pick } = pendingSync; pendingSync = null; sheet.close();
+  const s = t.share, inc = r.trip, ids = new Set(t.tracks.map(k => k.id)), tracks = [...t.tracks, ...inc.tracks.filter(k => !ids.has(k.id))];
+  const n = normTrip({ ...buildMerge(plan, pick, t, inc), id: t.id, tracks, updated: Date.now(),
+    share: { ...s, ver: r.ver, name: inc.name, base: baseOf(inc), sig: planSig(inc), sent: fullSig({ ...inc, tracks }), at: Date.now() } });
+  const fc = [t, inc].filter(x => x.data && x.date === n.date).sort((a, b) => (b.fetchedAt || 0) - (a.fetchedAt || 0))[0];
+  n.data = fc?.data ?? null; n.fetchedAt = fc?.fetchedAt ?? null;
+  try{
+    await idb.put('trips', n);
+    if (trip?.id === n.id){ const v = state.view; await openTrip(n); if (state.view !== v) showView(v, false); }
+    if (s.own) await pushShare(n);
+    toast(s.own ? 'Merged, and sent to the link.' : 'Merged. You’ll still get later updates.', 4000);
+  }catch(e){ toast('Merged here; could not reach GitHub: ' + e.message, 4500); }
 }
 // #trip=<gist id>: add the trip from the link, or open the copy already here
 async function openLink(id){
@@ -3634,7 +3708,7 @@ async function openLink(id){
       await idb.put('trips', same); await openTrip(normTrip(same)); showView(1); toast(`Linked ${same.name} to @${r.owner}’s link.`); return syncShare(trip);
     }
     const t = { ...r.trip, id: all.some(x => x.id === r.trip.id) ? newTrip().id : r.trip.id, updated: Date.now(),
-      share: { id, owner: r.owner, own, ver: r.ver, name: r.trip.name, sig: planSig(r.trip), sent: fullSig(r.trip), at: Date.now() } };
+      share: { id, owner: r.owner, own, ver: r.ver, name: r.trip.name, base: baseOf(r.trip), sig: planSig(r.trip), sent: fullSig(r.trip), at: Date.now() } };
     await idb.put('trips', t); await openTrip(t); showView(1);
     toast(own ? `Opened your shared trip ${t.name}. Changes here go to the link.` : `Added ${t.name} from @${r.owner}. You’ll get their updates.`, 5000);
   }catch(e){ toast(e.status === 404 ? 'This trip link no longer works: it was deleted or never existed.' : 'Could not open the link: ' + e.message, 5000); }

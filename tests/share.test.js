@@ -61,7 +61,7 @@ module.exports = async (browser, url, check) => {
   await ev(b, () => { trip.start = 660; changed(); });
   await ev(a, () => { trip.route.push([37.84, -122.44]); changed(); return syncShare(trip); });
   await ev(b, () => syncShare(trip)); await b.waitForSelector('#syncKeep');
-  c('both changed: he is asked, with her changes listed', /@alice updated/.test(await b.text('#sheet h2')) && /Route: 4 → 5 waypoints/.test(await b.text('#sheet')) && !/Name/.test(await b.text('#sheet')), await b.text('#sheet'));
+  c('both changed: he is asked, with her changes and his listed', /@alice updated/.test(await b.text('#sheet h2')) && /From @alice\s*Route: 5 waypoints/.test(await b.text('#sheet')) && /Yours, kept[\s\S]*Start: 11:00/.test(await b.text('#sheet')) && await b.isVisible('#syncMerge'), await b.text('#sheet'));
   await b.click('#syncKeep'); await b.waitForTimeout(300);
   c('Keep mine keeps his copy', await ev(b, () => trip.start === 660 && trip.route.length === 4));
   await ev(b, () => syncShare(trip)); await b.waitForTimeout(300);
@@ -72,6 +72,30 @@ module.exports = async (browser, url, check) => {
   await b.click('#syncTake'); await b.waitForTimeout(400);
   c('Take their update replaces his changes, not his name', await ev(b, () => trip.name === 'Angel Island (Bob)' && trip.route.length === 5 && trip.start === 630));
   c('and keeps the track he recorded', await ev(b, () => trip.tracks.some(k => k.id === 'bobtrack')));
+
+  // Merge: her changes come in, his stay; markers merge one by one; where both changed one thing he picks
+  const mk = (page, id, name, lat) => ev(page, ([id, name, lat]) => { trip.marks.push({ id, name, lat, lng: -122.43 }); changed(); }, [id, name, lat]);
+  await mk(a, 'm-a1', 'Beach', 37.86); await ev(a, () => syncShare(trip)); await ev(b, () => syncShare(trip)); await b.waitForTimeout(300); await ev(b, () => sheet.open && sheet.close());
+  await ev(b, () => { trip.start = 690; changed(); }); await mk(b, 'm-b1', 'Lunch', 37.87);
+  await ev(a, () => { trip.route.push([37.85, -122.45]); trip.marks = trip.marks.filter(k => k.id !== 'm-a1'); changed(); }); await mk(a, 'm-a2', 'Camp', 37.88); await ev(a, () => syncShare(trip));
+  await ev(b, () => syncShare(trip)); await b.waitForSelector('#syncMerge');
+  c('merge lists her route and markers, and his start and marker', await b.text('#sheet').then(t => /From @alice[\s\S]*Route: 6 waypoints[\s\S]*Yours/.test(t) && /Marker “Beach”: removed[\s\S]*Yours/.test(t) && /Marker “Camp”[\s\S]*Yours/.test(t) && /Yours, kept[\s\S]*Start: 11:30[\s\S]*Marker “Lunch”/.test(t) && !/Both changed/.test(t)), JSON.stringify(await b.text('#sheet')));
+  await b.click('#syncMerge'); await b.waitForTimeout(400);
+  c('Merge: her route and marker changes in, his start and marker kept', await ev(b, () => trip.route.length === 6 && trip.start === 690 && trip.marks.map(k => k.id).sort().join() === 'm-a2,m-b1' && trip.name === 'Angel Island (Bob)'), JSON.stringify(await ev(b, () => [trip.route.length, trip.start, trip.marks.map(k => k.id)])));
+  c('his merged copy never goes to the link', JSON.parse(github.gists.get(id).content).trip.start === 630);
+  // both change the start: he picks
+  await ev(b, () => { trip.start = 700; changed(); });
+  await ev(a, () => { trip.start = 640; trip.date = '2030-06-01'; changed(); return syncShare(trip); });
+  await ev(b, () => syncShare(trip)); await b.waitForSelector('[data-pick="start"]');
+  c('both changed the start: he is shown both', await b.text('#sheet').then(t => /Both changed[\s\S]*Start[\s\S]*Theirs: 10:40[\s\S]*Mine: 11:40/.test(t) && /From @alice[\s\S]*Day/.test(t)), await b.text('#sheet'));
+  await b.click('[data-pick="start"][data-v="mine"]'); await b.click('#syncMerge'); await b.waitForTimeout(400);
+  c('his pick wins, and her other change still comes in', await ev(b, () => trip.start === 700 && trip.date === '2030-06-01'));
+  // a later update merges against what he merged last
+  await ev(a, () => { trip.marks.push({ id: 'm-a3', name: 'Rocks', lat: 37.89, lng: -122.43 }); changed(); return syncShare(trip); });
+  await ev(b, () => syncShare(trip)); await b.waitForSelector('#syncMerge');
+  c('the next update asks again, listing only what is new', await b.text('#sheet').then(t => /From @alice[\s\S]*Marker “Rocks”/.test(t) && !/Day/.test(t.split('Yours, kept')[0])), await b.text('#sheet'));
+  await b.click('#syncMerge'); await b.waitForTimeout(400);
+  c('and merges it', await ev(b, () => trip.marks.some(k => k.id === 'm-a3') && trip.start === 700));
 
   // Alice's second phone: her token makes it her own copy, and its changes go to the link
   const A2 = await phone(), a2 = A2.page;
@@ -90,6 +114,20 @@ module.exports = async (browser, url, check) => {
   c('changed on both phones: asked which to keep', /changed on another device/.test(await a.text('#sheet h2')));
   await a.click('#syncKeep'); await a.waitForTimeout(400);
   c('Keep this one sends it to the link', JSON.parse(github.gists.get(id).content).trip.start === 720 && await ev(a, () => trip.start === 720));
+  // her phones merge too, and the merge goes to the link
+  await ev(a2, () => syncShare(trip)); await a2.waitForTimeout(300); await ev(a2, () => sheet.open && sheet.close());
+  await ev(a2, () => { trip.route.push([37.86, -122.46]); changed(); return syncShare(trip); });
+  await ev(a, () => { trip.start = 735; trip.updated = Date.now(); clearTimeout(pushT); });
+  await ev(a, () => syncShare(trip)); await a.waitForSelector('#syncMerge');
+  await a.click('#syncMerge'); await a.waitForTimeout(500);
+  c('merging on her phone sends both changes to the link', (() => { const t = JSON.parse(github.gists.get(id).content).trip; return t.start === 735 && t.route.length === 7; })(), github.gists.get(id).content.slice(0, 80));
+  // a copy from before merging existed (no base): the two-way choice
+  await ev(a, () => { delete trip.share.base; trip.start = 740; trip.updated = Date.now(); clearTimeout(pushT); });
+  await ev(a2, () => syncShare(trip)); await a2.waitForTimeout(300); await ev(a2, () => sheet.open && sheet.close());
+  await ev(a2, () => { trip.start = 745; changed(); return syncShare(trip); });
+  await ev(a, () => syncShare(trip)); await a.waitForSelector('#syncKeep');
+  c('a copy without a merge base gets the two-way choice', !(await a.isVisible('#syncMerge')));
+  await a.click('#syncKeep'); await a.waitForTimeout(400);
 
   // the link opened again on a phone that has it: no second copy
   await b.goto(link); await b.waitForFunction(id => trip.share?.id === id, id); await b.waitForTimeout(500);
@@ -117,7 +155,7 @@ module.exports = async (browser, url, check) => {
   // Duplicate: a copy of his own, without the link
   await ev(b, () => { if (sheet.open) sheet.close(); showView(1, false); }); await b.waitForTimeout(300);
   await b.click('#dupTrip'); await b.waitForTimeout(400);
-  c('Duplicate makes an unlinked copy', await ev(b, () => trip.name === 'Angel Island (Bob) (copy)' && !trip.share && trip.route.length === 5) && !(await b.isVisible('#shareInfo')));
+  c('Duplicate makes an unlinked copy', await ev(b, () => trip.name === 'Angel Island (Bob) (copy)' && !trip.share && trip.route.length > 3) && !(await b.isVisible('#shareInfo')));
   c('and the original stays linked', await ev(b, async () => (await idb.all('trips')).filter(t => t.share?.id).length === 1));
   await ev(b, async () => openTrip((await idb.all('trips')).find(t => t.share)));
   // Stop updates: his copy, no more updates; opening the link again links it back
