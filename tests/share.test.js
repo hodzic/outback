@@ -1,6 +1,6 @@
 // Trip links: a trip shared through a secret GitHub gist. Alice plans and shares; Bob opens the link
 // and gets her updates; Alice's second phone edits the same trip. GitHub is faked in mocks.js.
-const { open, seedRoute, ready, view } = require('./harness');
+const { open, seedRoute, ready, view, waitForecast } = require('./harness');
 const GG = [[37.80, -122.45], [37.81, -122.42], [37.82, -122.40]];
 
 module.exports = async (browser, url, check) => {
@@ -184,4 +184,30 @@ module.exports = async (browser, url, check) => {
   c('the Outback file leaves the link out', await ev(a2, () => { const j = JSON.parse(window.__file); return !!j.trip.route && !('share' in j.trip); }));
   c('no page errors', !A.errors.length && !B.errors.length && !A2.errors.length, [...A.errors, ...B.errors, ...A2.errors].join(' | '));
   for (const p of [A, B, A2]) await p.ctx.close();
+
+  { // what Get forecast fills in on a copy (water type, stations, time zone) is not an edit: a later change comes in by itself
+    const S = await phone(), s = S.page, R = await phone(), r = R.page;
+    await seedRoute(s, GG); await view(s, 1);
+    await ev(s, () => { settings.ghToken = 'tok-alice3'; settings.ghUser = 'alice'; trip.name = 'Ride'; changed(); });
+    await s.click('#sharePlan'); await s.waitForSelector('#planLink'); await s.click('#planLink'); await s.waitForSelector('#linkTxt');
+    const link = await s.inputValue('#linkTxt'), id = link.split('#trip=')[1]; await s.click('#sheet [data-close]');
+    await r.goto(link); await r.waitForFunction(id => trip?.share?.id === id, id); await r.waitForTimeout(300);
+    await r.click('#fcBtn'); await waitForecast(r);
+    c('a forecast on a copy does not count as changing it', await ev(r, () => !!trip.tide && planSig(trip) === trip.share.sig));
+    await s.click('#actSel [data-act="bike"]'); await ev(s, () => syncShare(trip));
+    await ev(r, () => syncShare(trip)); await r.waitForSelector('#sheet h2');
+    c('so the sender’s switch to Bike comes in without a merge', await ev(r, () => trip.activity === 'bike') && !(await r.isVisible('#syncMerge')), await r.text('#sheet'));
+    await r.click('#sheet [data-close]');
+    // a copy he did change: the forecast's fill-ins still are not his, so only his own edit is kept
+    await ev(r, () => { trip.start = 480; changed(); });
+    await r.click('#fcBtn'); await waitForecast(r);
+    await ev(s, () => { trip.date = shiftDay(trip.date, 1); changed(); return syncShare(trip); });
+    await ev(r, () => syncShare(trip)); await r.waitForSelector('#syncMerge');
+    const t = await r.text('#sheet');
+    c('an edited copy merges with only his own edit kept, nothing to pick', !/Both changed/.test(t) && /Start/.test(t) && !/Activity|stations|Other trip/i.test(t.split(/kept/)[1] || ''), t);
+    await r.click('#syncMerge'); await r.waitForTimeout(400);
+    c('and the merge keeps his start and takes the new day and Bike', await ev(r, (d) => trip.start === 480 && trip.activity === 'bike' && trip.date === d, await ev(s, () => trip.date)));
+    c('no page errors (forecast on a copy)', !S.errors.length && !R.errors.length, [...S.errors, ...R.errors].join(' | '));
+    for (const p of [S, R]) await p.ctx.close();
+  }
 };
