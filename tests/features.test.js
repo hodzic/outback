@@ -105,7 +105,7 @@ module.exports = async (browser, url, check) => {
   { // tracks come only from GPX import and can be reused
     const { ctx, page, errors } = await open(browser, url, { geolocation: { latitude: 37.80, longitude: -122.45 } });
     await page.goto(url); await ready(page); await view(page, 1);
-    c('Tracks section hidden with no tracks', await page.isHidden('#tracksCard'));
+    c('Tracks section offers Add track with no tracks yet', await page.isVisible('#addTrack') && await page.locator('#trackList .track').count() === 0);
     const t0 = Date.parse('2026-09-27T17:00:00Z');
     const pts = Array.from({ length: 12 }, (_, i) => [37.80 + i * 0.001, -122.45 + i * 0.0012]);
     fs.writeFileSync(path.join(OUT, 'watch.gpx'), `<gpx><trk><name>Watch track</name><trkseg>${pts.map((p, i) => `<trkpt lat="${p[0]}" lon="${p[1]}"><ele>3</ele><time>${new Date(t0 + i * 60000).toISOString()}</time></trkpt>`).join('')}</trkseg></trk></gpx>`);
@@ -125,6 +125,23 @@ module.exports = async (browser, url, check) => {
     await page.click('#locBtn'); await page.waitForTimeout(400);
     for (let i = 1; i <= 4; i++){ await ctx.setGeolocation({ latitude: 37.80 + i * 0.001, longitude: -122.45 + i * 0.0012, accuracy: 8 }); await page.waitForTimeout(250); }
     c('location shown; moving records nothing', await page.locator('.me').count() === 1 && await page.evaluate(() => trip.tracks.length) === 1);
+    // Add track (GPX) on a planned trip: the recording joins it, the plan stays
+    await view(page, 1);
+    const plan = await page.evaluate(() => { trip.route = [[37.80, -122.45], [37.81, -122.44]]; trip.date = '2026-09-27'; changed(); return JSON.stringify(trip.route); });
+    const t1 = t0 + 864e5, two = `<gpx><trk><trkseg>${pts.map((p, i) => `<trkpt lat="${p[0]}" lon="${p[1] + 0.01}"><time>${new Date(t1 + i * 60000).toISOString()}</time></trkpt>`).join('')}</trkseg></trk>`
+      + `<trk><trkseg>${pts.slice(0, 5).map((p, i) => `<trkpt lat="${p[0]}" lon="${p[1]}"><time>${new Date(t1 + 36e5 + i * 60000).toISOString()}</time></trkpt>`).join('')}</trkseg></trk></gpx>`;
+    fs.writeFileSync(path.join(OUT, 'watch2.gpx'), two);
+    const n0 = await page.evaluate(() => trip.tracks.length), id0 = await page.evaluate(() => trip.id);
+    await page.setInputFiles('#trackFile', path.join(OUT, 'watch2.gpx')); await page.waitForTimeout(600);
+    c('Add track adds each recording in the file to this trip', await page.evaluate(n0 => trip.tracks.length === n0 + 2, n0) && await page.evaluate(() => trip.id) === id0);
+    c('the plan is unchanged', await page.evaluate(() => JSON.stringify(trip.route)) === plan);
+    c('a recording from another day says so', /tracks added\. Recorded .*planned for/.test(await page.text('#toast')), await page.text('#toast'));
+    c('the new tracks are listed', await page.locator('#trackList .track').count() === n0 + 2);
+    await page.setInputFiles('#trackFile', path.join(OUT, 'watch2.gpx')); await page.waitForTimeout(500);
+    c('the same file again adds nothing', await page.evaluate(n0 => trip.tracks.length === n0 + 2, n0) && /already on this trip/.test(await page.text('#toast')), await page.text('#toast'));
+    fs.writeFileSync(path.join(OUT, 'plan.gpx'), '<gpx><rte><rtept lat="37.8" lon="-122.4"/><rtept lat="37.81" lon="-122.41"/></rte></gpx>');
+    await page.setInputFiles('#trackFile', path.join(OUT, 'plan.gpx')); await page.waitForTimeout(400);
+    c('a planned route (no times) is not a track, and says where it goes', /no recording with times.*Import trip or GPX/.test(await page.text('#toast')), await page.text('#toast'));
     c('no page errors (tracks)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // clear waypoints, kayak icon, edit route

@@ -408,7 +408,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <div class="card" id="tracksCard">
         <h2>Tracks</h2>
         <div id="trackList"></div>
-        <p class="muted">Tracks from imported GPX files (e.g. from your watch).</p>
+        <p class="muted">What you actually did, from a GPX recording (e.g. your watch), shown with the plan.</p>
+        <button class="btn" id="addTrack">Add track (GPX)…</button>
       </div>
 
       <div class="row" style="flex-wrap:wrap"><button class="btn primary" id="sharePlan">Share or print</button><span class="grow"></span><button class="btn" id="dupTrip">Duplicate</button><button class="btn danger" id="deleteTrip" aria-label="Delete trip">Delete</button></div>
@@ -585,6 +586,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>Import trip or GPX…</b> on the Trips page always makes a <b>new trip</b>; the trip you planned isn't changed. The new trip takes its name from the file and its day from the recording.</li>
           <li>A recording with times (what a watch saves) is kept as a <b>track</b>: dashed blue on the map, listed under Tracks on the Trip tab with its distance, time and average speed. The new trip's route is the track simplified to about 60 waypoints.</li>
           <li>A planned route from another app (route points) becomes the route as is, up to 100 waypoints; longer ones are simplified, keeping the shape. Named points keep their names; waypoints (<code>&lt;wpt&gt;</code>) become markers.</li>
+          <li>On the Trip tab, <b>Add track (GPX)…</b> under Tracks adds a recording to the trip you're on, without changing the plan: see where you actually went next to the route.</li>
           <li>Under Tracks, <b>Use as route</b> turns a track into the trip's route.</li>
         </ul>
       </details>
@@ -643,6 +645,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
 <dialog id="sheet"></dialog>
 <div id="toast" role="status"></div>
 <input id="file" type="file" accept=".json,.gpx,.txt,application/json,application/gpx+xml,text/plain" hidden>
+<input id="trackFile" type="file" accept=".gpx,.txt,application/gpx+xml,text/plain" multiple hidden>
 <input id="pdfFile" type="file" accept=".pdf,application/pdf" hidden>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -657,7 +660,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-28a';
+const APP_VERSION = '2026-10-28b';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1708,7 +1711,6 @@ $('#markList').addEventListener('click', e => {
 });
 function renderTracks(){
   const ks = trip.tracks.slice().reverse();
-  $('#tracksCard').hidden = !ks.length;
   $('#trackList').innerHTML = ks.map(k => `<div class="track"><div class="grow"><b>${new Date(k.start).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}</b>
     <small>${esc(trackLabel(k))}</small></div><button class="btn" data-showtrack="${k.id}">Map</button><button class="btn" data-trackroute="${k.id}">Use as route</button><button class="btn" data-rmtrack="${k.id}" aria-label="Delete track">✕</button></div>`).join('');
 }
@@ -1719,6 +1721,35 @@ $('#trackList').addEventListener('click', e => {
   if (b.dataset.trackroute){ editRoute(); trip.route = simplifyTo(k.pts.map(p => [p[0], p[1]]), 60); changed(); toast(`Route made from the track: ${trip.route.length} waypoints.`); }
   if (b.dataset.rmtrack && confirm('Delete this track?')){ trip.tracks = trip.tracks.filter(x => x !== k); changed(); }
 });
+
+// Add track (GPX): each timed recording in the file becomes a track on this trip; the plan stays as it is
+$('#addTrack').onclick = () => $('#trackFile').click();
+$('#trackFile').onchange = async e => {
+  const files = [...e.target.files]; e.target.value = ''; if (!files.length) return;
+  const added = [], notes = [];
+  for (const f of files){
+    try{
+      const x = new DOMParser().parseFromString(await f.text(), 'application/xml');
+      if (x.querySelector('parsererror')) throw new Error('not a GPX file');
+      const segs = [...x.getElementsByTagName('trk')].map(t => [...t.getElementsByTagName('trkpt')].filter(p => p.getElementsByTagName('time')[0]));
+      const ks = segs.filter(ps => ps.length > 1).map(ps => {
+        const pts = ps.map(p => { const el = p.getElementsByTagName('ele')[0]; return [+(+p.getAttribute('lat')).toFixed(6), +(+p.getAttribute('lon')).toFixed(6), Date.parse(p.getElementsByTagName('time')[0].textContent), el ? Math.round(+el.textContent * 3.28084) : null]; })
+          .filter(p => isFinite(p[0]) && isFinite(p[1]) && isFinite(p[2]));
+        return { id: uid(), start: pts[0][2], end: pts[pts.length - 1][2], pts };
+      }).filter(k => k.pts.length > 1);
+      if (!ks.length){ notes.push(`${f.name}: no recording with times (a planned route? Use Import trip or GPX… on the Trips page)`); continue; }
+      for (const k of ks){
+        if (trip.tracks.some(t => t.start === k.start && t.end === k.end)){ notes.push(`${f.name}: already on this trip`); continue; }
+        trip.tracks.push(k); added.push(k);
+      }
+    }catch(err){ notes.push(`${f.name}: ${err.message}`); }
+  }
+  if (added.length){
+    changed();
+    const day = ymd(new Date(added[0].start)), other = added.some(k => ymd(new Date(k.start)) !== trip.date);
+    toast(`${added.length === 1 ? 'Track added: ' + trackLabel(added[0]) : added.length + ' tracks added'}${other ? `. Recorded ${fmtDay(day)}; the trip is planned for ${fmtDay(trip.date)}` : ''}.${notes.length ? ' ' + notes.join('; ') : ''}`, 6000);
+  } else toast(notes.join('; ') || 'No tracks found.', 6000);
+};
 
 function drawCurArrow(dir, sp, flood){
   if (curArrow){ map.removeLayer(curArrow); curArrow = null; }
