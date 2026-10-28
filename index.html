@@ -660,7 +660,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-28e';
+const APP_VERSION = '2026-10-28f';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1310,7 +1310,7 @@ async function getForecast(){
   if (!navigator.onLine){ toast('You are offline. Connect to get a forecast.'); return; }
   const id = trip.id; if (fcBusy.has(id)) return;
   const busy = t => fcBusyUpd(id, t); busy('Loading…');
-  const errs = [], before = fcSnap(), was = trip.fetchedAt, name = trip.name; let envMsg = '';
+  const errs = [], before = fcSnap(), was = trip.fetchedAt, name = trip.name, filled = fcBefore(trip); let envMsg = '';
   // another trip opened while this one loads: keep its results out of that trip
   const gone = () => trip?.id !== id, stop = () => toast(`Forecast for ${name} stopped: another trip was opened. Tap Get forecast there again.`, 5000);
   try{
@@ -1359,7 +1359,7 @@ async function getForecast(){
     busy('Saving map…');
     const tiles = await cacheTiles(busy);
     if (gone()) idb.get('trips', id).then(t => t && idb.put('trips', { ...t, mapTiles: tiles })).catch(() => {});
-    else { trip.mapTiles = tiles; changed(); }
+    else { trip.mapTiles = tiles; fcFilled(trip, filled); changed(); }
     if (!gone() && trip.route.length) for (const P of Object.values(POI)) if (settings[P.key]) poiFetch(P, L.latLngBounds(trip.route.map(ll2)).pad(.3)).then(() => poiRefresh(P)).catch(() => {});
     const since = was ? new Date(was).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() }) : '';
     toast((gone() ? name + ': ' : '') + envMsg + (errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${tiles ? tiles + ' map tiles stored for offline.' : 'The map could not be saved for offline.'}`) + (moved && !moved.length ? ` No change since ${since}.` : ''), envMsg ? 6000 : 4500);
@@ -3624,6 +3624,16 @@ async function resolveSync(take){
 }
 // Three-way merge: the link's version last seen here (base) against this copy (mine) and the link now (theirs).
 // Piece by piece: changed on one side only, that side wins; changed on both, you pick. Markers merge one by one.
+// What a forecast fills in (stations, water type, time zone, saved tiles) is not an edit to a shared copy: keep it out of
+// "you changed your copy", so the sender's next change (say Paddle to Bike) comes in by itself instead of as "both changed".
+const FC_KEYS = ['env', 'envSet', 'tide', 'current', 'tz', 'mapTiles'];
+const fcBefore = t => t.share ? { ...structuredClone(Object.fromEntries(FC_KEYS.map(k => [k, t[k]]))), sig: planSig(t) } : null;
+function fcFilled(t, was){
+  const s = t.share; if (!s || !was) return;
+  const J = x => JSON.stringify(x ?? null);
+  if (s.base) for (const k of FC_KEYS) if (J(was[k]) === J(s.base[k])){ if (t[k] === undefined) delete s.base[k]; else s.base[k] = structuredClone(t[k]); }
+  if (was.sig === s.sig) s.sig = planSig(t);
+}
 const baseOf = t => structuredClone(Object.fromEntries(Object.entries(t).filter(([k, v]) => v !== undefined && !['id', 'updated', 'share', 'prog', 'tracks', 'data', 'fetchedAt'].includes(k))));
 const MERGE_PIECES = [['name', 'Name', ['name']], ['day', 'Day', ['date']], ['start', 'Start', ['start']], ['activity', 'Activity', ['activity', 'env', 'envSet']],
   ['route', 'Route', ['route']], ['parking', 'Parking', ['parking']], ['stations', 'Tide and current stations', ['tide', 'current']], ['anchor', '', ['anchor']]];
