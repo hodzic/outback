@@ -49,22 +49,28 @@ module.exports = async (browser, url, check) => {
   c('and shows what changed', /updated/.test(await b.text('#sheet h2')) && /Start: 9:00\sAM → 10:00\sAM/.test(await b.text('#sheet')), await b.text('#sheet'));
   await b.click('#sheet [data-close]');
 
-  // Bob changes his copy; Alice changes hers: Bob chooses
+  // Bob renames his copy: the name is his; updates still come in without asking
   await ev(b, () => { trip.name = 'Angel Island (Bob)'; changed(); });
   await b.waitForTimeout(400);
   c('his changes never go to the link', JSON.parse(github.gists.get(id).content).trip.name === 'Angel Island');
   await ev(a, () => { trip.route.push([37.83, -122.43]); changed(); return syncShare(trip); });
+  await ev(b, () => syncShare(trip)); await b.waitForSelector('#sheet h2');
+  c('a renamed copy still takes updates without asking, and keeps its name', await ev(b, () => trip.route.length === 4 && trip.name === 'Angel Island (Bob)') && !(await b.isVisible('#syncKeep')));
+  await b.click('#sheet [data-close]');
+  // Bob changes the plan; Alice changes hers: Bob chooses
+  await ev(b, () => { trip.start = 660; changed(); });
+  await ev(a, () => { trip.route.push([37.84, -122.44]); changed(); return syncShare(trip); });
   await ev(b, () => syncShare(trip)); await b.waitForSelector('#syncKeep');
-  c('both changed: he is asked, with her changes listed', /@alice updated/.test(await b.text('#sheet h2')) && /Route: 3 → 4 waypoints/.test(await b.text('#sheet')), await b.text('#sheet'));
+  c('both changed: he is asked, with her changes listed', /@alice updated/.test(await b.text('#sheet h2')) && /Route: 4 → 5 waypoints/.test(await b.text('#sheet')) && !/Name/.test(await b.text('#sheet')), await b.text('#sheet'));
   await b.click('#syncKeep'); await b.waitForTimeout(300);
-  c('Keep mine keeps his copy', await ev(b, () => trip.name === 'Angel Island (Bob)' && trip.route.length === 3));
+  c('Keep mine keeps his copy', await ev(b, () => trip.start === 660 && trip.route.length === 4));
   await ev(b, () => syncShare(trip)); await b.waitForTimeout(300);
   c('and he is not asked again for the same update', !(await b.isVisible('#syncKeep')));
   await ev(a, () => { trip.start = 630; changed(); return syncShare(trip); });
   await ev(b, () => { trip.tracks.push({ id: 'bobtrack', start: 1, end: 2, pts: [[37.8, -122.4, 1], [37.81, -122.41, 2]] }); return syncShare(trip); });
   await b.waitForSelector('#syncTake');
   await b.click('#syncTake'); await b.waitForTimeout(400);
-  c('Take their update replaces his changes', await ev(b, () => trip.name === 'Angel Island' && trip.route.length === 4 && trip.start === 630));
+  c('Take their update replaces his changes, not his name', await ev(b, () => trip.name === 'Angel Island (Bob)' && trip.route.length === 5 && trip.start === 630));
   c('and keeps the track he recorded', await ev(b, () => trip.tracks.some(k => k.id === 'bobtrack')));
 
   // Alice's second phone: her token makes it her own copy, and its changes go to the link
@@ -108,6 +114,21 @@ module.exports = async (browser, url, check) => {
   c('the toast opens the token sheet, not Help', await ev(a, () => $('#helpPage').hidden)); await a.fill('#ghTok', 'tok-alice3'); await a.click('#ghSave'); await a.waitForTimeout(600);
   c('tapping it takes a new token, and the change goes out', JSON.parse(github.gists.get(id).content).trip.start === 765 && await ev(a, () => settings.ghToken === 'tok-alice3'));
 
+  // Duplicate: a copy of his own, without the link
+  await ev(b, () => { if (sheet.open) sheet.close(); showView(1, false); }); await b.waitForTimeout(300);
+  await b.click('#dupTrip'); await b.waitForTimeout(400);
+  c('Duplicate makes an unlinked copy', await ev(b, () => trip.name === 'Angel Island (Bob) (copy)' && !trip.share && trip.route.length === 5) && !(await b.isVisible('#shareInfo')));
+  c('and the original stays linked', await ev(b, async () => (await idb.all('trips')).filter(t => t.share?.id).length === 1));
+  await ev(b, async () => openTrip((await idb.all('trips')).find(t => t.share)));
+  // Stop updates: his copy, no more updates; opening the link again links it back
+  c('a copy from a link offers Stop updates', await b.isVisible('#unlinkBtn'));
+  await b.click('#unlinkBtn'); await b.waitForTimeout(300);
+  c('Stop updates unlinks his copy and keeps it', await ev(b, () => !trip.share && trip.name === 'Angel Island (Bob)') && !(await b.isVisible('#shareInfo')));
+  await ev(a, () => { trip.start = 780; changed(); return syncShare(trip); });
+  await b.goto(link); await b.waitForFunction(id => trip.share?.id === id, id); await b.waitForTimeout(500);
+  c('opening the link again links the same copy back, with what changed', await ev(b, async () => trip.start === 780 && (await idb.all('trips')).length === 3 && trip.name === 'Angel Island (Bob)') && /updated/.test(await b.text('#sheet h2')), JSON.stringify(await ev(b, async () => [trip.start, trip.name, (await idb.all('trips')).map(t => t.name)])));
+  await b.click('#sheet [data-close]');
+
   // Stop sharing: the link goes away; Bob keeps his copy
   await view(a, 1); await a.click('#sharePlan'); await a.waitForSelector('#planLink');
   c('a shared trip offers its link', (await a.text('#planLink')) === 'Link');
@@ -115,7 +136,7 @@ module.exports = async (browser, url, check) => {
   await a.click('#linkStop'); await a.waitForTimeout(400);
   c('Stop sharing deletes the gist', !github.gists.has(id) && await ev(a, () => !trip.share) && !(await a.isVisible('#shareInfo')));
   await ev(b, () => syncShare(trip)); await b.waitForTimeout(300);
-  c('his copy stays, no longer linked', await ev(b, () => !trip.share && trip.name === 'Angel Island loop'));
+  c('his copy stays, no longer linked', await ev(b, () => !trip.share && trip.name === 'Angel Island (Bob)'));
   await b.goto(link); await b.waitForTimeout(800);
   c('a dead link says so', /no longer works/.test(await b.text('#toast')));
 

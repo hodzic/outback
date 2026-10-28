@@ -410,8 +410,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <p class="muted">Tracks from imported GPX files (e.g. from your watch).</p>
       </div>
 
-      <div class="row" style="flex-wrap:wrap"><button class="btn primary" id="sharePlan">Share or print</button><span class="grow"></span><button class="btn danger" id="deleteTrip">Delete trip</button></div>
-      <p class="muted" id="shareInfo" hidden></p>
+      <div class="row" style="flex-wrap:wrap"><button class="btn primary" id="sharePlan">Share or print</button><span class="grow"></span><button class="btn" id="dupTrip">Duplicate</button><button class="btn danger" id="deleteTrip" aria-label="Delete trip">Delete</button></div>
+      <p class="muted" id="shareInfo" hidden style="margin-top:10px"></p>
     </div>
   </section>
 
@@ -656,7 +656,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-27g';
+const APP_VERSION = '2026-10-27h';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3459,7 +3459,7 @@ const hash53 = str => { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i 
   h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909); h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
   return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36); };
 const sigOf = (t, skip) => hash53(JSON.stringify(Object.keys(t).filter(k => !skip.includes(k) && t[k] !== undefined).sort().map(k => [k, t[k]])));
-const planSig = t => sigOf(t, SAME_IGNORE);                       // the plan: what counts as "you changed your copy"
+const planSig = t => sigOf(t, [...SAME_IGNORE, 'name']);         // the plan: what counts as "you changed your copy" (a new name is yours to keep)
 const fullSig = t => sigOf(t, ['id', 'updated', 'share', 'prog']); // everything the link carries, forecast included
 const shareBody = t => JSON.stringify({ app: 'Outback', version: 2, trip: { ...t, share: undefined, prog: undefined } }, null, 1);
 const shareUrl = id => `${location.origin}${location.pathname}#trip=${id}`;
@@ -3485,8 +3485,18 @@ async function readGist(id){
 }
 function shareInfo(){
   const s = trip.share, el = $('#shareInfo'); el.hidden = !s; if (!s) return;
-  el.textContent = s.own ? '🔗 Shared by link: everyone with it gets your changes.' : `🔗 From ${s.owner ? '@' + s.owner + '’s' : 'a'} link: you get their updates.`;
+  el.innerHTML = s.own ? '🔗 Shared by link: everyone with it gets your changes.' : `🔗 From ${s.owner ? '@' + esc(s.owner) + '’s' : 'a'} link: you get their updates. <button class="linkb" id="unlinkBtn">Stop updates</button>`;
 }
+$('#shareInfo').onclick = async e => {
+  if (e.target.id !== 'unlinkBtn' || !confirm(`Stop getting @${trip.share.owner}’s updates to ${trip.name}? Your copy stays as it is. Open the link again to get them back.`)) return;
+  delete trip.share; await saveNow(); render(); toast('Updates stopped. This trip is yours alone now.');
+};
+$('#dupTrip').onclick = async () => {
+  if (saveT) await saveNow();
+  const linked = !!trip.share, t = { ...structuredClone(trip), id: newTrip().id, name: trip.name + ' (copy)', updated: Date.now() }; delete t.share;
+  await idb.put('trips', t); await openTrip(t); showView(1);
+  toast(linked ? `Duplicated as ${t.name}: a copy of your own, without the link’s updates.` : `Duplicated as ${t.name}.`, 4000);
+};
 function ghSettings(){
   $('#ghSet').innerHTML = settings.ghToken ? `Share links: GitHub @${esc(settings.ghUser)} <button class="btn" id="ghOut">Remove</button>` : 'Share links: GitHub not set up <button class="btn" id="ghIn">Set up</button>';
 }
@@ -3556,7 +3566,7 @@ async function syncShare(t, quiet = false){
     if (r.ver !== s.ver){
       if (!mine) return await takeRemote(t, r);
       pendingSync = { t, r };
-      const ch = tripChanges(t, r.trip);
+      const ch = tripChanges(t, s.own || s.name == null || t.name === s.name ? r.trip : { ...r.trip, name: t.name });
       return openSheet(s.own ? `<h2>${esc(t.name)} changed on another device</h2>
           <p class="muted">The link has a newer version, and this device has changes it hasn’t sent. The other version, compared with this one:</p>
           <ul style="margin:6px 0 0;padding-left:20px">${(ch.length ? ch : ['Forecast or tracks']).map(c => `<li>${esc(c)}</li>`).join('')}</ul>
@@ -3588,8 +3598,8 @@ async function pushShare(t){
 // Their version replaces this copy; recorded tracks from both stay, and the newer forecast wins
 async function takeRemote(t, r){
   const s = t.share, inc = r.trip, ids = new Set(t.tracks.map(k => k.id));
-  const n = { ...inc, id: t.id, tracks: [...t.tracks, ...inc.tracks.filter(k => !ids.has(k.id))], updated: Date.now(),
-    share: { ...s, ver: r.ver, sig: planSig(inc), sent: fullSig({ ...inc, tracks: [...t.tracks, ...inc.tracks.filter(k => !ids.has(k.id))] }), at: Date.now() } };
+  const n = { ...inc, id: t.id, name: !s.own && s.name != null && t.name !== s.name ? t.name : inc.name, tracks: [...t.tracks, ...inc.tracks.filter(k => !ids.has(k.id))], updated: Date.now(),
+    share: { ...s, ver: r.ver, name: inc.name, sig: planSig(inc), sent: fullSig({ ...inc, tracks: [...t.tracks, ...inc.tracks.filter(k => !ids.has(k.id))] }), at: Date.now() } };
   const geo = x => JSON.stringify(x.route.map(p => [p[0], p[1]]));
   if ((t.fetchedAt || 0) > (inc.fetchedAt || 0) && t.date === inc.date && geo(t) === geo(inc)){ n.data = t.data; n.fetchedAt = t.fetchedAt; }
   const ch = tripChanges(t, n), fc = n.fetchedAt !== t.fetchedAt;
@@ -3608,7 +3618,7 @@ async function resolveSync(take){
     if (take) return await takeRemote(t, r);
     t.share.ver = r.ver;
     if (t.share.own) await pushShare(t);
-    else { t.share.sig = planSig(r.trip); await keep(t); toast('Kept your version. You’ll still get later updates.', 4000); }
+    else { t.share.sig = planSig(r.trip); t.share.name = r.trip.name; await keep(t); toast('Kept your version. You’ll still get later updates.', 4000); }
   }catch(e){ toast('Could not reach GitHub: ' + e.message, 4500); }
 }
 // #trip=<gist id>: add the trip from the link, or open the copy already here
@@ -3620,11 +3630,11 @@ async function openLink(id){
   try{
     const r = await readGist(id), own = isMe(r.owner), same = all.find(t => t.id === r.trip.id && !t.share);
     if (same){ // the same trip came earlier as a file: link it, then show what's new
-      same.share = { id, owner: r.owner, own, ver: null, sig: planSig(same), sent: fullSig(same), at: 0 };
+      same.share = { id, owner: r.owner, own, ver: null, name: r.trip.name, sig: planSig(same), sent: fullSig(same), at: 0 };
       await idb.put('trips', same); await openTrip(normTrip(same)); showView(1); toast(`Linked ${same.name} to @${r.owner}’s link.`); return syncShare(trip);
     }
     const t = { ...r.trip, id: all.some(x => x.id === r.trip.id) ? newTrip().id : r.trip.id, updated: Date.now(),
-      share: { id, owner: r.owner, own, ver: r.ver, sig: planSig(r.trip), sent: fullSig(r.trip), at: Date.now() } };
+      share: { id, owner: r.owner, own, ver: r.ver, name: r.trip.name, sig: planSig(r.trip), sent: fullSig(r.trip), at: Date.now() } };
     await idb.put('trips', t); await openTrip(t); showView(1);
     toast(own ? `Opened your shared trip ${t.name}. Changes here go to the link.` : `Added ${t.name} from @${r.owner}. You’ll get their updates.`, 5000);
   }catch(e){ toast(e.status === 404 ? 'This trip link no longer works: it was deleted or never existed.' : 'Could not open the link: ' + e.message, 5000); }
