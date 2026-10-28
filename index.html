@@ -660,7 +660,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-28d';
+const APP_VERSION = '2026-10-28e';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1210,12 +1210,24 @@ async function fetchCurrent(s){
   });
   return { current: ev, floodDir: cp[0]?.meanFloodDir ?? null, ebbDir: cp[0]?.meanEbbDir ?? null };
 }
+// Open-Meteo forecasts 16 days ahead; a range past that is refused with the allowed range ("…from 2026-07-27 to 2026-11-12").
+// Ask again ending on its last day, so the trip day loads as soon as it is in range; a trip day past it says when it will be.
+const dayDiff = (a, b) => Math.round((Date.parse(b + 'T12:00Z') - Date.parse(a + 'T12:00Z')) / 864e5);
+async function omFetch(url, q){
+  const get = async () => (await fetch(url + '?' + q)).json();
+  let j = await get();
+  const last = j.error && /to (\d{4}-\d\d-\d\d)\)?\s*$/.exec(j.reason || '')?.[1], day = shiftDay(q.get('start_date'), 1);
+  if (last && q.get('end_date') > last){
+    if (day > last) throw new Error('available from ' + new Date(shiftDay(todayIso(), dayDiff(last, day)) + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    q.set('end_date', last); j = await get();
+  }
+  return j;
+}
 async function fetchWx(c){
   const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4),
     hourly: 'temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape',
     wind_speed_unit: 'kn', temperature_unit: 'fahrenheit', timezone: 'auto', start_date: shiftDay(trip.date,-1), end_date: shiftDay(trip.date,1) });
-  const r = await fetch('https://api.open-meteo.com/v1/forecast?' + q);
-  const j = await r.json();
+  const j = await omFetch('https://api.open-meteo.com/v1/forecast', q);
   if (j.error) throw new Error(j.reason || 'weather error');
   const h = j.hourly, off = (j.utc_offset_seconds || 0) * 1000;
   return { tz: j.timezone, t: h.time.map(s => Date.parse(s + 'Z') - off), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
@@ -1245,7 +1257,7 @@ async function waterNoaa(c){
 }
 async function waterModel(c){
   const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4), hourly: 'sea_surface_temperature,wave_height,swell_wave_height,swell_wave_period,swell_wave_direction', temperature_unit: 'fahrenheit', timezone: 'GMT', start_date: shiftDay(trip.date, -1), end_date: shiftDay(trip.date, 1) });
-  const j = await (await fetch('https://marine-api.open-meteo.com/v1/marine?' + q)).json();
+  const j = await omFetch('https://marine-api.open-meteo.com/v1/marine', q);
   if (j.error || !j.hourly) return null;
   const H = j.hourly, t = H.time.map(x => Date.parse(x + 'Z'));
   const a = dayStart() + 6 * 36e5, b = dayStart() + 20 * 36e5; // daytime

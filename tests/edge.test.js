@@ -35,6 +35,25 @@ module.exports = async (browser, url, check) => {
     c('NOAA errors are reported', (await page.text('#toast')).includes('Missing: tides'), await page.text('#toast'));
     c('wind still shown when NOAA fails', /G\d/.test(await page.text('#windV')) && /kt/.test(await page.text('#atWind'))); await ctx.close(); }
 
+  { // weather reaches 16 days: a later trip day says when it will load; one near the edge still loads
+    const { ctx, page } = await open(browser, url), wx = [];
+    page.on('request', r => { if (r.url().includes('api.open-meteo.com/v1/forecast')) wx.push(new URL(r.url()).searchParams.get('end_date')); });
+    await page.goto(url); await ready(page); await seedRoute(page, GG);
+    const last = new Date(Date.now() + 15 * 864e5).toISOString().slice(0, 10); // the mock's last forecast day
+    await page.evaluate(d => { trip.date = shiftDay(d, 3); changed(); }, last);
+    await page.click('#fcBtn'); await waitForecast(page);
+    const when = await page.evaluate(() => new Date(shiftDay(todayIso(), 3) + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    const t = await page.text('#toast');
+    c('a trip past the forecast range says when weather will load', t.includes(`Missing: weather (available from ${when})`) && !/Parameter|allowed range/.test(t), t);
+    c('and says so under the forecast', /no wind forecast/.test(await page.text('#status')));
+    wx.length = 0;
+    await page.evaluate(d => { trip.date = d; changed(); }, last);
+    await page.click('#fcBtn'); await waitForecast(page);
+    const day = await page.evaluate(() => { const a = dayStart(), w = trip.data.wx; return w && w.t.some(x => x >= a + 12 * 36e5 && x < a + 13 * 36e5); });
+    c('a trip on the last forecast day loads its weather', day && !/Missing/.test(await page.text('#toast')), await page.text('#toast'));
+    c('by asking again up to the last forecast day', wx.length === 2 && wx[1] < wx[0], wx.join(' '));
+    await ctx.close(); }
+
   { // planning an SF trip from New York: times must be SF local
     const { ctx, page } = await open(browser, url, { timezoneId: 'America/New_York' });
     await page.goto(url); await ready(page); await seedRoute(page, GG);

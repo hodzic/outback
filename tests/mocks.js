@@ -10,7 +10,7 @@ const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org', 'basema
 
 // opts: { tilesFail: bool, noaaErr: bool, tz: IANA zone reported by Open-Meteo (default America/Los_Angeles), tzOffset: seconds }
 async function install(ctx, opts = {}){
-  const json = (r, b) => r.fulfill({ body: JSON.stringify(b), contentType: 'application/json', headers: CORS });
+  const json = (r, b, status = 200) => r.fulfill({ status, body: JSON.stringify(b), contentType: 'application/json', headers: CORS });
   await ctx.route('https://cdnjs.cloudflare.com/**', r => {
     const u = r.request().url();
     const f = u.endsWith('.css') ? 'leaflet.css' : u.includes('/leaflet/') ? 'leaflet.js' : null;
@@ -92,12 +92,16 @@ async function install(ctx, opts = {}){
     return json(r, { current_predictions: { units: 'knots', cp } });
   });
 
+  // like Open-Meteo, forecasts reach 16 days: a range ending later is refused, naming the allowed range
+  const tooFar = u => { const last = new Date(Date.now() + 15 * 864e5).toISOString().slice(0, 10), e = u.searchParams.get('end_date');
+    return e && e > last && { error: true, reason: `Parameter 'start_date' is out of allowed range from 2026-07-27 to ${last}` }; };
   await ctx.route('https://api.open-meteo.com/**', r => {
     const u = new URL(r.request().url());
     if (u.pathname.endsWith('/elevation')){ // a single hill: 200 m up to 500 m and back down
       const n = u.searchParams.get('latitude').split(',').length;
       return json(r, { elevation: Array.from({ length: n }, (_, i) => 200 + 300 * Math.sin(Math.PI * i / Math.max(1, n - 1))) });
     }
+    if (tooFar(u)) return json(r, tooFar(u), 400);
     const auto = u.searchParams.get('timezone') === 'auto';
     const zone = auto ? (opts.tz || 'America/Los_Angeles') : 'GMT', off = auto ? (opts.tzOffset ?? -25200) : 0;
     const s = Date.parse(u.searchParams.get('start_date') + 'T00:00Z'), e = Date.parse(u.searchParams.get('end_date') + 'T23:00Z');
@@ -114,6 +118,7 @@ async function install(ctx, opts = {}){
   // Open-Meteo Marine: sea surface 61–63 °F (opts.water 'none' or 'nomodel': no data, as in a slough; 'model': no NOAA water station)
   await ctx.route('https://marine-api.open-meteo.com/**', r => {
     const u = new URL(r.request().url()), s = Date.parse(u.searchParams.get('start_date') + 'T00:00Z'), e = Date.parse(u.searchParams.get('end_date') + 'T23:00Z');
+    if (tooFar(u)) return json(r, tooFar(u), 400);
     const h = { time: [], sea_surface_temperature: [], wave_height: [], swell_wave_height: [], swell_wave_period: [], swell_wave_direction: [] };
     const none = opts.water === 'none' || opts.water === 'nomodel';
     for (let t = s, i = 0; t <= e; t += 36e5, i++){ h.time.push(new Date(t).toISOString().slice(0, 16)); h.sea_surface_temperature.push(none ? null : 62 + Math.sin(i / 4));
