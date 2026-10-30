@@ -660,7 +660,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-30a';
+const APP_VERSION = '2026-10-30b';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3802,35 +3802,19 @@ if (!settings.firstRun){ settings.firstRun = Date.now(); saveSettings(); }
 })();
 addEventListener('offline', () => toast('Offline. Saved trips and maps still work.'));
 /* ---------- updates: a new version downloads in the background and waits; you say when to switch ---------- */
-let swReg = null, updWorker = null;
+// The mechanics are /shared/update.js on hodzic.github.io, shared by the apps there.
+let swReg = null, updWorker = null, updates = null;
 const offerUpdate = w => { updWorker = w; $('#updS').textContent = 'A new version is ready.'; $('#updBtn').textContent = 'Update now';
   toast('Update available. Tap here to reload.', 15000, 'update'); };
-function applyUpdate(){ if (!updWorker) return; if (saveT) saveNow(); updWorker.postMessage({ type: 'SKIP_WAITING' }); }
-if ('serviceWorker' in navigator){
-  // the first install also takes control; only an update replacing a running version reloads
-  // (checked at each change, not at page load: a page opened before the first install gets updates too)
-  let ctl = navigator.serviceWorker.controller, reloading = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => { if (ctl && !reloading){ reloading = true; location.reload(); } ctl = navigator.serviceWorker.controller; });
-  navigator.serviceWorker.register('sw.js').then(reg => {
-    swReg = reg;
-    if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting);
-    reg.addEventListener('updatefound', () => { const w = reg.installing;
-      w?.addEventListener('statechange', () => { if (w.state === 'installed' && navigator.serviceWorker.controller) offerUpdate(w); }); });
-    // an installed app can stay open for days: look again on coming back, and offer one still waiting
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') return;
-      if (reg.waiting && navigator.serviceWorker.controller) offerUpdate(reg.waiting); else reg.update().catch(() => {}); });
-  }).catch(() => {});
-}
+function applyUpdate(){ if (!updWorker) return; if (saveT) saveNow(); updates.applyUpdate(); }
+import('/shared/update.js').then(async u => { updates = u; swReg = await u.registerUpdates('sw.js', offerUpdate); }).catch(() => {});
 $('#updBtn').onclick = async () => {
   if (updWorker) return applyUpdate();
   const st = $('#updS');
   if (!swReg){ st.textContent = 'Updates need the installed app or a reload.'; return; }
   st.textContent = 'Checking…';
-  try{ await swReg.update(); }catch{ st.textContent = 'Could not check (offline?).'; return; }
-  const w = swReg.installing || swReg.waiting;
-  if (!w){ st.textContent = `Up to date (${APP_VERSION}).`; return; }
-  if (w.state === 'installed') return offerUpdate(w);
-  st.textContent = 'Downloading the update…';
+  const r = await updates.checkForUpdate();
+  st.textContent = r === 'failed' ? 'Could not check (offline?).' : r === 'current' ? `Up to date (${APP_VERSION}).` : r === 'downloading' ? 'Downloading the update…' : st.textContent;
 };
 </script>
 </body>

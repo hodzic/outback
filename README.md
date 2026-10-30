@@ -193,7 +193,7 @@ The app works offline once each trip has been prepared while you still have a co
 | `pdfmap.js` | PDF trail map parsing, loaded only when importing a PDF |
 | `vendor/` | MuPDF WebAssembly (AGPL, loaded on demand), html2canvas 1.4.1 (MIT, loaded on demand) and `Leaflet.ImageOverlay.Rotated` |
 | `tools/bump.js` | Sets the next version (`npm run bump`) |
-| `sw.js` | Service worker: app shell and map tiles for offline use |
+| `sw.js` | Service worker: map tiles for offline use, and the options for the shared part (`/shared/sw-core.js` on [hodzic.github.io](https://github.com/hodzic/hodzic.github.io), used by all the apps there; its `/shared/update.js` runs the update prompt) |
 | `manifest.webmanifest`, `icon-*.png` | Installable app |
 
 ## Deploying
@@ -213,6 +213,8 @@ front) and waits; an *Update available* toast, or *Check for updates* under *Abo
 
 End-to-end tests drive the app in headless Chromium with every external service mocked
 (NOAA, Open-Meteo, NWS, map tiles, cdnjs), so they run offline and give the same result every time.
+They serve `/shared/` from a checkout of [hodzic.github.io](https://github.com/hodzic/hodzic.github.io) next to this one
+(`../hodzic.github.io`), or from `SHARED_DIR`.
 
 ```sh
 npm install
