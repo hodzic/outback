@@ -74,7 +74,9 @@ self.addEventListener('fetch', e => {
     e.respondWith((async () => {
       const c = await caches.open(SHELL);
       const hit = await c.match(req, { ignoreSearch: url.origin === location.origin });
-      const net = fetch(req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; }).catch(() => null);
+      // revalidate this app's own files: a copy the browser still holds over HTTP would put the previous version into this version's cache
+      const own = url.origin === location.origin;
+      const net = fetch(own ? new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; }).catch(() => null);
       if (hit){ e.waitUntil(net); return hit; }
       const r = await net;
       if (r) return r;
