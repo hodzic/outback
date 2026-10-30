@@ -1,40 +1,9 @@
-// Outback service worker: app shell + offline map tiles.
-// hodzic.github.io hosts several apps on one origin and they share Cache Storage,
-// so only ever delete caches this app owns (old Paddle/Outback shell versions).
-const SHELL = 'outback-shell-2026-10-30a';
+// Outback service worker: app shell + offline map tiles. The shared part (install, update, cache cleanup, serving the app's
+// files) is /shared/sw-core.js on hodzic.github.io, used by all the apps there.
+importScripts('/shared/sw-core.js');
+const SHELL = 'outback-shell-2026-10-30b';
 const TILES = 'paddle-tiles'; // name kept so tiles saved before the rename stay usable
-const OWN = k => /^(paddle|outback)-shell-/.test(k);
-const LOCAL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './pdfmap.js', './align.js', './data/watertrail.json', './vendor/Leaflet.ImageOverlay.Rotated.js', './vendor/html2canvas.min.js'];
-const REMOTE = [
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css',
-  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'
-];
 const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org', 'basemap.nationalmap.gov', 'tiles.openseamap.org'];
-const STATIC_HOSTS = ['cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'];
-
-// A new version installs in the background and waits until the page asks it to take over (Update available, Reload).
-// Versions up to 2026-10-27b have no such prompt, so an update over one of those still takes over by itself.
-const LAST_WITHOUT_PROMPT = '2026-10-27b';
-self.addEventListener('install', e => {
-  e.waitUntil((async () => {
-    const c = await caches.open(SHELL);
-    // bypass the HTTP cache: GitHub Pages lets browsers keep files for 10 minutes, which would fill the new cache with the old version
-    await c.addAll(LOCAL.map(u => new Request(u, { cache: 'reload' })));
-    await Promise.all(REMOTE.map(u => c.add(u).catch(() => {})));
-    const old = (await caches.keys()).filter(k => OWN(k) && k !== SHELL).map(k => k.replace(/^(paddle|outback)-shell-/, ''));
-    if (old.some(v => v <= LAST_WITHOUT_PROMPT)) self.skipWaiting();
-  })());
-});
-self.addEventListener('message', e => { if (e.data?.type === 'SKIP_WAITING') self.skipWaiting(); });
-
-self.addEventListener('activate', e => {
-  e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (OWN(k) && k !== SHELL) await caches.delete(k);
-    // tiles from NOAA's retired raster chart service are blank or errors: free the space
-    try{ const t = await caches.open(TILES); for (const r of await t.keys()) if (r.url.includes('/MarineChart_Services/NOAACharts/')) await t.delete(r); }catch{}
-    await self.clients.claim();
-  })());
-});
 
 // Map images are requested without CORS, which hides errors: an outage page would be saved as if it were a map tile.
 // Ask with CORS first so the status and type can be checked; hosts that don't allow it fall back to the old way.
@@ -47,42 +16,32 @@ async function tileFetch(req){
   return r;
 }
 const goodTile = r => r.type === 'opaque' || (r.ok && /^image\//.test(r.headers.get('content-type') || ''));
+// Map tiles: cache first (any cache on this origin, so GPS Map's saved tiles count too), store what we see
+function tiles(e, url){
+  if (e.request.method !== 'GET' || !TILE_HOSTS.includes(url.hostname)) return false;
+  e.respondWith((async () => {
+    const hit = await caches.match(e.request.url);
+    if (hit) return hit;
+    try{
+      const r = await tileFetch(e.request);
+      if (goodTile(r)) (await caches.open(TILES)).put(e.request.url, r.clone());
+      return r;
+    }catch{ return new Response('', { status: 504 }); }
+  })());
+  return true;
+}
 
-self.addEventListener('fetch', e => {
-  const req = e.request;
-  if (req.method !== 'GET') return;
-  const url = new URL(req.url);
-
-  // Map tiles: cache first (any cache on this origin, so GPS Map's saved tiles count too), store what we see
-  if (TILE_HOSTS.includes(url.hostname)){
-    e.respondWith((async () => {
-      const hit = await caches.match(req.url);
-      if (hit) return hit;
-      try{
-        const r = await tileFetch(req);
-        if (goodTile(r)) (await caches.open(TILES)).put(req.url, r.clone());
-        return r;
-      }catch{ return new Response('', { status: 504 }); }
-    })());
-    return;
-  }
-
-  // App shell + libraries + fonts: cache first, refresh in background.
-  // Only this app's own folder: other apps on the origin have their own workers.
-  const scope = new URL(self.registration.scope);
-  if ((url.origin === location.origin && url.pathname.startsWith(scope.pathname)) || STATIC_HOSTS.includes(url.hostname)){
-    e.respondWith((async () => {
-      const c = await caches.open(SHELL);
-      const hit = await c.match(req, { ignoreSearch: url.origin === location.origin });
-      // revalidate this app's own files: a copy the browser still holds over HTTP would put the previous version into this version's cache
-      const own = url.origin === location.origin;
-      const net = fetch(own ? new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }) : req).then(r => { if (r.ok || r.type === 'opaque') c.put(req, r.clone()); return r; }).catch(() => null);
-      if (hit){ e.waitUntil(net); return hit; }
-      const r = await net;
-      if (r) return r;
-      if (req.mode === 'navigate') return (await c.match('./index.html')) || new Response('Offline', { status: 503 });
-      return new Response('', { status: 504 });
-    })());
-  }
-  // Forecast APIs: network only (data is stored with each trip)
+appWorker({
+  cache: SHELL,
+  // only this app's shell caches (old Paddle/Outback versions): other apps on hodzic.github.io share Cache Storage
+  own: k => /^(paddle|outback)-shell-/.test(k),
+  shell: ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './pdfmap.js', './align.js', './data/watertrail.json', './vendor/Leaflet.ImageOverlay.Rotated.js', './vendor/html2canvas.min.js'],
+  extra: ['https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css', 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'],
+  hosts: ['cdnjs.cloudflare.com', 'fonts.googleapis.com', 'fonts.gstatic.com'],
+  index: './index.html',
+  // versions up to 2026-10-27b have no update prompt, so an update over one of those takes over by itself
+  legacy: k => k.replace(/^(paddle|outback)-shell-/, '') <= '2026-10-27b',
+  route: tiles,
+  // tiles from NOAA's retired raster chart service are blank or errors: free the space
+  async activate(){ const t = await caches.open(TILES); for (const r of await t.keys()) if (r.url.includes('/MarineChart_Services/NOAACharts/')) await t.delete(r); },
 });

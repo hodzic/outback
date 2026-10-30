@@ -9,6 +9,9 @@ const OUT = path.join(__dirname, 'out');
 fs.mkdirSync(OUT, { recursive: true });
 const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.wasm': 'application/wasm', '.css': 'text/css', '.pdf': 'application/pdf', '.jpg': 'image/jpeg' };
 
+// /shared/ (offline and update code shared by the apps on hodzic.github.io) from a checkout of that repo next to this one
+const SHARED = process.env.SHARED_DIR || path.join(ROOT, '..', 'hodzic.github.io', 'shared');
+if (!fs.existsSync(path.join(SHARED, 'sw-core.js'))) throw new Error(`Tests need /shared/ from hodzic.github.io: clone it next to this repo, or set SHARED_DIR (looked in ${SHARED})`);
 // Files served in place of the repo's, by path (e.g. a newer sw.js: the browser's own update check can't be routed)
 const overrides = new Map();
 function serve(){
@@ -16,8 +19,8 @@ function serve(){
     const srv = http.createServer((q, s) => {
       let p = decodeURIComponent(new URL(q.url, 'http://x').pathname); if (p.endsWith('/')) p += 'index.html';
       if (overrides.has(p)){ s.writeHead(200, { 'content-type': TYPES[path.extname(p)] || 'text/plain', 'cache-control': 'no-cache' }); return s.end(overrides.get(p)); }
-      const f = path.join(ROOT, p);
-      if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory()){ s.writeHead(404); return s.end(); }
+      const base = p.startsWith('/shared/') ? SHARED : ROOT, f = path.join(base, p.startsWith('/shared/') ? p.slice(8) : p);
+      if (!f.startsWith(base) || !fs.existsSync(f) || fs.statSync(f).isDirectory()){ s.writeHead(404); return s.end(); }
       s.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(s);
     }).listen(0, () => res({ url: `http://localhost:${srv.address().port}/`, close: () => srv.close() }));
   });
@@ -55,4 +58,4 @@ const ready = page => page.waitForFunction(() => typeof trip !== 'undefined' && 
 async function view(page, i){ await page.click(`#tabs [data-view="${i}"]`); await page.waitForFunction(i => state.view === i, i); await page.waitForTimeout(450); }
 // long-press an element (mouse down, wait, up)
 async function hold(page, sel, ms = 800){ const b = await page.locator(sel).boundingBox(); await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await page.mouse.down(); await page.waitForTimeout(ms); await page.mouse.up(); await page.waitForTimeout(150); }
-module.exports = { overrides, hold, serve, launch, open, check, results, waitForecast, seedRoute, ready, view, OUT };
+module.exports = { SHARED, overrides, hold, serve, launch, open, check, results, waitForecast, seedRoute, ready, view, OUT };

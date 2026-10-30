@@ -1,6 +1,6 @@
 // Edge cases and regressions found in testing.
 const fs = require('fs'), path = require('path');
-const { overrides, hold, open, waitForecast, seedRoute, ready, view } = require('./harness');
+const { SHARED, overrides, hold, open, waitForecast, seedRoute, ready, view } = require('./harness');
 const GG = [[37.80, -122.45], [37.81, -122.42], [37.82, -122.40]];
 module.exports = async (browser, url, check) => {
   const c = (n, ok, i) => check('edge', n, ok, i);
@@ -300,6 +300,12 @@ module.exports = async (browser, url, check) => {
     const l1 = await loads();
     await page.evaluate(() => swReg.update()); await page.waitForTimeout(2500); await ready(page); await settled('2099-01-02a');
     c('over a version without the prompt it updates by itself', (await shell()).join() === 'outback-shell-2099-01-02a' && await loads() !== l1, (await shell()).join());
+    // a change to the code shared by the apps on hodzic.github.io reaches this app as an update too
+    overrides.set('/sw.js', swSrc.replace(/outback-shell-[\w-]+/, 'outback-shell-2099-01-02a'));
+    overrides.set('/shared/sw-core.js', fs.readFileSync(path.join(SHARED, 'sw-core.js'), 'utf8') + '\n// changed\n');
+    await page.evaluate(() => swReg.update());
+    await page.waitForFunction(() => /Update available/.test(document.querySelector('#toast').textContent) && !!swReg.waiting, null, { timeout: 15000 }).catch(() => {});
+    c('a change to the shared code offers an update', await page.evaluate(() => !!swReg.waiting));
     overrides.clear();
     c('no page errors (updates)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 };
