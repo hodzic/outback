@@ -93,8 +93,8 @@ async function install(ctx, opts = {}){
   });
 
   // like Open-Meteo, forecasts reach 16 days: a range ending later is refused, naming the allowed range
-  const tooFar = u => { const last = new Date(Date.now() + 15 * 864e5).toISOString().slice(0, 10), e = u.searchParams.get('end_date');
-    return e && e > last && { error: true, reason: `Parameter 'start_date' is out of allowed range from 2026-07-27 to ${last}` }; };
+  const tooFar = u => { const last = new Date(Date.now() + 15 * 864e5).toISOString().slice(0, 10), e = u.searchParams.get('end_date'), k = u.searchParams.get('start_date') > last ? 'start_date' : 'end_date';
+    return e && e > last && { error: true, reason: `Parameter '${k}' is out of allowed range from 2026-07-27 to ${last}.` }; };
   await ctx.route('https://api.open-meteo.com/**', r => {
     const u = new URL(r.request().url());
     if (u.pathname.endsWith('/elevation')){ // a single hill: 200 m up to 500 m and back down

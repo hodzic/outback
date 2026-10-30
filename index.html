@@ -660,7 +660,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-28f';
+const APP_VERSION = '2026-10-30a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1216,7 +1216,7 @@ const dayDiff = (a, b) => Math.round((Date.parse(b + 'T12:00Z') - Date.parse(a +
 async function omFetch(url, q){
   const get = async () => (await fetch(url + '?' + q)).json();
   let j = await get();
-  const last = j.error && /to (\d{4}-\d\d-\d\d)\)?\s*$/.exec(j.reason || '')?.[1], day = shiftDay(q.get('start_date'), 1);
+  const last = j.error && /allowed range.* to (\d{4}-\d\d-\d\d)/.exec(j.reason || '')?.[1], day = shiftDay(q.get('start_date'), 1);
   if (last && q.get('end_date') > last){
     if (day > last) throw new Error('available from ' + new Date(shiftDay(todayIso(), dayDiff(last, day)) + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
     q.set('end_date', last); j = await get();
@@ -1228,7 +1228,7 @@ async function fetchWx(c){
     hourly: 'temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape',
     wind_speed_unit: 'kn', temperature_unit: 'fahrenheit', timezone: 'auto', start_date: shiftDay(trip.date,-1), end_date: shiftDay(trip.date,1) });
   const j = await omFetch('https://api.open-meteo.com/v1/forecast', q);
-  if (j.error) throw new Error(j.reason || 'weather error');
+  if (j.error) throw new Error(/allowed range/.test(j.reason) ? 'not available for this date' : 'service unavailable');
   const h = j.hourly, off = (j.utc_offset_seconds || 0) * 1000;
   return { tz: j.timezone, t: h.time.map(s => Date.parse(s + 'Z') - off), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
 }
