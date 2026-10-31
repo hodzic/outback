@@ -952,7 +952,7 @@ module.exports = async (browser, url, check) => {
     await page.evaluate(async id => openTrip(await idb.get('trips', id)), ids[1]);
     c("the other trip's Get forecast stays ready meanwhile", await page.evaluate(() => fcBusy.size === 1 && !$('#fcBtn').disabled && $('#fcBtn').textContent === 'Get forecast'), await page.text('#fcBtn'));
     await page.waitForFunction(() => !fcBusy.size, null, { timeout: 30000 });
-    c('a forecast still loading stays out of a trip opened meanwhile', await page.evaluate(id => trip.id === id && !trip.data && !trip.fetchedAt && !trip.mapTiles && !sheet.open, ids[1]) && /stopped/.test(await page.text('#toast')), await page.text('#toast'));
+    c('a forecast still loading stays out of a trip opened meanwhile', await page.evaluate(id => trip.id === id && !trip.data && !trip.fetchedAt && !offlineMaps[trip.id] && !sheet.open, ids[1]) && /stopped/.test(await page.text('#toast')), await page.text('#toast'));
     await page.evaluate(async id => openTrip(await idb.get('trips', id)), ids[0]);
     c('back on the first trip: no stale dialog', !(await page.evaluate(() => sheet.open)));
     await ctx.close(); }

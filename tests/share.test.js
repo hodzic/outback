@@ -210,4 +210,41 @@ module.exports = async (browser, url, check) => {
     c('no page errors (forecast on a copy)', !S.errors.length && !R.errors.length, [...S.errors, ...R.errors].join(' | '));
     for (const p of [S, R]) await p.ctx.close();
   }
+
+  { // the map Get forecast saves is on that phone only: a copy gets the forecast but never claims the sender's map
+    const S = await phone(), s = S.page, R = await phone(), r = R.page;
+    await seedRoute(s, GG); await view(s, 1);
+    await s.click('#fcBtn'); await waitForecast(s);
+    c('the sender’s status says the map is saved, with its size', /map saved offline \(\d+ tiles, \d+(\.\d)? [KM]B\)/.test(await s.text('#status')), await s.text('#status'));
+    await ev(s, () => { settings.ghToken = 'tok-alice3'; settings.ghUser = 'alice'; trip.name = 'Mapped'; changed(); });
+    await s.click('#sharePlan'); await s.waitForSelector('#planLink'); await s.click('#planLink'); await s.waitForSelector('#linkTxt');
+    const link = await s.inputValue('#linkTxt'), id = link.split('#trip=')[1]; await s.click('#sheet [data-close]');
+    const g = JSON.parse(github.gists.get(id).content).trip;
+    c('the link carries the forecast but not the saved map', !!g.fetchedAt && !('mapTiles' in g), Object.keys(g).join());
+    await r.goto(link); await r.waitForFunction(id => trip?.share?.id === id, id); await view(r, 1);
+    c('the copy has the forecast and says nothing about a saved map', !!(await ev(r, () => trip.fetchedAt)) && !/map saved/.test(await r.text('#status')), await r.text('#status'));
+    await r.click('#fcBtn'); await waitForecast(r);
+    c('Get forecast on the copy saves its own map', /map saved offline/.test(await r.text('#status')));
+    await ev(s, () => { trip.start = 660; changed(); return syncShare(trip); });
+    await ev(r, () => syncShare(trip)); await r.waitForSelector('#sheet h2'); await r.click('#sheet [data-close]');
+    c('an update from the link keeps the copy’s own map', await ev(r, () => trip.start === 660 && offlineMaps[trip.id]?.tiles > 0) && /map saved offline/.test(await r.text('#status')));
+    await view(r, 0);
+    c('the trips list shows what each trip takes on the phone', /· \d+(\.\d)? [KM]B/.test(await r.text('#tripList')), await r.text('#tripList'));
+    c('no page errors (saved map)', !S.errors.length && !R.errors.length, [...S.errors, ...R.errors].join(' | '));
+    for (const p of [S, R]) await p.ctx.close();
+  }
+
+  { // older versions kept the tile count in the trip: kept for your own trips, dropped from one that came by link
+    const P = await phone(), p = P.page;
+    await ev(p, async () => {
+      const t = id => ({ ...newTrip(), id, name: id });
+      await idb.put('trips', { ...t('mine'), mapTiles: 321 });
+      await idb.put('trips', { ...t('theirs'), mapTiles: 654, share: { id: 'g1', own: false, owner: 'bob' } });
+    });
+    await p.reload(); await ready(p);
+    const r = await ev(p, async () => { await offlineReady; const all = await idb.all('trips');
+      return { mine: offlineMaps.mine?.tiles, theirs: offlineMaps.theirs, left: all.filter(t => 'mapTiles' in t).length }; });
+    c('an older saved-map count moves to this phone, only for your own trips', r.mine === 321 && !r.theirs && r.left === 0, JSON.stringify(r));
+    await P.ctx.close();
+  }
 };

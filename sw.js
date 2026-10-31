@@ -1,7 +1,7 @@
 // Outback service worker: app shell + offline map tiles. The shared part (install, update, cache cleanup, serving the app's
 // files) is /shared/sw-core.js on hodzic.github.io, used by all the apps there.
 importScripts('/shared/sw-core.js');
-const SHELL = 'outback-shell-2026-10-31a';
+const SHELL = 'outback-shell-2026-10-31b';
 const TILES = 'paddle-tiles'; // name kept so tiles saved before the rename stay usable
 const TILE_HOSTS = ['gis.charttools.noaa.gov', 'tile.openstreetmap.org', 'basemap.nationalmap.gov', 'imagery.nationalmap.gov', 'tiles.openseamap.org'];
 

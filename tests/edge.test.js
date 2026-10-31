@@ -248,7 +248,7 @@ module.exports = async (browser, url, check) => {
     await page.evaluate(() => { settings.layer = 'chart'; }); // the map may already have fallen back to Street
     await page.click('#fcBtn'); await waitForecast(page);
     const saved = await page.evaluate(async () => (await (await caches.open('paddle-tiles')).keys()).filter(r => r.url.includes('charttools')).length);
-    c('failed chart tiles are not saved for offline', saved === 0 && await page.evaluate(() => !trip.mapTiles), saved);
+    c('failed chart tiles are not saved for offline', saved === 0 && await page.evaluate(() => !offlineMaps[trip.id]), saved);
     c('says the map could not be saved', /map could not be saved/.test(await page.text('#toast')), await page.text('#toast'));
     await ctx.close(); }
 
