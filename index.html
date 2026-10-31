@@ -341,6 +341,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card"><summary>Settings</summary>
         <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
+        <label class="shck" style="margin:10px 0 4px"><input type="checkbox" id="sNaip"> Sharp satellite close up: NAIP aerial photos past USGS's detail (lower 48 states). Slower to load and to save offline.</label>
         <label class="f" for="sAis">AIS ships: AISStream API key (free at aisstream.io; "demo" for sample ships)</label><input class="f" id="sAis" type="text" autocomplete="off" spellcheck="false">
         <div class="f" id="ghSet" style="margin-top:10px"></div>
       </details>
@@ -660,7 +661,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-31a';
+const APP_VERSION = '2026-10-31d';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -702,6 +703,21 @@ const idb = {
   del: (st, k) => tx(st, 'readwrite', s => s.delete(k)),
   all: st => tx(st, 'readonly', s => s.getAll())
 };
+// The map Get forecast saved is on this phone only: its tile count and size are kept per trip here, out of the trip itself,
+// so a shared copy or a backup doesn't claim a map the other phone doesn't have.
+let offlineMaps = {};
+const offlineReady = (async () => {
+  try{ offlineMaps = await idb.get('kv', 'offline') || {}; }catch{}
+  try{ // older versions kept the count in the trip, where sharing passed it on: keep it only for your own trips
+    let moved = false;
+    for (const t of await idb.all('trips')) if ('mapTiles' in t){
+      if (t.mapTiles && (!t.share || t.share.own) && !offlineMaps[t.id]){ offlineMaps[t.id] = { tiles: t.mapTiles }; moved = true; }
+      delete t.mapTiles; await idb.put('trips', t);
+    }
+    if (moved) await idb.put('kv', offlineMaps, 'offline');
+  }catch{}
+})();
+const setOffline = (id, v) => { if (v) offlineMaps[id] = v; else delete offlineMaps[id]; return idb.put('kv', offlineMaps, 'offline').catch(() => {}); };
 
 /* ---------- activities ---------- */
 // Distances are stored in nautical miles and shown in the activity's unit.
@@ -806,7 +822,7 @@ function dayStart(){
 const tAt = () => dayStart() + state.tMin * 6e4;
 const routeNm = r => r.reduce((s, p, i) => i ? s + distNm(r[i-1], p) : 0, 0);
 const fmtDur = h => { const m = Math.round(h * 60); return m < 60 ? `${m} min` : `${Math.floor(m/60)} h ${String(m % 60).padStart(2,'0')}`; };
-const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.round(b / 1024) + ' KB';
+const fmtSize = b => b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
 const ft = elv;
 const fmtDay = iso => new Date(iso + 'T12:00').toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: iso.slice(0, 4) === String(new Date().getFullYear()) ? undefined : 'numeric' });
 function centroid(){
@@ -909,7 +925,7 @@ function normTrip(t){
   t.activity = t.activity || 'paddle';
   if (!Number.isFinite(t.start)) t.start = START;
   if (t.env === undefined){ t.env = t.water === 'tidal' ? 'bay' : t.water === 'lake' ? 'lake' : null; t.envSet = !!t.waterSet; }
-  delete t.water; delete t.waterSet;
+  delete t.water; delete t.waterSet; delete t.mapTiles; // offline map: see `offlineMaps`
   t.tracks = t.tracks || [];
   t.marks = t.marks || [];
   t.parking = t.parking || null;
@@ -970,12 +986,13 @@ function ncdsTile(z, x, y){
   const bbox = [-E + x * w, E - (y + 1) * w, -E + (x + 1) * w, E - y * w].map(v => v.toFixed(2)).join(',');
   return `${NCDS}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=${px},${px}&dpi=${HD ? 192 : 96}&format=png&transparent=false&f=image`;
 }
-// USGS imagery tiles stop at z16 (about 2.4 m a pixel); closer in, Sat draws NAIP aerial photos (0.6 m, public domain,
-// lower 48 states) from the USGS image service, one box per tile like the charts.
+// USGS imagery tiles stop at z16 (about 2.4 m a pixel); closer in, with Sharp satellite on (Settings), Sat draws NAIP aerial
+// photos (0.6 m, public domain, lower 48 states) from the USGS image service, one box per tile like the charts. Off by
+// default: each tile is drawn on request, so they load and save offline slowly.
 const NAIP = 'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage';
 function satTile(z, x, y){
   const n = 2 ** z, lng = (x + .5) / n * 360 - 180, lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + .5) / n))) * 180 / Math.PI;
-  if (z < 16 || lng < -125 || lng > -66 || lat < 24 || lat > 50) return `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/${z}/${y}/${x}`;
+  if (!settings.naip || z < 16 || lng < -125 || lng > -66 || lat < 24 || lat > 50) return `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/${z}/${y}/${x}`;
   const E = 20037508.342789244, w = 2 * E / n, px = HD ? 512 : 256;
   const bbox = [-E + x * w, E - (y + 1) * w, -E + (x + 1) * w, E - y * w].map(v => v.toFixed(2)).join(',');
   return `${NAIP}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=${px},${px}&format=jpg&f=image`;
@@ -984,7 +1001,8 @@ const LAYERS = {
   chart: { name: 'Chart', tile: ncdsTile, opt: { maxZoom: 18, maxNativeZoom: 17, minNativeZoom: 5, attribution: 'NOAA ENC charts · not for navigation' } },
   street: { name: 'Street', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt: { maxZoom: 19, attribution: '© OpenStreetMap contributors' }, polite: true },
   topo: { name: 'Topo', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map' } },
-  sat: { name: 'Sat', tile: satTile, opt: { maxZoom: 18, maxNativeZoom: 18, attribution: 'USGS The National Map: imagery, NAIP' } }
+  sat: { name: 'Sat', tile: satTile, opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map: imagery' },
+    naipOpt: { maxNativeZoom: 18, attribution: 'USGS The National Map: imagery, NAIP' } }
 };
 const LAYER_ORDER = ['chart', 'street', 'topo', 'sat'];
 // OpenSeaMap sea marks: buoys, beacons, lights and harbours, see-through over any base layer (⚓ on paddle trips)
@@ -1002,7 +1020,8 @@ function setLayer(k){
   if (base) map.removeLayer(base);
   settings.layer = k; saveSettings(); tileErr = 0; tileOk = 0;
   const L0 = LAYERS[k];
-  base = (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', L0.opt) : L.tileLayer(L0.url, L0.opt)).addTo(map);
+  const opt = L0.naipOpt && settings.naip ? { ...L0.opt, ...L0.naipOpt } : L0.opt;
+  base = (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', opt) : L.tileLayer(L0.url, opt)).addTo(map);
   base.on('tileload', () => tileOk++);
   base.on('tileerror', () => { if (++tileErr >= 4 && tileOk === 0 && k === 'chart' && navigator.onLine){ toast('Chart tiles are not loading. Switched to Street.'); setLayer('street'); } });
   $('#layerBtn').textContent = LAYERS[k].name;
@@ -1367,9 +1386,9 @@ async function getForecast(){
       ? after.v.map(([k, v], i) => [k, before.v[i][1], v]).filter(([, a, b]) => a !== b) : null;
     changed();
     busy('Saving map…');
-    const tiles = await cacheTiles(busy);
-    if (gone()) idb.get('trips', id).then(t => t && idb.put('trips', { ...t, mapTiles: tiles })).catch(() => {});
-    else { trip.mapTiles = tiles; fcFilled(trip, filled); changed(); }
+    const { tiles, bytes } = await cacheTiles(busy);
+    setOffline(id, tiles ? { tiles, bytes, at: Date.now() } : null);
+    if (!gone()){ fcFilled(trip, filled); changed(); }
     if (!gone() && trip.route.length) for (const P of Object.values(POI)) if (settings[P.key]) poiFetch(P, L.latLngBounds(trip.route.map(ll2)).pad(.3)).then(() => poiRefresh(P)).catch(() => {});
     const since = was ? new Date(was).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() }) : '';
     toast((gone() ? name + ': ' : '') + envMsg + (errs.length ? 'Missing: ' + errs.join(', ') : `Forecast saved. ${tiles ? tiles + ' map tiles stored for offline.' : 'The map could not be saved for offline.'}`) + (moved && !moved.length ? ` No change since ${since}.` : ''), envMsg ? 6000 : 4500);
@@ -1416,16 +1435,18 @@ function tileUrls(L0, b, z0, z1, max){
 // OpenStreetMap asks bulk downloaders to go slowly: one request at a time with a pause.
 async function downloadTiles(urls, { polite, onProgress } = {}){
   const cache = await caches.open('paddle-tiles');
-  let done = 0, saved = 0, i = 0;
+  let done = 0, saved = 0, bytes = 0, i = 0;
+  const size = async r => { try{ bytes += (await r.clone().blob()).size; }catch{} }; // 0 for a server without CORS: can't be read
   const worker = async () => {
     while (i < urls.length){
       const u = urls[i++];
       try{
-        if (await caches.match(u)) saved++;
+        const hit = await caches.match(u);
+        if (hit){ saved++; await size(hit); }
         else {
           let r; try{ r = await fetch(u, { mode: 'cors' }); }catch{ r = await fetch(u, { mode: 'no-cors' }); }
           // errors and outage pages are not map tiles; without CORS (opaque) there's no way to tell
-          if (r.type === 'opaque' || (r.ok && /^image\//.test(r.headers.get('content-type') || ''))){ await cache.put(u, r); saved++; }
+          if (r.type === 'opaque' || (r.ok && /^image\//.test(r.headers.get('content-type') || ''))){ await size(r); await cache.put(u, r); saved++; }
           if (polite) await new Promise(res => setTimeout(res, 60));
         }
       }catch{}
@@ -1433,10 +1454,10 @@ async function downloadTiles(urls, { polite, onProgress } = {}){
     }
   };
   await Promise.all(Array.from({ length: polite ? 1 : 6 }, worker));
-  return saved;
+  return { saved, bytes };
 }
 async function cacheTiles(busy = () => {}){
-  if (!('caches' in window)) return 0;
+  if (!('caches' in window)) return { tiles: 0, bytes: 0 };
   const pts = trip.route.length ? trip.route.map(ll2) : [centroid()];
   let b = L.latLngBounds(pts);
   b = L.latLngBounds([b.getSouth() - .03, b.getWest() - .04], [b.getNorth() + .03, b.getEast() + .04]);
@@ -1445,9 +1466,10 @@ async function cacheTiles(busy = () => {}){
   const n = await downloadTiles(urls, { polite, onProgress: d => { if (d % 25 === 0) busy(`Map ${Math.round(d / urls.length * 100)}%`); } });
   if (seaLayer){ // sea marks too, gently: OpenSeaMap is a volunteer server
     const sm = tileUrls(SEAMARKS, b, 10, 15, 600);
-    await downloadTiles(sm, { polite: true, onProgress: d => { if (d % 25 === 0) busy(`Sea marks ${Math.round(d / sm.length * 100)}%`); } });
+    n.bytes += (await downloadTiles(sm, { polite: true, onProgress: d => { if (d % 25 === 0) busy(`Sea marks ${Math.round(d / sm.length * 100)}%`); } })).bytes;
   }
-  return n;
+  usageP = null; // measure the list's sizes again
+  return { tiles: n.saved, bytes: n.bytes };
 }
 
 /* ---------- interpolation ---------- */
@@ -1685,7 +1707,7 @@ function render(){
   if (!trip.fetchedAt) st.textContent = 'No forecast yet. Plot a route, then tap Get forecast. It also saves the map for offline use.';
   else {
     const age = Date.now() - trip.fetchedAt, future = dayStart() + 864e5 > Date.now();
-    st.textContent = `From ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}${trip.mapTiles ? ` · map saved offline (${trip.mapTiles} tiles)` : ''}`;
+    st.textContent = `From ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}${(o => o ? ` · map saved offline (${o.tiles} tiles${o.bytes ? ', ' + fmtSize(o.bytes) : ''})` : '')(offlineMaps[trip.id])}`;
     if (!trip.data?.wx){ st.textContent += ' · no wind forecast (only up to 16 days ahead)'; st.classList.add('warn'); }
     else if (future && age > 18*36e5){ st.textContent += ' · refresh before you go'; st.classList.add('warn'); }
   }
@@ -2099,20 +2121,62 @@ $('#deleteTrip').onclick = async () => {
   if (!confirm(`Delete "${trip.name}"?`)) return;
   const id = trip.id;
   if (trip.share?.own && settings.ghToken && confirm('Also stop sharing it? OK deletes its link; Cancel keeps the link working for the people who have it.')) gh('/gists/' + trip.share.id, { method: 'DELETE' }).catch(() => {});
-  clearTimeout(saveT); saveT = null; await idb.del('trips', id);
+  clearTimeout(saveT); saveT = null; await idb.del('trips', id); setOffline(id, null);
   const rest = (await idb.all('trips')).sort((a, b) => b.updated - a.updated);
   let t = rest[0]; if (!t){ t = newTrip(); await idb.put('trips', t); }
   trip = null; await openTrip(t); showView(0); toast('Trip deleted.');
 };
 
 /* ---------- trips list ---------- */
+// What a trip takes on this phone: the trip (route, forecast, tracks) and the map tiles kept for its area, whether
+// Get forecast saved them or you looked there, any layer. Trips over the same area share tiles, so each counts them in full.
+const dataBytes = t => new Blob([JSON.stringify(t)]).size;
+// a saved tile's centre, from its address: .../{z}/{x}/{y}.png, USGS .../tile/{z}/{y}/{x}, or a Web Mercator bbox (charts, NAIP)
+function tileCenter(u){
+  try{
+    const url = new URL(u), bb = url.searchParams.get('bbox'), E = 20037508.342789244, lat = y => Math.atan(Math.sinh(y)) * 180 / Math.PI;
+    if (bb){ const [x0, y0, x1, y1] = bb.split(',').map(Number); return [lat((y0 + y1) / 2 / E * Math.PI), (x0 + x1) / 2 / E * 180]; }
+    let m = url.pathname.match(/\/tile\/(\d+)\/(\d+)\/(\d+)$/), z, x, y;
+    if (m) [z, y, x] = m.slice(1).map(Number);
+    else if ((m = url.pathname.match(/\/(\d+)\/(\d+)\/(\d+)\.png$/))) [z, x, y] = m.slice(1).map(Number);
+    else return null;
+    const n = 2 ** z; return [lat(Math.PI * (1 - 2 * (y + .5) / n)), (x + .5) / n * 360 - 180];
+  }catch{ return null; }
+}
+const tileSize = new Map(); // url -> bytes, read once (0 for a server without CORS: can't be read)
+let usageP = null;
+function mapUsage(){ // every saved tile's centre and size; measured again at most every 30 s
+  return usageP ||= (async () => {
+    const c = await caches.open('paddle-tiles'), out = [];
+    for (const req of await c.keys()){
+      const ll = tileCenter(req.url); if (!ll) continue;
+      if (!tileSize.has(req.url)){
+        const r = await c.match(req); let b = +r?.headers.get('content-length') || 0;
+        if (!b && r && r.type !== 'opaque') try{ b = (await r.blob()).size; }catch{}
+        tileSize.set(req.url, b);
+      }
+      out.push([ll, tileSize.get(req.url)]);
+    }
+    setTimeout(() => { usageP = null; }, 30000);
+    return out;
+  })().catch(() => { usageP = null; return []; });
+}
+// the area Get forecast saves: the route with a margin
+function tripArea(t){
+  if (!t.route?.length) return null;
+  const b = L.latLngBounds(t.route.map(ll2));
+  return L.latLngBounds([b.getSouth() - .03, b.getWest() - .04], [b.getNorth() + .03, b.getEast() + .04]);
+}
+const mapBytes = (t, tiles) => { const a = tripArea(t); return a ? tiles.reduce((s, [c, b]) => a.contains(c) ? s + b : s, 0) : 0; };
 async function renderList(){
+  await offlineReady;
   const all = (await idb.all('trips')).map(normTrip).sort((a, b) => b.date.localeCompare(a.date) || b.updated - a.updated);
   $('#tripList').innerHTML = all.map(t => { const A = ACT[t.activity] || ACT.paddle, U = uOf(t.activity);
     return `<button class="trip${t.id === trip?.id ? ' cur' : ''}" data-open="${esc(t.id)}"><span class="ic" aria-hidden="true">${A.icon}</span><span class="grow"><b>${esc(t.name)}</b>
       <small>${fmtDay(t.date)} · ${A.name}${t.env ? ' · ' + (ENV[t.env]?.name || '') : ''}</small>
-      <small>${(routeNm(t.route) * U.k).toFixed(1)} ${unitKey(t.activity)}${t.tracks.length ? ` · ${t.tracks.length} track${t.tracks.length > 1 ? 's' : ''}` : ''}${t.fetchedAt ? ' · forecast saved' : ''}</small></span></button>`; }).join('') || '<p class="muted">No trips yet.</p>';
+      <small>${(routeNm(t.route) * U.k).toFixed(1)} ${unitKey(t.activity)}${t.tracks.length ? ` · ${t.tracks.length} track${t.tracks.length > 1 ? 's' : ''}` : ''}${t.fetchedAt ? ' · forecast saved' : ''} · <span class="tsz" data-id="${esc(t.id)}">${fmtSize(dataBytes(t))}</span></small></span></button>`; }).join('') || '<p class="muted">No trips yet.</p>';
   backupState();
+  if ('caches' in window) mapUsage().then(tiles => { for (const t of all){ const e = $(`#tripList .tsz[data-id="${CSS.escape(t.id)}"]`); if (e) e.textContent = fmtSize(dataBytes(t) + mapBytes(t, tiles)); } });
 }
 $('#tripList').addEventListener('click', async e => {
   const b = e.target.closest('[data-open]'); if (!b) return;
@@ -2156,6 +2220,8 @@ $('#shareApp').onclick = async () => {
 $('#appVer').textContent = `· version ${APP_VERSION}`;
 $('#sVar').value = settings.variation;
 $('#sAis').value = settings.aisKey || '';
+$('#sNaip').checked = !!settings.naip;
+$('#sNaip').onchange = e => { settings.naip = e.target.checked; saveSettings(); if (settings.layer === 'sat') setLayer('sat'); };
 $('#sAis').onchange = e => { settings.aisKey = e.target.value.trim(); saveSettings(); if (ais.on) aisConnect(); };
 $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.target.value)){ settings.variation = +e.target.value; saveSettings(); render(); } };
 
@@ -2175,6 +2241,7 @@ addEventListener('pagehide', () => { if (saveT) saveNow(); });
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && saveT) saveNow(); });
 async function openTrip(t){
   if (saveT && trip) await saveNow();
+  await offlineReady;
   trip = normTrip(t); state.legs.clear(); state.routeHidden = false; state.showStations = false; LS.set('lastTrip', t.id);
   if (trip.route.length > MAX_WPS * 1.5){ // imported before routes were simplified
     const n0 = trip.route.length; trip.route = simplifyTo(trip.route, MAX_WPS); trip.updated = Date.now(); idb.put('trips', trip).catch(() => {});
@@ -3306,7 +3373,7 @@ sheet.addEventListener('click', async e => {
     const ok = await shareFile(p.name, p.data, p.type, p.from, true);
     if (!pendingShare) sheet.close(); return p.res(ok); }
   if (b.id === 'planGpx') return shareFile(fileName('gpx'), toGpx(), 'application/gpx+xml');
-  if (b.id === 'planJson') return shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip: { ...trip, share: undefined } }, null, 1), 'application/json');
+  if (b.id === 'planJson') return shareFile(fileName('json'), JSON.stringify({ app: 'Outback', version: 2, trip: { ...trip, share: undefined, mapTiles: undefined } }, null, 1), 'application/json');
   if (b.id === 'planLink') return trip.share?.own ? linkSheet() : shareLink();
   if (b.id === 'ghSave') return ghSave();
   if (b.id === 'linkShare') return shareUrlOut();
@@ -3372,7 +3439,7 @@ function readyToShare(name, data, type, from, why){
     sheet.addEventListener('close', () => { if (pendingShare?.res === res){ pendingShare = null; res(false); } }, { once: true }); });
 }
 // What an imported copy of a trip changes, in plain words; [] when it's the same plan.
-const SAME_IGNORE = ['id', 'updated', 'data', 'fetchedAt', 'tracks', 'prog', 'share', 'anchor'];
+const SAME_IGNORE = ['id', 'updated', 'data', 'fetchedAt', 'tracks', 'prog', 'share', 'anchor', 'mapTiles'];
 function tripChanges(a, b){
   const J = JSON.stringify, ch = [], at = m => new Date(2000, 0, 1, 0, m).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   if (a.name !== b.name) ch.push(`Name: ${a.name} → ${b.name}`);
@@ -3454,7 +3521,7 @@ $('#file').onchange = async e => {
     }
     t.updated = Date.now();
     await idb.put('trips', t); await openTrip(t); showView(1);
-    toast(t.simplifiedFrom ? `Imported ${t.name}: ${t.simplifiedFrom.toLocaleString()} route points simplified to ${t.route.length} waypoints.` : 'Imported ' + t.name, t.simplifiedFrom ? 5000 : 2800);
+    toast(t.simplifiedFrom ? `Imported ${t.name}: ${t.simplifiedFrom.toLocaleString()} route points simplified to ${t.route.length} waypoints. ${MAP_HINT}` : `Imported ${t.name}. ${MAP_HINT}`, t.simplifiedFrom ? 7000 : 5000);
     delete t.simplifiedFrom;
   }catch(err){ toast('Import failed: ' + err.message, 4000); }
 };
@@ -3471,7 +3538,7 @@ const hash53 = str => { let h1 = 0xdeadbeef, h2 = 0x41c6ce57; for (let i = 0; i 
 const sigOf = (t, skip) => hash53(JSON.stringify(Object.keys(t).filter(k => !skip.includes(k) && t[k] !== undefined).sort().map(k => [k, t[k]])));
 const planSig = t => sigOf(t, [...SAME_IGNORE, 'name']);         // the plan: what counts as "you changed your copy" (a new name is yours to keep)
 const fullSig = t => sigOf(t, ['id', 'updated', 'share', 'prog']); // everything the link carries, forecast included
-const shareBody = t => JSON.stringify({ app: 'Outback', version: 2, trip: { ...t, share: undefined, prog: undefined } }, null, 1);
+const shareBody = t => JSON.stringify({ app: 'Outback', version: 2, trip: { ...t, share: undefined, prog: undefined, mapTiles: undefined } }, null, 1);
 const shareUrl = id => `${location.origin}${location.pathname}#trip=${id}`;
 const isMe = login => !!settings.ghUser && login.toLowerCase() === settings.ghUser.toLowerCase();
 const gistVer = g => g.history?.[0]?.version || g.updated_at;
@@ -3636,7 +3703,7 @@ async function resolveSync(take){
 // Piece by piece: changed on one side only, that side wins; changed on both, you pick. Markers merge one by one.
 // What a forecast fills in (stations, water type, time zone, saved tiles) is not an edit to a shared copy: keep it out of
 // "you changed your copy", so the sender's next change (say Paddle to Bike) comes in by itself instead of as "both changed".
-const FC_KEYS = ['env', 'envSet', 'tide', 'current', 'tz', 'mapTiles'];
+const FC_KEYS = ['env', 'envSet', 'tide', 'current', 'tz'];
 const fcBefore = t => t.share ? { ...structuredClone(Object.fromEntries(FC_KEYS.map(k => [k, t[k]]))), sig: planSig(t) } : null;
 function fcFilled(t, was){
   const s = t.share; if (!s || !was) return;
@@ -3647,7 +3714,7 @@ function fcFilled(t, was){
 const baseOf = t => structuredClone(Object.fromEntries(Object.entries(t).filter(([k, v]) => v !== undefined && !['id', 'updated', 'share', 'prog', 'tracks', 'data', 'fetchedAt'].includes(k))));
 const MERGE_PIECES = [['name', 'Name', ['name']], ['day', 'Day', ['date']], ['start', 'Start', ['start']], ['activity', 'Activity', ['activity', 'env', 'envSet']],
   ['route', 'Route', ['route']], ['parking', 'Parking', ['parking']], ['stations', 'Tide and current stations', ['tide', 'current']], ['anchor', '', ['anchor']]];
-const NOT_MERGED = ['id', 'updated', 'share', 'prog', 'tracks', 'data', 'fetchedAt', 'marks'];
+const NOT_MERGED = ['id', 'updated', 'share', 'prog', 'tracks', 'data', 'fetchedAt', 'marks', 'mapTiles'];
 function pieceText(key, t){
   const at = m => new Date(2000, 0, 1, 0, m).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   if (key === 'name') return t.name;
@@ -3712,6 +3779,8 @@ async function applyMerge(){
     toast(s.own ? 'Merged, and sent to the link.' : 'Merged. You’ll still get later updates.', 4000);
   }catch(e){ toast('Merged here; could not reach GitHub: ' + e.message, 4500); }
 }
+// a trip from someone else (or another device) comes without the map: that is saved on each phone
+const MAP_HINT = 'Tap Get forecast to save its map for offline use.';
 // #trip=<gist id>: add the trip from the link, or open the copy already here
 async function openLink(id){
   history.replaceState(null, '', location.pathname + location.search);
@@ -3727,7 +3796,7 @@ async function openLink(id){
     const t = { ...r.trip, id: all.some(x => x.id === r.trip.id) ? newTrip().id : r.trip.id, updated: Date.now(),
       share: { id, owner: r.owner, own, ver: r.ver, name: r.trip.name, base: baseOf(r.trip), sig: planSig(r.trip), sent: fullSig(r.trip), at: Date.now() } };
     await idb.put('trips', t); await openTrip(t); showView(1);
-    toast(own ? `Opened your shared trip ${t.name}. Changes here go to the link.` : `Added ${t.name} from @${r.owner}. You’ll get their updates.`, 5000);
+    toast((own ? `Opened your shared trip ${t.name}. Changes here go to the link.` : `Added ${t.name} from @${r.owner}. You’ll get their updates.`) + ' ' + MAP_HINT, 7000);
   }catch(e){ toast(e.status === 404 ? 'This trip link no longer works: it was deleted or never existed.' : 'Could not open the link: ' + e.message, 5000); }
 }
 const linkFromHash = () => { const m = location.hash.match(/^#trip=([0-9a-f]{8,})$/i); if (m) openLink(m[1]); };
@@ -3774,7 +3843,7 @@ async function restoreBackup(j){
   }
   // On a fresh phone the backup's settings come back; otherwise only ones missing here (like the AIS key) are filled in.
   for (const [k, v] of Object.entries(j.settings || {})) if (!SKIP_SETTINGS.includes(k) && (fresh || settings[k] == null || settings[k] === '')) settings[k] = v;
-  saveSettings(); renderActSettings(); $('#sVar').value = settings.variation; $('#sAis').value = settings.aisKey || '';
+  saveSettings(); renderActSettings(); $('#sVar').value = settings.variation; $('#sAis').value = settings.aisKey || ''; $('#sNaip').checked = !!settings.naip;
   const cur = trip && await idb.get('trips', trip.id);
   if (cur && cur.updated !== trip.updated){ trip = null; await openTrip(cur); } else renderList();
   backupState();
