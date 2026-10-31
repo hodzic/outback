@@ -193,7 +193,7 @@ The app works offline once each trip has been prepared while you still have a co
 | `pdfmap.js` | PDF trail map parsing, loaded only when importing a PDF |
 | `vendor/` | MuPDF WebAssembly (AGPL, loaded on demand), html2canvas 1.4.1 (MIT, loaded on demand) and `Leaflet.ImageOverlay.Rotated` |
 | `tools/bump.js` | Sets the next version (`npm run bump`) |
-| `sw.js` | Service worker: map tiles for offline use, and the options for the shared part (`/shared/sw-core.js` on [hodzic.github.io](https://github.com/hodzic/hodzic.github.io), used by all the apps there; its `/shared/update.js` runs the update prompt) |
+| `sw.js` | Service worker: map tiles for offline use, and the options for the shared part (`/shared/sw-core.js` on [hodzic.github.io](https://github.com/hodzic/hodzic.github.io), used by all the apps there; its `/shared/update.js` runs the update prompt). Previews on raw.githack.com have no `/shared/`, so they skip it and run online only |
 | `manifest.webmanifest`, `icon-*.png` | Installable app |
 
 ## Deploying
