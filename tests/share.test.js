@@ -222,6 +222,7 @@ module.exports = async (browser, url, check) => {
     const g = JSON.parse(github.gists.get(id).content).trip;
     c('the link carries the forecast but not the saved map', !!g.fetchedAt && !('mapTiles' in g), Object.keys(g).join());
     await r.goto(link); await r.waitForFunction(id => trip?.share?.id === id, id); await view(r, 1);
+    c('the toast says to get the forecast to save the map', /Tap Get forecast to save its map for offline use/.test(await r.text('#toast')), await r.text('#toast'));
     c('the copy has the forecast and says nothing about a saved map', !!(await ev(r, () => trip.fetchedAt)) && !/map saved/.test(await r.text('#status')), await r.text('#status'));
     await r.click('#fcBtn'); await waitForecast(r);
     c('Get forecast on the copy saves its own map', /map saved offline/.test(await r.text('#status')));
@@ -230,6 +231,10 @@ module.exports = async (browser, url, check) => {
     c('an update from the link keeps the copy’s own map', await ev(r, () => trip.start === 660 && offlineMaps[trip.id]?.tiles > 0) && /map saved offline/.test(await r.text('#status')));
     await view(r, 0);
     c('the trips list shows what each trip takes on the phone', /· \d+(\.\d)? [KM]B/.test(await r.text('#tripList')), await r.text('#tripList'));
+    await r.waitForTimeout(500);
+    const u = await ev(r, async () => { const tiles = await mapUsage(), m = mapBytes(trip, tiles);
+      return { m, want: fmtSize(dataBytes(trip) + m), shown: document.querySelector(`#tripList .tsz[data-id="${trip.id}"]`)?.textContent }; });
+    c('its size counts the map tiles kept for its area', u.m > 0 && u.shown === u.want, JSON.stringify(u));
     c('no page errors (saved map)', !S.errors.length && !R.errors.length, [...S.errors, ...R.errors].join(' | '));
     for (const p of [S, R]) await p.ctx.close();
   }

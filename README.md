@@ -9,7 +9,7 @@ Formerly **Paddle**. Trips, settings and saved map tiles from Paddle carry over 
 
 Three views; swipe between them or use the tabs at the bottom.
 
-1. **Trips**: *Share Outback* (sends the app's link), your trips (newest date first, each with what it takes on the phone: the trip and the map Get forecast saved for it), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
+1. **Trips**: *Share Outback* (sends the app's link), your trips (newest date first, each with what it takes on the phone: the trip and the map tiles kept for its area, saved by Get forecast or from looking there), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
    backup and restore of everything in one file,
    settings (distance unit, speed and gust warning per activity; magnetic variation), install and offline help, and about.
 2. **Trip**: everything about the selected trip:
