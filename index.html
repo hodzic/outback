@@ -341,6 +341,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card"><summary>Settings</summary>
         <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
+        <label class="shck" style="margin:10px 0 4px"><input type="checkbox" id="sNaip"> Sharp satellite close up: NAIP aerial photos past USGS's detail (lower 48 states). Slower to load and to save offline.</label>
         <label class="f" for="sAis">AIS ships: AISStream API key (free at aisstream.io; "demo" for sample ships)</label><input class="f" id="sAis" type="text" autocomplete="off" spellcheck="false">
         <div class="f" id="ghSet" style="margin-top:10px"></div>
       </details>
@@ -660,7 +661,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-31c';
+const APP_VERSION = '2026-10-31d';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -985,12 +986,13 @@ function ncdsTile(z, x, y){
   const bbox = [-E + x * w, E - (y + 1) * w, -E + (x + 1) * w, E - y * w].map(v => v.toFixed(2)).join(',');
   return `${NCDS}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=${px},${px}&dpi=${HD ? 192 : 96}&format=png&transparent=false&f=image`;
 }
-// USGS imagery tiles stop at z16 (about 2.4 m a pixel); closer in, Sat draws NAIP aerial photos (0.6 m, public domain,
-// lower 48 states) from the USGS image service, one box per tile like the charts.
+// USGS imagery tiles stop at z16 (about 2.4 m a pixel); closer in, with Sharp satellite on (Settings), Sat draws NAIP aerial
+// photos (0.6 m, public domain, lower 48 states) from the USGS image service, one box per tile like the charts. Off by
+// default: each tile is drawn on request, so they load and save offline slowly.
 const NAIP = 'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage';
 function satTile(z, x, y){
   const n = 2 ** z, lng = (x + .5) / n * 360 - 180, lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * (y + .5) / n))) * 180 / Math.PI;
-  if (z < 16 || lng < -125 || lng > -66 || lat < 24 || lat > 50) return `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/${z}/${y}/${x}`;
+  if (!settings.naip || z < 16 || lng < -125 || lng > -66 || lat < 24 || lat > 50) return `https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/${z}/${y}/${x}`;
   const E = 20037508.342789244, w = 2 * E / n, px = HD ? 512 : 256;
   const bbox = [-E + x * w, E - (y + 1) * w, -E + (x + 1) * w, E - y * w].map(v => v.toFixed(2)).join(',');
   return `${NAIP}?bbox=${bbox}&bboxSR=3857&imageSR=3857&size=${px},${px}&format=jpg&f=image`;
@@ -999,7 +1001,8 @@ const LAYERS = {
   chart: { name: 'Chart', tile: ncdsTile, opt: { maxZoom: 18, maxNativeZoom: 17, minNativeZoom: 5, attribution: 'NOAA ENC charts · not for navigation' } },
   street: { name: 'Street', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt: { maxZoom: 19, attribution: '© OpenStreetMap contributors' }, polite: true },
   topo: { name: 'Topo', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map' } },
-  sat: { name: 'Sat', tile: satTile, opt: { maxZoom: 18, maxNativeZoom: 18, attribution: 'USGS The National Map: imagery, NAIP' } }
+  sat: { name: 'Sat', tile: satTile, opt: { maxZoom: 18, maxNativeZoom: 16, attribution: 'USGS The National Map: imagery' },
+    naipOpt: { maxNativeZoom: 18, attribution: 'USGS The National Map: imagery, NAIP' } }
 };
 const LAYER_ORDER = ['chart', 'street', 'topo', 'sat'];
 // OpenSeaMap sea marks: buoys, beacons, lights and harbours, see-through over any base layer (⚓ on paddle trips)
@@ -1017,7 +1020,8 @@ function setLayer(k){
   if (base) map.removeLayer(base);
   settings.layer = k; saveSettings(); tileErr = 0; tileOk = 0;
   const L0 = LAYERS[k];
-  base = (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', L0.opt) : L.tileLayer(L0.url, L0.opt)).addTo(map);
+  const opt = L0.naipOpt && settings.naip ? { ...L0.opt, ...L0.naipOpt } : L0.opt;
+  base = (L0.tile ? new (L.TileLayer.extend({ getTileUrl: c => L0.tile(c.z, c.x, c.y) }))('', opt) : L.tileLayer(L0.url, opt)).addTo(map);
   base.on('tileload', () => tileOk++);
   base.on('tileerror', () => { if (++tileErr >= 4 && tileOk === 0 && k === 'chart' && navigator.onLine){ toast('Chart tiles are not loading. Switched to Street.'); setLayer('street'); } });
   $('#layerBtn').textContent = LAYERS[k].name;
@@ -2216,6 +2220,8 @@ $('#shareApp').onclick = async () => {
 $('#appVer').textContent = `· version ${APP_VERSION}`;
 $('#sVar').value = settings.variation;
 $('#sAis').value = settings.aisKey || '';
+$('#sNaip').checked = !!settings.naip;
+$('#sNaip').onchange = e => { settings.naip = e.target.checked; saveSettings(); if (settings.layer === 'sat') setLayer('sat'); };
 $('#sAis').onchange = e => { settings.aisKey = e.target.value.trim(); saveSettings(); if (ais.on) aisConnect(); };
 $('#sVar').onchange = e => { if (e.target.value.trim() !== '' && isFinite(+e.target.value)){ settings.variation = +e.target.value; saveSettings(); render(); } };
 
@@ -3837,7 +3843,7 @@ async function restoreBackup(j){
   }
   // On a fresh phone the backup's settings come back; otherwise only ones missing here (like the AIS key) are filled in.
   for (const [k, v] of Object.entries(j.settings || {})) if (!SKIP_SETTINGS.includes(k) && (fresh || settings[k] == null || settings[k] === '')) settings[k] = v;
-  saveSettings(); renderActSettings(); $('#sVar').value = settings.variation; $('#sAis').value = settings.aisKey || '';
+  saveSettings(); renderActSettings(); $('#sVar').value = settings.variation; $('#sAis').value = settings.aisKey || ''; $('#sNaip').checked = !!settings.naip;
   const cur = trip && await idb.get('trips', trip.id);
   if (cur && cur.updated !== trip.updated){ trip = null; await openTrip(cur); } else renderList();
   backupState();

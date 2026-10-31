@@ -681,12 +681,18 @@ module.exports = async (browser, url, check) => {
     { // closer in, USGS imagery runs out (z16): NAIP aerial photos, one Web Mercator box per tile; outside the lower 48, USGS tiles
       const naip = []; page.on('request', r => { if (r.url().includes('USGSNAIPPlus')) naip.push(r.url()); });
       await page.evaluate(() => map.setView([38.2401, -121.4139], 17)); await page.waitForTimeout(800);
+      c('Sharp satellite is off by default: USGS imagery only, stretched past z16', !(await page.evaluate(() => settings.naip)) && !(await page.isChecked('#sNaip')) && naip.length === 0
+        && await page.evaluate(() => base.options.maxNativeZoom === 16), naip[0]);
+      await page.evaluate(() => { showView(0); document.querySelectorAll('#views details').forEach(d => d.open = true); });
+      await page.check('#sNaip'); await page.evaluate(() => showView(2)); await page.waitForTimeout(800);
+      c('turned on in Settings, it is kept and credited', await page.evaluate(() => settings.naip && LS.get('settings').naip && base.options.maxNativeZoom === 18)
+        && /imagery, NAIP/.test(await page.text('.leaflet-control-attribution')));
       const W17 = 2 * 20037508.342789244 / 2 ** 17, u = naip.find(x => x.includes('/exportImage?')), q = u && new URL(u).searchParams, b = q && q.get('bbox').split(',').map(Number);
       c('Sat close in draws NAIP aerial photos, one tile box each', !!u && q.get('f') === 'image' && q.get('bboxSR') === '3857' && Math.abs(b[2] - b[0] - W17) < 0.1
         && Math.abs(Math.round((b[0] + 20037508.342789244) / W17) * W17 - 20037508.342789244 - b[0]) < 0.01 && Math.abs(b[3] - b[1] - W17) < 0.1, u);
       c('NAIP not used zoomed out', await page.evaluate(() => satTile(12, 660, 1580)).then(t => t.includes('USGSImageryOnly/MapServer/tile/12/1580/660')));
       c('NAIP not used outside the lower 48', await page.evaluate(() => { const z = 17, n = 2 ** z; return satTile(z, Math.floor((-157.8 + 180) / 360 * n), 57000); }).then(t => t.includes('USGSImageryOnly')));
-      await page.evaluate(() => map.setView([37.81, -122.45], 12)); await page.waitForTimeout(300); }
+      await page.evaluate(() => { settings.naip = false; saveSettings(); setLayer('sat'); map.setView([37.81, -122.45], 12); }); await page.waitForTimeout(300); }
     await page.screenshot({ path: path.join(OUT, 'feat-satellite.png') });
     const scale = () => page.text('.leaflet-control-scale-line');
     c('scale bar on the map in nautical miles or feet for a paddle', await page.isVisible('.leaflet-control-scale') && /^\d+ (nm|ft)$/.test(await scale()), await scale());
