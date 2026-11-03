@@ -53,6 +53,8 @@ h2{font-size:17px;margin:0 0 8px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .row>.grow{flex:1}
 .muted{color:var(--muted);font-size:13px}
+.rtu{border:0;background:none;padding:0;font:inherit;color:inherit;font-weight:inherit;text-decoration:underline dotted;cursor:pointer}
+.u2{color:var(--muted);font-weight:500;font-size:.8em;white-space:nowrap}.u2.x{display:none}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .seg button{border:0;background:var(--paper);padding:8px 14px;font-size:15px}
 .seg button.on{background:var(--ink);color:#fff}
@@ -82,8 +84,8 @@ td:first-child,th:first-child{text-align:left}
 
 /* trip details */
 table.acts td,table.acts th{text-align:left;vertical-align:middle}
-table.acts select,table.acts input{height:38px;border:1px solid var(--line);border-radius:8px;padding:0 6px;background:var(--paper)}
-table.acts input{width:64px}
+table.acts select,table.acts input{height:38px;border:1px solid var(--line);border-radius:8px;padding:0 4px;background:var(--paper)}
+table.acts input{width:52px}
 table.acts td,table.acts th{padding:5px 3px}
 #chart{display:block;width:100%;height:140px;touch-action:none;margin:6px 0 8px;cursor:ew-resize}
 #timeOut{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
@@ -339,7 +341,10 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <p class="muted" id="backupInfo"></p>
       </details>
       <details class="card"><summary>Settings</summary>
-        <table class="acts"><tr><th>Activity</th><th>Units</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
+        <table class="acts"><tr><th>Activity</th><th>Units</th><th title="Second unit">Also</th><th>Speed</th><th title="Gust warning">Gusts</th></tr><tbody id="actSettings"></tbody></table>
+        <p class="muted" style="margin:2px 0 0">Also: a second distance and speed unit, shown beside the first in the trip summary, map popups, shared text and print.</p>
+        <label class="f" for="sTemp">Temperature</label><select class="f" id="sTemp">
+          <option value="">°F, or °C with km</option><option value="F">°F</option><option value="C">°C</option><option value="FC">°F and °C</option><option value="CF">°C and °F</option></select>
         <label class="f" for="sVar">Magnetic variation (° east, SF Bay ≈ 13)</label><input class="f" id="sVar" type="number" step="0.5">
         <label class="shck" style="margin:10px 0 4px"><input type="checkbox" id="sNaip"> Sharp satellite close up: NAIP aerial photos past USGS's detail (lower 48 states). Slower to load and to save offline.</label>
         <label class="f" for="sAis">AIS ships: AISStream API key (free at aisstream.io; "demo" for sample ships)</label><input class="f" id="sAis" type="text" autocomplete="off" spellcheck="false">
@@ -661,7 +666,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-10-31d';
+const APP_VERSION = '2026-11-02a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -768,10 +773,21 @@ const fmtD = (nm, dp = 1) => dU(nm).toFixed(dp) + ' ' + unitName();
 const wU = kt => kt * u().k;
 const wUnit = () => u().spd;
 const hasElev = () => !!act().climb;
-// Temperature comes in °F; shown in °C when the activity uses kilometres.
-const tC = () => unitName() === 'km';
+// Temperature comes in °F; shown in °C when set, or by default when the activity uses kilometres; optionally both.
+const tC = () => settings.temp ? settings.temp[0] === 'C' : unitName() === 'km';
 const temp = f => Math.round(tC() ? (f - 32) * 5 / 9 : f) + '°';
 const tUnit = () => tC() ? 'C' : 'F';
+const t2 = () => settings.temp?.length === 2;
+const tOther = f => Math.round(tC() ? f : (f - 32) * 5 / 9);
+const tAlt = (lo, hi = lo) => t2() ? `${tOther(lo) === tOther(hi) ? tOther(lo) : tOther(lo) + '–' + tOther(hi)}°${tC() ? 'F' : 'C'}` : '';
+// A second distance and speed unit (Settings): beside the first where there's room, and always in shared text and print.
+settings.units2 = { ...settings.units2 };
+const u2Key = a => { const k = settings.units2[a]; return k in UNITS && k !== unitKey(a) ? k : ''; };
+const u2 = () => UNITS[u2Key(trip?.activity || 'paddle')] || null;
+const d2 = (nm, dp = 1) => u2() ? `${(nm * u2().k).toFixed(dp)} ${u2Key(trip?.activity || 'paddle')}` : '';
+const wind2 = h => u2() && h ? `${Math.round(h.ws * u2().k)} G${Math.round(h.wg * u2().k)} ${u2().spd}` : '';
+// the second value, muted; show = false hides it on screen (no room there) but keeps it for shared text and print
+const alt = (s, show = true) => s ? ` <span class="u2${show ? '' : ' x'}">/ ${s}</span>` : '';   // the space outside, so a narrow cell breaks there
 // Forecast low and high for the trip day (local midnight to midnight)
 function dayTemps(){
   const w = trip.data?.wx; if (!w?.temp) return null;
@@ -1069,7 +1085,7 @@ function drawRoute(){
       if (state.legs.has(i)){
         const d = distNm(a, p);
         L.tooltip({ permanent: true, direction: 'center', className: 'leg' }).setLatLng(mid)
-          .setContent(`${fmtD(d, 2)} · ${magB(brgT(a,p))} · ${fmtDur(hoursFor(d))}`).addTo(routeLayer);
+          .setContent(`${fmtD(d, 2)}${alt(d2(d, 2))} · ${magB(brgT(a,p))} · ${fmtDur(hoursFor(d))}`).addTo(routeLayer);
       }
     }
     const m = L.marker(ll2(p), { draggable: state.drawing, icon: L.divIcon({ className: '', html: `<div data-n="${i+1}" class="wp${isCp(p) ? ' cp' : ''}${navMode() && i === state.nextWp ? ' next' : ''}">${i+1}</div>`, iconSize: [26,26], iconAnchor: [13,13] }) }).addTo(routeLayer);
@@ -1417,7 +1433,7 @@ function fcSnap(){
     ['Pressure', dy.p ? (Math.abs(d) < 1 ? 'steady' : `${d > 0 ? 'rising' : 'falling'} ${Math.abs(d).toFixed(0)} mb`) : ''],
     ['Thunder', dy.th ? dy.th.v + '%' : ''],
     ['Swell', hasSwell() ? (sd => sd ? `${sd.v} ${sd.way}`.trim() : '')(swellDay(sunTimes(trip.date, c[0], c[1]))) : ''],
-    ['Water', trip.activity === 'paddle' && trip.data.water ? (renderWater(), $('#waterV').textContent) : '']] };
+    ['Water', trip.activity === 'paddle' && trip.data.water ? (renderWater(), $('#waterV').firstChild.textContent) : '']] };
 }
 
 /* ---------- offline tiles: Get forecast saves the map around the route ---------- */
@@ -1555,14 +1571,14 @@ function dayFacts(sun){
 function renderWater(){
   const cell = $('.cell.waterc'), w = trip.data?.water, n = w?.noaa, m = w?.model;
   cell.hidden = trip.activity !== 'paddle';
-  const range = (lo, hi) => (temp(lo) === temp(hi) ? temp(lo) : `${temp(lo)} – ${temp(hi)}`) + tUnit();
+  const range = (lo, hi) => (temp(lo) === temp(hi) ? temp(lo) : `${temp(lo)} – ${temp(hi)}`) + tUnit() + alt(tAlt(lo, hi));
   const ago = t => { const h = (Date.now() - t) / 36e5; return h < 1 ? 'just now' : h < 36 ? Math.round(h) + ' h ago' : Math.round(h / 24) + ' days ago'; };
   let v = '–', src = trip.data ? (trip.activity === 'paddle' ? 'No reading or forecast here' : ' ') : ' ', lo = null;
   if (n?.lo != null){ v = range(n.lo, n.hi); src = `Measured at ${n.name} (NOAA)`; lo = n.lo; }
   else if (m?.lo != null){ v = range(m.lo, m.hi); src = `Forecast (Open-Meteo model)${n ? ` · ${temp(n.v)} at ${n.name} ${ago(n.at)}` : ''}`; lo = m.lo; }
-  else if (n){ v = temp(n.v) + tUnit(); src = `At ${n.name} ${ago(n.at)} (NOAA)`; lo = n.v; }
+  else if (n){ v = temp(n.v) + tUnit() + alt(tAlt(n.v)); src = `At ${n.name} ${ago(n.at)} (NOAA)`; lo = n.v; }
   const cold = lo != null && lo < COLD_F;
-  $('#waterV').textContent = v; $('#waterV').classList.toggle('warn', cold);
+  $('#waterV').innerHTML = v; $('#waterV').classList.toggle('warn', cold);
   $('#waterS').textContent = src + (cold ? ' · cold: dress for immersion' : '');
 }
 // Ocean swell on paddle trips in the bay or on the coast (Open-Meteo Marine model)
@@ -1603,13 +1619,12 @@ function render(){
   $('#envSel').innerHTML = (act().detect ? `<button data-env="" class="${trip.envSet ? '' : 'on'}">Auto${!trip.envSet && trip.env ? ': ' + env().name : ''}</button>` : '') +
     act().envs.map(k => `<button data-env="${k}" class="${trip.envSet && trip.env === k ? 'on' : ''}">${ENV[k].name}</button>`).join('');
   // route
-  $('#dist').textContent = fmtD(nm);
   const stops = trip.route.slice(0, -1).filter(pauseMin).length, sH = stopsH(trip.route);
   $('#dur').textContent = legs ? fmtDur(hoursFor(nm, es?.up) + sH) : '–';
-  $('#spd').textContent = `${speed()} ${u().spd}`;
+  $('#spd').innerHTML = `${speed()} ${u().spd}${alt(u2() ? (speedKt() * u2().k).toFixed(1) + ' ' + u2().spd : '')}`;
   $('#routeMore').hidden = !legs;
   $('#legs').textContent = legs ? `${legs} leg${legs > 1 ? 's' : ''}${stops ? ` · ${stops} stop${stops > 1 ? 's' : ''} ${fmtDur(sH)}` : ''}${es ? ` · climb +${ft(es.up)}` : ''}` : '';
-  $('#dist').textContent = legs ? fmtD(nm) : 'none yet: draw it on the map';
+  $('#dist').innerHTML = legs ? fmtD(nm) + alt(d2(nm)) : 'none yet: draw it on the map';
   $('#clearRoute').disabled = !trip.route.length;
   if ($('#wpDetails').open) routeTable();
   // forecast
@@ -1627,10 +1642,10 @@ function render(){
   } else { ac.textContent = '–'; drawCurArrow(null); }
   const asw = swellAt(t); $('#atSwell').textContent = asw ? swellTxt(asw) : '–';
   const aw = $('#atWind');
-  aw.textContent = w ? `${Math.round(wU(w.ws))} G${Math.round(wU(w.wg))} ${wUnit()} ${compass(w.wd)}` : '–';
+  aw.innerHTML = w ? `${Math.round(wU(w.ws))} G${Math.round(wU(w.wg))} ${wUnit()} ${compass(w.wd)}${alt(wind2(w), false)}` : '–';
   aw.classList.toggle('warn', !!w && w.wg >= gust());
   $('#atSky').textContent = w && wxText(w.code) ? 'Air · ' + wxText(w.code).toLowerCase() : 'Air';
-  $('#atAir').textContent = w ? `${temp(w.temp)}${tUnit()}${w.pop != null ? ' · rain ' + w.pop + '%' : ''}` : '–';
+  $('#atAir').innerHTML = w ? `${temp(w.temp)}${tUnit()}${alt(tAlt(w.temp))}${w.pop != null ? ' · rain ' + w.pop + '%' : ''}` : '–';
   const ap = $('#atPres'); ap.classList.remove('warn');
   if (w && w.p != null){
     const dp = w.dp; ap.textContent = Math.round(w.p) + ' mb' + (dp == null ? '' : dp >= 0.5 ? ' ↑' : dp <= -0.5 ? ' ↓' : ' →');
@@ -1666,12 +1681,12 @@ function render(){
   $('#elevV').textContent = es ? `+${ft(es.up)} / −${ft(es.down)}` : '–';
   $('#elevS').textContent = es ? `High ${ft(es.hi)} · low ${ft(es.lo)}` : (trip.route.length > 1 ? 'Tap Get forecast for the profile' : ' ');
 
-  const wv = $('#windV'), half = (h, n) => h ? `${n} ${Math.round(wU(h.ws))} G${Math.round(wU(h.wg))} ${compass(h.wd)}` : '';
+  const wv = $('#windV'), half = (h, n) => h ? `${n} ${Math.round(wU(h.ws))} G${Math.round(wU(h.wg))} ${compass(h.wd)}${alt(wind2(h), false)}` : '';
   $('#windK').textContent = `Wind · ${wUnit()}`;
   wv.innerHTML = dy.am || dy.pm ? [half(dy.am, 'AM'), half(dy.pm, 'PM')].filter(Boolean).join('<br>') : '–';
   wv.classList.toggle('warn', [dy.am, dy.pm].some(h => h && h.wg >= gust()));
   const dt = dayTemps();
-  $('#tempV').innerHTML = dt ? `<span class="lo">Low ${temp(dt.lo)}</span> · <span class="hi">High ${temp(dt.hi)}</span>${tUnit()}` : '–';
+  $('#tempV').innerHTML = dt ? `<span class="lo">Low ${temp(dt.lo)}</span> · <span class="hi">High ${temp(dt.hi)}</span>${tUnit()}${alt(tAlt(dt.lo, dt.hi))}` : '–';
   $('#tempS').textContent = dy.sky ? `${dy.sky}${dy.pop != null ? dy.pop ? ' · rain up to ' + dy.pop + '%' : ' · no rain' : ''} in daylight` : ' ';
   const pv = $('#presV'); pv.classList.remove('warn');
   if (dy.p){
@@ -1729,12 +1744,15 @@ function render(){
   drawChart(sun);
 }
 $('#wpDetails').addEventListener('toggle', () => { if ($('#wpDetails').open) routeTable(); });
+let rtAlt = false;   // the waypoint table in the second unit
+$('#routeTable').addEventListener('click', e => { if (e.target.closest('#rtUnit')){ rtAlt = !rtAlt; routeTable(); } });
 function routeTable(){
   const r = trip.route;
   if (r.length < 2){ $('#routeTable').innerHTML = '<p class="muted">No route yet.</p>'; return; }
   let cum = 0; const start = dayStart() + trip.start * 6e4;
+  const two = !!u2() && rtAlt, k = two ? u2().k : u().k, un = two ? u2Key(trip.activity) : unitName(), dU = nm => nm * k;
   $('#routeTable').innerHTML = `<p class="muted">Leaving at ${hm(start)} (the planned start) at ${speed()} ${u().spd}${hasElev() ? ', on the flat' : ', without current'}${stopsH(r) ? ', with the stops' : ''}.</p>
-    <table><tr><th>Waypoint</th><th>Leg ${unitName()}</th><th>Bearing</th><th>Total</th><th>Arrive</th></tr>${r.map((p, i) => {
+    <table><tr><th>Waypoint</th><th>${u2() ? `<button class="rtu" id="rtUnit" title="Switch unit">Leg ${un} ⇄</button>` : `Leg ${un}`}</th><th>Bearing</th><th>Total</th><th>Arrive</th></tr>${r.map((p, i) => {
       const st = pauseMin(p) && i < r.length - 1 ? `<br><small>⏸ ${fmtDur(pauseMin(p) / 60)}</small>` : '';
       if (!i) return `<tr><td>${esc(wpLabel(r, 0))}${st}</td><td>–</td><td>–</td><td>0.00</td><td>${hm(start)}${st && `<br><small>leave ${hm(start + pauseMin(p) * 6e4)}</small>`}</td></tr>`;
       const d = distNm(r[i-1], p); cum += d; const at = start + (hoursFor(cum) + stopsH(r, i)) * 36e5;
@@ -2010,7 +2028,7 @@ function drawWind(g, W, H, X, t0, t1, font, note, T, sun){
   g.strokeStyle = ink('#B3261E'); g.lineWidth = 1.5; g.beginPath();
   idx.forEach((i, k) => k ? g.lineTo(X(w.t[i]), Y(w.wg[i])) : g.moveTo(X(w.t[i]), Y(w.wg[i]))); g.stroke();
   g.setLineDash([4, 4]); g.strokeStyle = ink('rgba(179,38,30,.6)'); g.beginPath(); g.moveTo(0, Y(gust())); g.lineTo(W, Y(gust())); g.stroke(); g.setLineDash([]);
-  g.fillStyle = ink('#5B7183'); g.font = '10px ' + font; g.fillText(`${Math.round(wU(top))} ${wUnit()}`, 2, 10); g.fillText(`gust limit ${Math.round(wU(gust()))}`, W - 76, Y(gust()) - 3);
+  g.fillStyle = ink('#5B7183'); g.font = '10px ' + font; g.fillText(`${Math.round(wU(top))} ${wUnit()}${inSheet && u2() ? ` · ${Math.round(top * u2().k)} ${u2().spd}` : ''}`, 2, 10); g.fillText(`gust limit ${Math.round(wU(gust()))}`, W - 76, Y(gust()) - 3);
   // the strongest gust and wind in daylight, plus the day's strongest gust if that comes at night
   const day = idx.filter(i => w.t[i] >= t0 && w.t[i] < t1), lit = day.filter(i => !sun.rise || (w.t[i] >= sun.rise && w.t[i] <= sun.set));
   const pk = (k, set) => set.reduce((a, i) => w[k][i] > w[k][a] ? i : a, set[0]);
@@ -2196,17 +2214,21 @@ $('#importBtn').onclick = () => $('#file').click();
 function renderActSettings(){
   $('#actSettings').innerHTML = Object.entries(ACT).map(([a, A]) => `<tr><td>${A.name}</td>
     <td><select data-unit="${a}" aria-label="${A.name} units">${Object.entries(UNITS).map(([k, U]) => `<option value="${k}"${k === unitKey(a) ? ' selected' : ''}>${k} · ${U.spd}</option>`).join('')}</select></td>
+    <td><select data-unit2="${a}" aria-label="${A.name} second unit"><option value="">–</option>${Object.keys(UNITS).filter(k => k !== unitKey(a)).map(k => `<option value="${k}"${k === u2Key(a) ? ' selected' : ''}>${k}</option>`).join('')}</select></td>
     <td><input data-speed="${a}" type="number" step="0.1" min="0.1" value="${+(settings.speedsKt[a] * uOf(a).k).toFixed(1)}" aria-label="${A.name} speed in ${uOf(a).spd}"></td>
     <td><input data-gust="${a}" type="number" step="1" min="1" value="${Math.round(settings.gustKt[a] * uOf(a).k)}" aria-label="${A.name} gust warning in ${uOf(a).spd}"></td></tr>`).join('');
 }
 $('#actSettings').addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.unit) settings.units[t.dataset.unit] = t.value;
+  if (t.dataset.unit2) settings.units2[t.dataset.unit2] = t.value;
   if (t.dataset.speed && +t.value > 0) settings.speedsKt[t.dataset.speed] = +t.value / uOf(t.dataset.speed).k;
   if (t.dataset.gust && +t.value > 0) settings.gustKt[t.dataset.gust] = +t.value / uOf(t.dataset.gust).k;
   saveSettings(); renderActSettings(); renderList(); if (trip) changed();
 });
 renderActSettings();
+$('#sTemp').value = settings.temp || '';
+$('#sTemp').onchange = e => { settings.temp = e.target.value; saveSettings(); renderList(); if (trip) changed(); };
 // The app's own address, so links and help stay right if the site moves (e.g. /paddle/ -> /outback/)
 const appUrl = () => location.origin + location.pathname.replace(/index\.html$/, '');
 document.querySelectorAll('.appUrl').forEach(el => el.textContent = appUrl().replace(/^https?:\/\//, '').replace(/\/$/, ''));
@@ -3037,7 +3059,7 @@ function planText(){
     L.push('', `Start: ${r[0][2] ? r[0][2] + ' ' : ''}${ll(r[0])}  https://www.google.com/maps/search/?api=1&query=${r[0][0].toFixed(5)},${r[0][1].toFixed(5)}`);
     if (r.length > 1){ const legs = namedLegs(legsOf(), r), skip = r.length - legs.length;
       L.push('', `Waypoints (distance, bearing, est. arrival)${skip ? `, start, finish and named only (${skip} unnamed left out; the GPX file has all ${r.length})` : ''}:`);
-      for (const g of legs) L.push(`${wpLabel(r, g.i)}  ${ll(g.p)}  ${g.i ? `${dU(g.d).toFixed(2)} ${unitName()}${g.brg ? ', ' + g.brg : ''}, ${hm(g.at)}` : `leave ${hm(g.at)}`}${g.stop ? `, stop ${fmtDur(g.stop / 60)}${g.i ? ` (leave ${hm(g.at + g.stop * 6e4)})` : ''}` : ''}`); }
+      for (const g of legs) L.push(`${wpLabel(r, g.i)}  ${ll(g.p)}  ${g.i ? `${dU(g.d).toFixed(2)} ${unitName()}${u2() ? ' / ' + d2(g.d, 2) : ''}${g.brg ? ', ' + g.brg : ''}, ${hm(g.at)}` : `leave ${hm(g.at)}`}${g.stop ? `, stop ${fmtDur(g.stop / 60)}${g.i ? ` (leave ${hm(g.at + g.stop * 6e4)})` : ''}` : ''}`); }
   }
   const pk = trip.parking;
   if (pk) L.push('', `Parking: ${pk.name}${pk.note ? ' (' + pk.note + ')' : ''}  ${pk.lat.toFixed(5)}, ${pk.lng.toFixed(5)}${parkToStart() ? ', ' + parkToStart() : ''}`, `Driving directions: ${gDrive(pk)}`);
@@ -3251,11 +3273,12 @@ function printMap(el, big, o = {}){
 }
 // The trip sheet as a PNG at the chosen size, for a spreadsheet, doc or chat; html2canvas loads on first use.
 // the sheet's graphs with the cursor at the planned start, at dpr pixels per CSS pixel (3 for paper, the image's own scale for it)
+let inSheet = false;   // drawing the graphs for print
 function sheetGraphs(dpr){
   const sun = sunTimes(trip.date, ...centroid()), tMin = state.tMin; state.tMin = trip.start;
-  bwInk = !!settings.sheetBw;
+  bwInk = !!settings.sheetBw; inSheet = true;
   try{ $('#printDoc').querySelectorAll('canvas[data-kind]').forEach(c => drawDay(c, sun, c.dataset.kind, { tide: true, cur: true, dpr, zoom: settings.sheetSun ? 1.3 : 1 })); }
-  finally{ bwInk = false; state.tMin = tMin; }
+  finally{ bwInk = false; inSheet = false; state.tMin = tMin; }
 }
 // image sizes: 1× fits a spreadsheet or doc at 100% (Sheets shows images pixel for pixel and shrinks them poorly)
 const SHEET_SCALES = [[1, 'Small (800 px), fits a sheet'], [2, 'Medium (1600 px)'], [3, 'Large, to print (2400 px)']];
@@ -3843,7 +3866,7 @@ async function restoreBackup(j){
   }
   // On a fresh phone the backup's settings come back; otherwise only ones missing here (like the AIS key) are filled in.
   for (const [k, v] of Object.entries(j.settings || {})) if (!SKIP_SETTINGS.includes(k) && (fresh || settings[k] == null || settings[k] === '')) settings[k] = v;
-  saveSettings(); renderActSettings(); $('#sVar').value = settings.variation; $('#sAis').value = settings.aisKey || ''; $('#sNaip').checked = !!settings.naip;
+  saveSettings(); renderActSettings(); $('#sVar').value = settings.variation; $('#sAis').value = settings.aisKey || ''; $('#sNaip').checked = !!settings.naip; $('#sTemp').value = settings.temp || '';
   const cur = trip && await idb.get('trips', trip.id);
   if (cur && cur.updated !== trip.updated){ trip = null; await openTrip(cur); } else renderList();
   backupState();

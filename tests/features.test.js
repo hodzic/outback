@@ -261,7 +261,7 @@ module.exports = async (browser, url, check) => {
     await page.click('#vTrips details summary >> text=Settings');
     c('settings row per activity', await page.locator('#actSettings tr').count() === 3);
     c('bike gust shown in mph', await page.inputValue('[data-gust=bike]') === '17');
-    c('defaults nm / mi / mi', (await page.$$eval('#actSettings select', ss => ss.map(s => s.value))).join() === 'nm,mi,mi');
+    c('defaults nm / mi / mi', (await page.$$eval('#actSettings select[data-unit]', ss => ss.map(s => s.value))).join() === 'nm,mi,mi');
     const nm = await page.evaluate(() => routeNm(trip.route));
     await page.selectOption('[data-unit=paddle]', 'km');
     c('paddle in km', (await page.text('#dist')) === (nm * 1.852).toFixed(1) + ' km', await page.text('#dist'));
@@ -281,6 +281,35 @@ module.exports = async (browser, url, check) => {
     await page.reload(); await ready(page);
     c('units persist', await page.evaluate(() => settings.units.paddle) === 'km' && / km$/.test(await page.text('#dist')));
     await ctx.close(); }
+
+  { // a second unit and temperature in both: beside the first where there's room, all of it in shared text and print
+    const { ctx, page, errors } = await open(browser, url);
+    await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
+    await page.click('#fcBtn'); await waitForecast(page);
+    const nm = await page.evaluate(() => routeNm(trip.route));
+    c('no second unit by default', !/\//.test(await page.text('#dist')) && !/\//.test(await page.text('#spd')) && await page.locator('#rtUnit').count() === 0);
+    c('temperature defaults to °F with nm', /°F$/.test(await page.text('#tempV')) && !/°C/.test(await page.text('#tempV')), await page.text('#tempV'));
+    await view(page, 0); await page.click('#vTrips details summary >> text=Settings');
+    c('the second unit leaves out the first', (await page.$$eval('[data-unit2=paddle] option', o => o.map(x => x.value))).join() === ',mi,km');
+    await page.selectOption('[data-unit2=paddle]', 'km'); await page.selectOption('#sTemp', 'FC');
+    await view(page, 1);
+    c('route distance in both units', (await page.text('#dist')) === `${nm.toFixed(1)} nm / ${(nm * 1.852).toFixed(1)} km`, await page.text('#dist'));
+    c('speed in both units', (await page.text('#spd')) === '3 kt / 5.6 km/h', await page.text('#spd'));
+    c('day temperatures in °F and °C', /°F \/ -?\d+(–-?\d+)?°C$/.test(await page.text('#tempV')), await page.text('#tempV'));
+    c('wind keeps one unit on screen', await page.locator('#windV .u2').count() > 0 && !(await page.locator('#windV .u2').first().isVisible()));
+    await page.click('#wpDetails summary'); await page.click('#rtUnit');
+    c('the waypoint table switches to the second unit', /Leg km/.test(await page.text('#routeTable')), await page.text('#routeTable'));
+    await page.click('#rtUnit'); c('and back', /Leg nm/.test(await page.text('#routeTable')));
+    const txt = await page.evaluate(() => planText());
+    c('shared text: distance and speed in both', txt.includes(`${nm.toFixed(1)} nm / ${(nm * 1.852).toFixed(1)} km`) && txt.includes('3 kt / 5.6 km/h'), txt.slice(0, 300));
+    c('shared text: each leg in both', /\d\.\d\d nm \/ \d+\.\d\d km/.test(txt));
+    c('shared text: wind in both', /G\d+ \w+ \/ \d+ G\d+ km\/h/.test(txt), txt);
+    c('shared text: temperature in both', /°F \/ -?\d+(–-?\d+)?°C/.test(txt));
+    await view(page, 0); await page.selectOption('#sTemp', 'C'); await view(page, 1);
+    c('°C alone', /°C$/.test(await page.text('#tempV')) && !/°F/.test(await page.text('#tempV')), await page.text('#tempV'));
+    await page.reload(); await ready(page);
+    c('second unit and temperature persist', await page.evaluate(() => settings.units2.paddle === 'km' && settings.temp === 'C'));
+    c('no page errors (second unit)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // Share Outback: share sheet when available, else copy the link
     const { ctx, page } = await open(browser, url, { permissions: ['geolocation', 'clipboard-read', 'clipboard-write'] });
@@ -751,7 +780,7 @@ module.exports = async (browser, url, check) => {
     await page.click('#nRot'); await page.waitForFunction(w => state.nudge.layer._rawImage?.naturalWidth && state.nudge.layer._rawImage.naturalWidth !== w, g0.w, { timeout: 5000 }).catch(() => {});
     const g1 = await geo();
     c('⟳ 90° rotates the picture, keeping its place', g1.w > 0 && g1.w !== g0.w && Math.abs(g1.c[0] - g0.c[0]) < 1e-3 && Math.abs(g1.c[1] - g0.c[1]) < 1e-3 && await page.locator('.nudge').count() === 4, JSON.stringify([g0, g1]));
-    for (let i = 0; i < 3; i++){ await page.click('#nRot'); await page.waitForTimeout(400); }
+    for (let i = 0; i < 3; i++){ const w = (await geo()).w; await page.click('#nRot'); await page.waitForFunction(w => state.nudge.layer._rawImage?.naturalWidth && state.nudge.layer._rawImage.naturalWidth !== w, w, { timeout: 5000 }).catch(() => {}); await page.waitForTimeout(100); }
     const g4 = await geo();
     c('four turns bring it back', g4.w === g0.w && Math.abs(g4.tl.lat - g0.tl.lat) < 1e-6 && Math.abs(g4.tl.lng - g0.tl.lng) < 1e-6, JSON.stringify([g0.tl, g4.tl]));
     await page.click('#nSave'); await page.waitForTimeout(300);
@@ -993,7 +1022,7 @@ module.exports = async (browser, url, check) => {
 
   { // service worker must not delete other apps' caches on the shared origin
     const { ctx, page } = await open(browser, url, { serviceWorkers: 'allow' });
-    await page.goto(url + 'tests/out/'); // any page on the origin, before Outback's worker exists
+    await page.goto(url + 'sw.js'); // any page on the origin, before Outback's worker exists
     await page.evaluate(async () => { await caches.open('map-tiles'); await caches.open('my-location-shell-v8'); await caches.open('paddle-shell-v4'); await caches.open('outback-shell-v1'); });
     await page.goto(url); await ready(page);
     await page.evaluate(() => navigator.serviceWorker.ready); await page.waitForTimeout(800);
