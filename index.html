@@ -266,6 +266,16 @@ body.sun #coords{font-weight:700}
 #pkBtn.on{background:#1F6FB2;color:#fff;border-color:#1F6FB2}
 #seaBtn{position:absolute;right:10px;bottom:140px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:22px;padding:0}
 #seaBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+#wxBtn{position:absolute;left:10px;bottom:208px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:20px;padding:0}
+#wxBtn.on{background:var(--ink);border-color:var(--ink)}
+#wxBtn[data-mode="1"]::after{content:'R'}#wxBtn[data-mode="2"]::after{content:'R+S'}#wxBtn[data-mode="3"]::after{content:'S'}
+#wxBtn::after{position:absolute;right:-6px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--ink);border:1px solid var(--ink);border-radius:8px;padding:0 3px;line-height:14px}
+#wxBar{position:absolute;left:60px;bottom:214px;z-index:1000;display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.92);border:1px solid var(--line);
+  border-radius:16px;padding:2px 10px 2px 2px;font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+#wxBar[hidden],#wxBtn[hidden]{display:none}
+#wxPlay{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:12px;padding:0}
+#wxPlay[hidden]{display:none}
+#lnBtn[hidden] ~ #wxBtn{bottom:156px} #lnBtn[hidden] ~ #wxBar{bottom:162px}
 #aisBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #aisBtn[data-n]::after{content:attr(data-n);position:absolute;right:-4px;top:-4px;min-width:18px;font-size:11px;line-height:18px;border-radius:9px;background:var(--paper);color:var(--ink);border:1px solid var(--ink);padding:0 3px}
 #aisBtn.warn{background:var(--warn);border-color:var(--warn)}
@@ -447,6 +457,8 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
     <button id="aisBtn" class="pill" aria-label="Ships nearby (AIS)" title="Ships nearby (AIS)">AIS</button>
     <button id="lnBtn" class="pill" hidden aria-label="Boat launches" title="Boat launches">🛶</button>
     <button id="pkBtn" class="pill" aria-label="Parking (OpenStreetMap)" title="Parking (OpenStreetMap)">P</button>
+    <button id="wxBtn" class="pill" aria-label="Radar and satellite" title="Radar and satellite">☁</button>
+    <div id="wxBar" hidden><button id="wxPlay" aria-label="Play the last hour of radar">▶</button><span id="wxTime"></span></div>
     <button id="wcBtn" class="pill" aria-label="Restrooms (OpenStreetMap)" title="Restrooms (OpenStreetMap)">🚻</button>
     <button id="seaBtn" class="pill" hidden aria-label="Sea marks (OpenSeaMap)" title="Sea marks (OpenSeaMap)">⚓</button>
     <button id="curBtn" class="pill" aria-label="Tides and currents on the map" title="Tides and currents on the map">≈</button>
@@ -604,6 +616,15 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>Stops</b>: tap a waypoint, then <b>Stop here</b>, and enter the minutes (e.g. 45 for lunch). The stop is added to the trip's duration and every later arrival time; the waypoint table shows when you leave again. 0 removes it.</li>
         </ul>
       </details>
+      <details class="card help" id="helpWeather"><summary>Radar and satellite</summary>
+        <p>☁ on the map (bottom left) lays live weather over any map layer. Tap it to go from <b>radar</b> to <b>radar and satellite</b> to <b>satellite</b>; hold it to turn them off (the next tap comes back to the same one).</p>
+        <ul>
+          <li><b>Radar</b> shows rain and snow falling now: light blue and green for light rain, yellow and red for heavy rain and storms. <b>▶</b> plays the last hour so you can see where it's heading and how fast; <b>❚❚</b> stops on the latest. The label says how old the picture is.</li>
+          <li>In the lower 48 states radar is NOAA's NEXRAD composite from the Iowa Environmental Mesonet, every 5 minutes. Elsewhere it is RainViewer's global radar, every 10 minutes; its free maps stop at a regional zoom, so close in they look blurry, and many countries have no radar coverage.</li>
+          <li><b>Satellite</b> is infrared from NASA GIBS (GOES-West, GOES-East, Himawari): cloud tops, day and night. Bright white is cold, high cloud (storms, fronts); gray is lower cloud. Low fog and marine layer barely show in infrared. There is none over Europe and Africa.</li>
+          <li>Both need a connection and refresh every 5 minutes while on. They are not saved for offline use.</li>
+        </ul>
+      </details>
       <details class="card help" id="helpSeamarks"><summary>Sea marks legend</summary>
         <p>⚓ on the map (paddle trips) shows OpenSeaMap's buoys, beacons and lights, drawn as on a nautical chart. The US uses the IALA B system: <b>red right returning</b>. Coming in from the sea, up a river or into a harbour, keep red marks on your right and green on your left; going out, the other way round.</p>
         <h3>Channel (lateral) marks</h3>
@@ -666,7 +687,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-11-02a';
+const APP_VERSION = '2026-11-03a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1044,6 +1065,96 @@ function setLayer(k){
 }
 setLayer(settings.layer in LAYERS ? settings.layer : 'chart');
 $('#seaBtn').onclick = () => { settings.seamarks = !settings.seamarks; saveSettings(); seaState(); settings.seamarks ? toast('Sea marks on (OpenSeaMap). Tap here for the legend.', 4500, 'helpSeamarks') : toast('Sea marks off.'); };
+// Radar and satellite (☁, any trip): live overlays, never saved for offline use. Tap cycles radar → radar + satellite →
+// satellite; a long press turns them off and the next tap comes back in the same mode.
+// Radar in the lower 48: the Iowa Environmental Mesonet's NEXRAD composite (n0q), latest and 5 to 50 minutes old, for the loop.
+// Elsewhere: RainViewer's global radar (its free tiles stop at zoom 7, so close in they're blurry; past frames only).
+// Satellite: NASA GIBS infrared cloud tops (GOES-West, GOES-East, Himawari), day and night; none over Europe and Africa.
+const WX_MODES = [{ label: 'Radar and satellite (off)', toast: 'Radar and satellite off.' },
+  { label: 'Radar (tap: add satellite)', toast: 'Radar on: rain and snow. ▶ plays the last hour.', radar: true },
+  { label: 'Radar and satellite (tap: satellite only)', toast: 'Radar and satellite (infrared cloud tops).', radar: true, sat: true },
+  { label: 'Satellite (tap: radar)', toast: 'Satellite on: infrared cloud tops, day and night. Hold the button to turn it off.', sat: true }];
+const IEM = 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913';
+const IEM_AGO = [50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0]; // minutes behind the latest composite, oldest first
+const inUS48 = ll => ll.lat > 22 && ll.lat < 51 && ll.lng > -127 && ll.lng < -64;
+const GIBS = 'https://gibs.earthdata.nasa.gov/wms/epsg3857/best/wms.cgi';
+// each satellite only where it sees best, so the discs don't overlap
+const SATS = [['GOES-West_ABI_Band13_Clean_Infrared', [-180, -105]], ['GOES-East_ABI_Band13_Clean_Infrared', [-105, -20]],
+  ['Himawari_AHI_Band13_Clean_Infrared', [80, 180]]];
+const wx = { frames: [], i: 0, play: null, sat: [], src: null, rv: null, rvAt: 0, tick: null };
+const wxMode = () => settings.wxMode || 0;
+const wxBucket = () => Math.floor(Date.now() / 3e5); // a new URL every 5 minutes, so tiles refresh
+async function rainviewer(){
+  if (wx.rv && Date.now() - wx.rvAt < 3e5) return wx.rv;
+  const j = await (await fetch('https://api.rainviewer.com/public/weather-maps.json')).json();
+  wx.rvAt = Date.now(); return wx.rv = { host: j.host, past: j.radar?.past || [] };
+}
+// The radar frames for where the map is: [{ url, ago (minutes before the newest), opt }], oldest first
+async function wxFrames(){
+  if (inUS48(map.getCenter())){
+    const b = wxBucket();
+    return { src: 'iem', frames: IEM_AGO.map(m => ({ url: `${IEM}${m ? `-m${String(m).padStart(2, '0')}m` : ''}/{z}/{x}/{y}.png?_=${b}`, ago: m,
+      opt: { maxZoom: 19, maxNativeZoom: 12, attribution: 'Radar: NOAA NEXRAD via Iowa Environmental Mesonet' } })) };
+  }
+  const rv = await rainviewer(), last = rv.past.at(-1)?.time;
+  return { src: 'rv', frames: rv.past.map(f => ({ url: `${rv.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`, ago: Math.round((last - f.time) / 60),
+    opt: { maxZoom: 19, maxNativeZoom: 7, attribution: 'Radar: RainViewer' } })) };
+}
+function wxShow(i){
+  wx.frames.forEach((f, k) => f.layer?.setOpacity(k === i ? .7 : 0)); wx.i = i;
+  const f = wx.frames[i]; $('#wxTime').textContent = !f ? '' : `Radar ${f.ago ? `−${f.ago} min` : 'latest'}`;
+}
+function wxStop(){ clearInterval(wx.play); wx.play = null; $('#wxPlay').textContent = '▶'; $('#wxPlay').setAttribute('aria-label', 'Play the last hour of radar');
+  wx.frames.forEach((f, k) => { if (k < wx.frames.length - 1 && f.layer){ map.removeLayer(f.layer); f.layer = null; } }); wxShow(wx.frames.length - 1); }
+function wxPlay(){
+  if (wx.play) return wxStop();
+  // load every frame (hidden), then step through them, holding on the latest
+  wx.frames.forEach(f => { if (!f.layer) f.layer = L.tileLayer(f.url, { ...f.opt, opacity: 0, zIndex: 6 }).addTo(map); });
+  let hold = 0; wxShow(0);
+  wx.play = setInterval(() => { if (wx.i === wx.frames.length - 1 && hold++ < 2) return; hold = 0; wxShow((wx.i + 1) % wx.frames.length); }, 600);
+  $('#wxPlay').textContent = '❚❚'; $('#wxPlay').setAttribute('aria-label', 'Stop the radar loop');
+}
+function wxClearRadar(){ clearInterval(wx.play); wx.play = null; wx.frames.forEach(f => f.layer && map.removeLayer(f.layer)); wx.frames = []; wx.src = null; }
+async function wxRadar(force){
+  const m = WX_MODES[wxMode()];
+  if (!m.radar){ wxClearRadar(); return; }
+  const src = inUS48(map.getCenter()) ? 'iem' : 'rv';
+  if (!force && src === wx.src && wx.frames.length) return;
+  let got;
+  try{ got = await wxFrames(); }catch{ if (!navigator.onLine) toast('Radar needs a connection.'); else toast('Radar outside the US isn\'t loading (RainViewer).'); return; }
+  if (!WX_MODES[wxMode()].radar) return;
+  const playing = !!wx.play; wxClearRadar(); wx.src = got.src; wx.frames = got.frames;
+  if (!wx.frames.length){ $('#wxTime').textContent = 'No radar here'; return; }
+  const f = wx.frames.at(-1); f.layer = L.tileLayer(f.url, { ...f.opt, opacity: .7, zIndex: 6 }).addTo(map);
+  wxShow(wx.frames.length - 1); $('#wxPlay').textContent = '▶';
+  if (playing) wxPlay();
+}
+function wxSat(){
+  const on = !!WX_MODES[wxMode()].sat;
+  if (!on){ wx.sat.forEach(l => map.removeLayer(l)); wx.sat = []; return; }
+  if (wx.sat.length) return;
+  wx.sat = SATS.map(([layers, [w, e]]) => L.tileLayer.wms(GIBS, { layers, format: 'image/png', transparent: true, version: '1.1.1', opacity: .55, zIndex: 4,
+    maxZoom: 19, maxNativeZoom: 8, bounds: L.latLngBounds([-75, w], [75, e]), attribution: 'Satellite: NASA GIBS (GOES, Himawari)' }).addTo(map));
+}
+function wxState(){
+  const m = wxMode(), b = $('#wxBtn');
+  b.classList.toggle('on', m > 0); b.dataset.mode = m; b.setAttribute('aria-label', WX_MODES[m].label); b.title = WX_MODES[m].label;
+  $('#wxBar').hidden = !m; $('#wxPlay').hidden = !WX_MODES[m].radar;
+  if (!WX_MODES[m].radar) $('#wxTime').textContent = 'Satellite (infrared)';
+  wxSat(); wxRadar();
+  clearInterval(wx.tick); wx.tick = m ? setInterval(() => { if (document.visibilityState === 'visible' && !wx.play){ wx.rvAt = 0; wxRadar(true); } }, 3e5) : null;
+}
+function setWxMode(m){ settings.wxMode = m; if (m) settings.wxLast = m; saveSettings(); toast(WX_MODES[m].toast, 3500, m ? 'helpWeather' : null); wxState(); }
+let wxHold, wxHeld = false;
+const wxB = $('#wxBtn');
+wxB.addEventListener('pointerdown', () => { wxHeld = false; clearTimeout(wxHold); if (wxMode()) wxHold = setTimeout(() => { wxHeld = true; setWxMode(0); navigator.vibrate?.(30); }, 600); });
+['pointerup', 'pointerleave', 'pointercancel'].forEach(t => wxB.addEventListener(t, () => clearTimeout(wxHold)));
+wxB.addEventListener('contextmenu', e => e.preventDefault());
+wxB.onclick = () => { if (wxHeld){ wxHeld = false; return; } setWxMode(wxMode() ? wxMode() % 3 + 1 : settings.wxLast || 1); };
+$('#wxPlay').onclick = wxPlay;
+map.on('moveend', () => { if (WX_MODES[wxMode()].radar){ clearTimeout(wx.mt); wx.mt = setTimeout(wxRadar, 400); } });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && WX_MODES[wxMode()].radar){ wx.rvAt = 0; wxRadar(true); } });
+wxState();
 $('#layerBtn').onclick = () => setLayer(LAYER_ORDER[(LAYER_ORDER.indexOf(settings.layer) + 1) % LAYER_ORDER.length]);
 $('#tripChip').onclick = () => showView(1);
 $('#mini').onclick = () => showView(1);

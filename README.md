@@ -67,6 +67,12 @@ Three views; swipe between them or use the tabs at the bottom.
   (shipped in `data/watertrail.json`, refreshed with `node tools/watertrail.js` from the Water Trail's public API) with
   launch type, facilities, parking, restrooms, hours and safety notes, a link to the site's page, *Directions*, and
   *Start route here*; plus OpenStreetMap boat ramps and kayak put-ins anywhere (skipped where a Water Trail site is).
+- **Radar and satellite ☁** (bottom left of the map, any trip): live weather over any layer. A tap cycles radar →
+  radar and satellite → satellite; a long press turns it off and the next tap comes back in the same mode. Radar in the
+  lower 48 is NOAA NEXRAD (the Iowa Environmental Mesonet's n0q composite, 5-minute frames); elsewhere RainViewer's
+  global radar (10-minute frames; its free tiles stop at zoom 7). *▶* loops the last hour, *❚❚* stops on the latest;
+  the label beside it gives the frame's age. Satellite is NASA GIBS infrared (GOES-West, GOES-East, Himawari), day and
+  night; nothing over Europe and Africa. Both refresh every 5 minutes while on, need a connection and aren't saved offline.
 - **AIS ships** (button at the bottom right of the map): live vessels around the map view from
   [aisstream.io](https://aisstream.io) (free API key, stored only on the device; Settings, or the first tap).
   Ships are coloured by type (cargo green, tanker red, passenger blue, tug/pilot teal, high-speed orange)
@@ -175,6 +181,7 @@ The app works offline once each trip has been prepared while you still have a co
 
 - Getting or refreshing a forecast, or changing tide stations.
 - Map areas you haven't saved or viewed.
+- Radar and satellite (☁).
 - Map layers you didn't save: *Get forecast* only saves the layer selected at the time (Chart, Street, Topo or Sat).
 - Importing your first overlay PDF map, because the 10 MB PDF reader downloads on first use.
   Overlay PDF maps you have already imported show fine offline.

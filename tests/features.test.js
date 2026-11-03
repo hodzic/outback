@@ -753,6 +753,37 @@ module.exports = async (browser, url, check) => {
     await page.click('#seaBtn');
     await page.click('#tabs [data-view="0"]'); await page.click('#newHike'); await page.waitForTimeout(500);
     c('no sea marks on a hike', await page.isHidden('#seaBtn') && await page.evaluate(() => !seaLayer));
+    // radar and satellite: ☁ cycles radar → radar + satellite → satellite, hold turns it off
+    const wxReq = []; page.on('request', r => { if (/mesonet\.agron|gibs\.earthdata|rainviewer/.test(r.url())) wxReq.push(r.url()); });
+    await view(page, 2);
+    await page.evaluate(() => map.setView([37.8, -122.4], 9, { animate: false })); await page.waitForTimeout(200);
+    c('☁ radar button on a hike too, off at first', await page.isVisible('#wxBtn') && await page.isHidden('#wxBar') && await page.evaluate(() => !settings.wxMode));
+    await page.click('#wxBtn'); await page.waitForTimeout(600);
+    const iem = wxReq.filter(u => u.includes('/nexrad-n0q-900913/'));
+    c('☁ in the US shows the latest NEXRAD radar (IEM) with its age', iem.length > 0 && await page.evaluate(() => settings.wxMode === 1 && wx.src === 'iem' && wx.frames.length === 11 && !wx.sat.length)
+      && (await page.text('#wxTime')) === 'Radar latest' && /NEXRAD/.test(await page.text('.leaflet-control-attribution')), iem[0]);
+    await page.click('#wxPlay'); await page.waitForTimeout(900);
+    c('▶ loads the last hour (5-minute frames back to 50 min) and steps through it', wxReq.some(u => u.includes('nexrad-n0q-900913-m50m/')) && wxReq.some(u => u.includes('nexrad-n0q-900913-m05m/'))
+      && await page.evaluate(() => wx.frames.every(f => f.layer)) && /^Radar (−\d+ min|latest)$/.test(await page.text('#wxTime')) && (await page.text('#wxPlay')) === '❚❚');
+    await page.screenshot({ path: path.join(OUT, 'feat-radar.png') });
+    await page.click('#wxPlay'); await page.waitForTimeout(100);
+    c('❚❚ stops on the latest frame and drops the others', (await page.text('#wxTime')) === 'Radar latest' && await page.evaluate(() => wx.frames.filter(f => f.layer).length === 1));
+    await page.click('#wxBtn'); await page.waitForTimeout(500);
+    const sat = wxReq.filter(u => u.includes('gibs.earthdata'));
+    c('second tap adds GIBS infrared satellite (GOES-West here)', await page.evaluate(() => settings.wxMode === 2 && wx.sat.length === 3 && wx.frames.length > 0)
+      && sat.some(u => u.includes('GOES-West_ABI_Band13_Clean_Infrared')) && !sat.some(u => u.includes('Himawari')), sat[0]);
+    await page.click('#wxBtn'); await page.waitForTimeout(300);
+    c('third tap: satellite only', await page.evaluate(() => settings.wxMode === 3 && !wx.frames.length && wx.sat.length === 3) && await page.isHidden('#wxPlay') && /Satellite/.test(await page.text('#wxTime')));
+    await hold(page, '#wxBtn');
+    c('hold turns radar and satellite off', await page.evaluate(() => !settings.wxMode && !wx.sat.length && !wx.frames.length) && await page.isHidden('#wxBar'));
+    await page.click('#wxBtn'); await page.waitForTimeout(300);
+    c('next tap comes back to the last mode (satellite)', await page.evaluate(() => settings.wxMode === 3));
+    await page.click('#wxBtn'); await page.waitForTimeout(100);
+    await page.evaluate(() => map.setView([51.5, -0.1], 9, { animate: false })); await page.waitForTimeout(900);
+    const rv = wxReq.filter(u => u.includes('tilecache.rainviewer.com'));
+    c('outside the US radar comes from RainViewer (10-minute frames, Universal Blue)', await page.evaluate(() => wx.src === 'rv' && wx.frames.length === 4 && wx.frames[0].ago === 30)
+      && rv.length > 0 && /\/v2\/radar\/\d+\/256\/\d+\/\d+\/\d+\/2\/1_1\.png$/.test(rv[0]), rv[0]);
+    await page.evaluate(() => { setWxMode(0); map.setView([37.8, -122.4], 12); }); await page.waitForTimeout(200);
     c('no page errors (satellite, scale)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
   { // PDF maps from the map view: auto-placement from printed GPS labels, adjust, persistence, opacity
