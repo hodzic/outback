@@ -727,6 +727,13 @@ module.exports = async (browser, url, check) => {
     c('scale bar on the map in nautical miles or feet for a paddle', await page.isVisible('.leaflet-control-scale') && /^\d+ (nm|ft)$/.test(await scale()), await scale());
     const lay = await page.evaluate(() => { const r = s => document.querySelector(s).getBoundingClientRect(), sc = r('.leaflet-control-scale'), W = innerWidth;
       return { mid: Math.abs(sc.left + sc.width / 2 - W / 2), rows: [['#wcBtn', '#aisBtn'], ['#pkBtn', '#curBtn'], ['#lnBtn', '#seaBtn']].map(([a, b]) => [r(a).bottom - r(b).bottom, r(a).width - r(b).width, r(a).left - (W - r(b).right)]) }; });
+    const clear = () => page.evaluate(() => { const a = map.attributionControl.getContainer().getBoundingClientRect().top;
+      return ['#wcBtn', '#pkBtn', '#aisBtn', '#curBtn', '#seaBtn', '#wxBtn', '.leaflet-control-scale'].map(s => document.querySelector(s)).filter(e => e.offsetParent)
+        .every(e => e.getBoundingClientRect().bottom <= a - 4); });
+    c('buttons and scale stay above the map credits', await clear());
+    await page.evaluate(() => { map.attributionControl.addAttribution('A very long credit line for testing that wraps the credits over several lines on a phone screen'); }); await page.waitForTimeout(200);
+    c('...also when the credits wrap onto more lines', await clear());
+    await page.evaluate(() => map.attributionControl.removeAttribution('A very long credit line for testing that wraps the credits over several lines on a phone screen'));
     c('scale bar at the bottom middle; left and right buttons mirror each other', lay.mid < 2 && lay.rows.flat().every(v => Math.abs(v) < 1), JSON.stringify(lay));
     await page.evaluate(() => map.setZoom(9, { animate: false })); await page.waitForTimeout(200);
     c('zoomed out the scale reads nm', /^\d+ nm$/.test(await scale()), await scale());
