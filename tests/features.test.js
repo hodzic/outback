@@ -725,6 +725,9 @@ module.exports = async (browser, url, check) => {
     await page.screenshot({ path: path.join(OUT, 'feat-satellite.png') });
     const scale = () => page.text('.leaflet-control-scale-line');
     c('scale bar on the map in nautical miles or feet for a paddle', await page.isVisible('.leaflet-control-scale') && /^\d+ (nm|ft)$/.test(await scale()), await scale());
+    const lay = await page.evaluate(() => { const r = s => document.querySelector(s).getBoundingClientRect(), sc = r('.leaflet-control-scale'), W = innerWidth;
+      return { mid: Math.abs(sc.left + sc.width / 2 - W / 2), rows: [['#wcBtn', '#aisBtn'], ['#pkBtn', '#curBtn'], ['#lnBtn', '#seaBtn']].map(([a, b]) => [r(a).bottom - r(b).bottom, r(a).width - r(b).width, r(a).left - (W - r(b).right)]) }; });
+    c('scale bar at the bottom middle; left and right buttons mirror each other', lay.mid < 2 && lay.rows.flat().every(v => Math.abs(v) < 1), JSON.stringify(lay));
     await page.evaluate(() => map.setZoom(9, { animate: false })); await page.waitForTimeout(200);
     c('zoomed out the scale reads nm', /^\d+ nm$/.test(await scale()), await scale());
     await page.evaluate(() => { settings.units.paddle = 'km'; changed(); }); await page.waitForTimeout(100);

@@ -210,7 +210,9 @@ body.sun #coords{font-weight:700}
 #vMap{overflow:hidden}
 #map{position:absolute;inset:0;background:#cfe3ee}
 .leaflet-control-attribution{font-size:10px}
-.leaflet-control-scale{margin-left:8px!important;margin-bottom:24px!important}
+/* the map's scale bar sits at the bottom middle, between the two columns of buttons */
+.leaflet-control-scale.mid{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);margin:0!important;z-index:1000;pointer-events:none}
+#pMap .leaflet-control-scale{margin-left:8px!important;margin-bottom:24px!important}
 .leaflet-control-scale-line{background:rgba(255,255,255,.75);border-color:var(--ink);color:var(--ink);font-size:11px;line-height:1.3}
 .mhead{position:absolute;left:0;right:0;top:0;z-index:1000;display:flex;flex-direction:column;gap:6px;padding:calc(var(--top) + 8px) 8px 0;pointer-events:none}
 .mhead>*,.mtop>*{pointer-events:auto}
@@ -249,7 +251,7 @@ body.sun #coords{font-weight:700}
 #locBtn[data-mode="2"]::after{content:'XY'}#locBtn[data-mode="3"]::after{content:'•'}#locBtn[data-mode="1"]::after{content:'→'}#locBtn[data-mode="4"]::after{content:'⚑'}
 #locBtn{position:relative}#locBtn::after{position:absolute;right:-3px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--me);border:1px solid var(--me);border-radius:8px;padding:0 3px;line-height:14px}
 #aisBtn{position:absolute;right:10px;bottom:24px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:13px;font-weight:800;padding:0}
-#wcBtn{position:absolute;left:10px;bottom:52px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:20px;padding:0}
+#wcBtn{position:absolute;left:10px;bottom:24px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:20px;padding:0}
 #wcBtn.on{background:var(--ink);border-color:var(--ink)}
 .poi{width:24px;height:24px;border-radius:50%;background:#fff;border:2px solid #1F6FB2;font-size:13px;line-height:20px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .poi.pk{border-radius:5px;background:#1F6FB2;color:#fff;font-weight:800;font-size:14px}
@@ -257,25 +259,25 @@ body.sun #coords{font-weight:700}
 .poi.pk.mine{width:28px;height:28px;line-height:24px;font-size:16px;background:#C8167E;border-color:#fff}
 #parkBox .track:last-child{border-bottom:0} #parkBox a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
 #parkBox .pkset{border-bottom:0;padding-bottom:2px} #parkBox .pkbtns{gap:6px;padding-bottom:8px}
-#lnBtn{position:absolute;left:10px;bottom:156px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:20px;padding:0}
+#lnBtn{position:absolute;left:10px;bottom:140px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:20px;padding:0}
 #lnBtn.on{background:var(--ink);border-color:var(--ink)}
 .poi.ln{border-color:#2E8B57} .poi.wt{width:28px;height:28px;line-height:24px;font-size:15px;border-width:3px;border-color:#C8167E}
 .wtp p{margin:4px 0} .wtp details{margin:3px 0} .wtp summary{font-weight:700;cursor:pointer}
 #drawBtn.hid{text-decoration:line-through;color:var(--muted)}
-#pkBtn{position:absolute;left:10px;bottom:104px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:18px;font-weight:800;padding:0;color:#1F6FB2}
+#pkBtn{position:absolute;left:10px;bottom:82px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:18px;font-weight:800;padding:0;color:#1F6FB2}
 #pkBtn.on{background:#1F6FB2;color:#fff;border-color:#1F6FB2}
 #seaBtn{position:absolute;right:10px;bottom:140px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:22px;padding:0}
 #seaBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-#wxBtn{position:absolute;left:10px;bottom:208px;z-index:1000;width:44px;height:44px;border-radius:50%;font-size:20px;padding:0}
+#wxBtn{position:absolute;left:10px;bottom:198px;z-index:1000;width:48px;height:48px;border-radius:50%;font-size:20px;padding:0}
 #wxBtn.on{background:var(--ink);border-color:var(--ink)}
 #wxBtn[data-mode="1"]::after{content:'R'}#wxBtn[data-mode="2"]::after{content:'R+S'}#wxBtn[data-mode="3"]::after{content:'S'}
 #wxBtn::after{position:absolute;right:-6px;bottom:-3px;font-size:10px;font-weight:800;background:var(--paper);color:var(--ink);border:1px solid var(--ink);border-radius:8px;padding:0 3px;line-height:14px}
-#wxBar{position:absolute;left:60px;bottom:214px;z-index:1000;display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.92);border:1px solid var(--line);
+#wxBar{position:absolute;left:66px;bottom:208px;z-index:1000;display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.92);border:1px solid var(--line);
   border-radius:16px;padding:2px 10px 2px 2px;font-size:13px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 #wxBar[hidden],#wxBtn[hidden]{display:none}
 #wxPlay{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--ink);font-size:12px;padding:0}
 #wxPlay[hidden]{display:none}
-#lnBtn[hidden] ~ #wxBtn{bottom:156px} #lnBtn[hidden] ~ #wxBar{bottom:162px}
+#lnBtn[hidden] ~ #wxBtn{bottom:140px} #lnBtn[hidden] ~ #wxBar{bottom:150px}
 #aisBtn.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 #aisBtn[data-n]::after{content:attr(data-n);position:absolute;right:-4px;top:-4px;min-width:18px;font-size:11px;line-height:18px;border-radius:9px;background:var(--paper);color:var(--ink);border:1px solid var(--ink);padding:0 3px}
 #aisBtn.warn{background:var(--warn);border-color:var(--warn)}
@@ -687,7 +689,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-11-03a';
+const APP_VERSION = '2026-11-03b';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1001,6 +1003,7 @@ const scaleCtl = new (L.Control.Scale.extend({
     big >= 1 ? put(0, u, big) : put(0, 'ft', m * 3.2808399);
   }
 }))({ position: 'bottomleft', metric: true, imperial: false, maxWidth: 110 }).addTo(map);
+scaleCtl.getContainer().classList.add('mid'); map.getContainer().appendChild(scaleCtl.getContainer());
 // Smaller waypoints when zoomed out or crowded: by zoom level, and by the typical on-screen gap between them
 function wpSize(){
   const z = map.getZoom(), c = map.getContainer().classList, draw = state.drawing, r = trip?.route || [];
