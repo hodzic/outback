@@ -11,7 +11,7 @@ Three views; swipe between them or use the tabs at the bottom.
 
 1. **Trips**: *Share Outback* (sends the app's link), your trips (newest date first, each with what it takes on the phone: the trip and the map tiles kept for its area, saved by Get forecast or from looking there), *+ Paddle* / *+ Hike* / *+ Bike*, import a trip or GPX,
    backup and restore of everything in one file,
-   settings (distance unit, speed and gust warning per activity; magnetic variation), install and offline help, and about.
+   settings (distance unit, second unit, speed and gust warning per activity; temperature; magnetic variation), install and offline help, and about.
 2. **Trip**: everything about the selected trip:
    - name, date (with the weekday) and planned start time (tap it for hour, minute and AM/PM rollers; 9:00 by default; new trips take the last one set; the graph opens there and the waypoint table times from it), activity (Paddle / Hike / Bike), water or terrain (auto-detected, or pick one)
    - route: one line with length, duration, speed and legs; the waypoint table and the markers fold out below it. Draw, undo and clear the route on the map; while editing, long-press a leg to insert a waypoint on it, and Undo steps back through each edit.
@@ -26,6 +26,8 @@ Three views; swipe between them or use the tabs at the bottom.
 
 - **Activities**: *Paddle* (NOAA chart, drawn from the current ENCs by the NOAA Chart Display Service), *Hike* (USGS topo) and *Bike* (street map). Each has its own
   distance unit (nautical miles, miles or kilometres), speed and gust warning in Settings; wind uses the same unit.
+  An optional second unit (*Also*) shows beside the first in the route summary and map leg popups, and in shared text and print
+  (wind too); the waypoint table's header switches between them. Temperature: °F, °C, or both (default °C with km, else °F).
   Defaults: paddle 3 kt, hike 2.5 mph, bike 10 mph.
 - **Water / terrain / surface**: ocean, bay, slough, river, lake for paddling; trail or coast for hiking;
   road, gravel or mountain bike for biking.
