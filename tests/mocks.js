@@ -139,6 +139,15 @@ async function install(ctx, opts = {}){
     { type: 'way', id: 2, center: { lat: 37.8072, lon: -122.4236 }, tags: { amenity: 'toilets', access: 'customers', 'toilets:disposal': 'pitlatrine' } }];
   const PARKING = [{ type: 'way', id: 3, center: { lat: 37.8331, lon: -122.4772 }, tags: { amenity: 'parking', name: 'Horseshoe Cove lot', fee: 'yes', charge: '$5/day', capacity: '40', opening_hours: '05:00-22:00', operator: 'National Park Service' } },
     { type: 'node', id: 4, lat: 37.8065, lon: -122.4225, tags: { amenity: 'parking', fee: 'no', access: 'customers', maxstay: '2 hours' } }];
+  // Radar (IEM NEXRAD, RainViewer) and satellite (NASA GIBS) tiles; RainViewer's frame list. opts.rvDown: unreachable
+  for (const h of ['mesonet.agron.iastate.edu', 'gibs.earthdata.nasa.gov', 'tilecache.rainviewer.com'])
+    await ctx.route(`https://${h}/**`, r => r.fulfill({ body: PNG, contentType: 'image/png', headers: CORS }));
+  await ctx.route('https://api.rainviewer.com/**', r => {
+    if (opts.rvDown) return r.abort();
+    const t = Math.floor(Date.now() / 6e5) * 600;
+    json(r, { version: '2.0', generated: t, host: 'https://tilecache.rainviewer.com',
+      radar: { past: [3, 2, 1, 0].map(k => ({ time: t - k * 600, path: `/v2/radar/${t - k * 600}` })), nowcast: [] } });
+  });
   for (const h of ['overpass-api.de', 'overpass.kumi.systems'])
     await ctx.route(`https://${h}/**`, r => {
       const q = decodeURIComponent((r.request().postData() || '').replace(/^data=/, ''));

@@ -18,8 +18,8 @@ Three views; swipe between them or use the tabs at the bottom.
    - forecast: first the whole day, which stays put as the time changes: low and high temperature (large, at the top) with daylight sky and rain, tide range with every high and low, and every max flood, max ebb and slack, one per line in time order, water temperature on paddle trips (the nearest NOAA station's readings that day or its latest, else the Open-Meteo Marine model; below 60°F it says to dress for immersion), ocean swell on bay and coast paddles (Open-Meteo Marine model for the open water nearest the route: the daylight swell range with its period and direction, and the biggest waves including wind chop), wind and gusts for morning and afternoon, pressure over daylight, the day's thunder chance (a slim full-width row when the boxes would otherwise leave an empty one), sun, moon (rise and set, phase and % lit, spring or neap tides on tidal water, computed on the phone), elevation for hikes. At the bottom: the picked time with *Now*, a fixed-size box with everything at that time (tide, current, swell, wind and gusts, temperature and sky, pressure, lightning), then the tide/wind graph with every high and low tide and every max flood and ebb labelled, and the strongest wind and gust in daylight (plus the night's when stronger); tap or drag it to pick a time. The Tide / Wind / Elevation buttons sit right under the graph; on the elevation graph, tap or drag for the elevation, distance and time from the start at that spot.
      *Get forecast* also saves the map around the route for offline use. When you refresh it for the same day and place, a dialog lists what moved since the last fetch (air temperature, morning and afternoon wind, sky, rain, pressure, thunder, swell, water), e.g. Air 64–74°F → 66–75°F; nothing changed is a one-line note.
    - tracks from imported GPX files (show on map, use as route, delete), delete trip
-3. **Map**: the route, and a top bar with the map layer (Chart / Street / Topo / Sat: USGS satellite imagery; with *Sharp satellite* on in Settings, NAIP aerial photos close in, in the lower 48 states, slower to load) and a scale bar in the trip's unit, *Route* (edit the route), **PDF** map overlays
-   and live location ◎ (with distance and magnetic bearing to the next waypoint).
+3. **Map**: the route, and a top bar with the map layer (Chart / Street / Topo / Sat: USGS satellite imagery; with *Sharp satellite* on in Settings, NAIP aerial photos close in, in the lower 48 states, slower to load), *Route* (edit the route), **PDF** map overlays
+   and live location ◎ (with distance and magnetic bearing to the next waypoint). A scale bar in the trip's unit sits at the bottom middle, between the two columns of map buttons.
    On the map a horizontal swipe pans the map; use the tabs or the trip name to leave it.
 
 ## What it does
@@ -67,6 +67,12 @@ Three views; swipe between them or use the tabs at the bottom.
   (shipped in `data/watertrail.json`, refreshed with `node tools/watertrail.js` from the Water Trail's public API) with
   launch type, facilities, parking, restrooms, hours and safety notes, a link to the site's page, *Directions*, and
   *Start route here*; plus OpenStreetMap boat ramps and kayak put-ins anywhere (skipped where a Water Trail site is).
+- **Radar and satellite ☁** (bottom left of the map, any trip): live weather over any layer. A tap cycles radar →
+  radar and satellite → satellite; a long press turns it off and the next tap comes back in the same mode. Radar in the
+  lower 48 is NOAA NEXRAD (the Iowa Environmental Mesonet's n0q composite, 5-minute frames); elsewhere RainViewer's
+  global radar (10-minute frames; its free tiles stop at zoom 7). *▶* loops the last hour, *❚❚* stops on the latest;
+  the label beside it gives the frame's age. Satellite is NASA GIBS infrared (GOES-West, GOES-East, Himawari), day and
+  night; nothing over Europe and Africa. Both refresh every 5 minutes while on, need a connection and aren't saved offline.
 - **AIS ships** (button at the bottom right of the map): live vessels around the map view from
   [aisstream.io](https://aisstream.io) (free API key, stored only on the device; Settings, or the first tap).
   Ships are coloured by type (cargo green, tanker red, passenger blue, tug/pilot teal, high-speed orange)
@@ -175,6 +181,7 @@ The app works offline once each trip has been prepared while you still have a co
 
 - Getting or refreshing a forecast, or changing tide stations.
 - Map areas you haven't saved or viewed.
+- Radar and satellite (☁).
 - Map layers you didn't save: *Get forecast* only saves the layer selected at the time (Chart, Street, Topo or Sat).
 - Importing your first overlay PDF map, because the 10 MB PDF reader downloads on first use.
   Overlay PDF maps you have already imported show fine offline.
