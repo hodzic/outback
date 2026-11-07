@@ -364,7 +364,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions. Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Swell: Open-Meteo Marine. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps; placed maps from the <a href="https://hodzic.github.io/outback-maps/" target="_blank" rel="noopener">Outback map library</a> (hodzic.github.io/outback-maps). Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch. Share links (optional): a trip you share is kept as a secret gist on your GitHub account; anyone with the link can read it.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions (more in Help, <i>Where the forecast comes from</i>). Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Swell: Open-Meteo Marine. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps; placed maps from the <a href="https://hodzic.github.io/outback-maps/" target="_blank" rel="noopener">Outback map library</a> (hodzic.github.io/outback-maps). Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch. Share links (optional): a trip you share is kept as a secret gist on your GitHub account; anyone with the link can read it.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
         <p class="muted"><a href="/">All apps</a></p>
@@ -618,6 +618,20 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>Stops</b>: tap a waypoint, then <b>Stop here</b>, and enter the minutes (e.g. 45 for lunch). The stop is added to the trip's duration and every later arrival time; the waypoint table shows when you leave again. 0 removes it.</li>
         </ul>
       </details>
+      <details class="card help" id="helpForecast"><summary>Where the forecast comes from</summary>
+        <p><b>Get forecast</b> fetches everything for the trip's day at the middle of the route (the map's centre if there is no route yet), then keeps it on the phone for offline use. The Trip tab says when it was fetched; tap again for a newer one.</p>
+        <ul>
+          <li><b>Wind, gusts, air temperature, sky, rain chance and pressure</b>: Open-Meteo (open-meteo.com), hourly. It blends the best national weather models for the place, such as NOAA's in the US. Wind and gusts are at 10 m (33 ft) above the ground or water; temperature at 2 m; pressure at sea level. Forecasts reach about 16 days ahead, and the first few days are the most reliable.</li>
+          <li><b>Tides and currents</b>: NOAA CO-OPS (tidesandcurrents.noaa.gov) predictions for the nearest tide and current stations; <b>Choose stations</b> picks others. Predictions are astronomical: strong wind, river flow and storms can move the real water a lot.</li>
+          <li><b>Water temperature</b> (paddle trips): readings from a NOAA station within 15 nm, for today or a past day; ahead of time, the station's latest reading with its age. Otherwise Open-Meteo's sea surface model, which is coarse and open water only, so a shallow bay or lake can be quite different.</li>
+          <li><b>Swell</b> (paddle trips on the bay or ocean): the Open-Meteo Marine model for the open water nearest the route. The "waves up to" height, swell plus wind waves, comes from it too.</li>
+          <li><b>Lightning</b>: the US National Weather Service's chance of thunder (weather.gov), about 7 days ahead. Elsewhere, or when it's unavailable, an estimate from Open-Meteo's storm energy (CAPE), rain chance and forecast thunderstorms.</li>
+          <li><b>Elevation</b> (hikes and rides): Open-Meteo's terrain model (90 m grid), sampled along the route. Short steep climbs and bridges can be smoothed out.</li>
+          <li><b>Sun and moon</b>: sunrise, sunset, first and last light and the moon phase are worked out on the phone, so they need no connection.</li>
+          <li><b>Radar and satellite</b> on the map are live, not part of the saved forecast: see below.</li>
+        </ul>
+        <p class="muted">All of these are free public services. They can be late, wrong or missing; check official forecasts (NOAA marine forecasts, weather.gov) before you go.</p>
+      </details>
       <details class="card help" id="helpWeather"><summary>Radar and satellite</summary>
         <p>☁ on the map (bottom left) lays live weather over any map layer. Tap it to go from <b>radar</b> to <b>radar and satellite</b> to <b>satellite</b>; hold it to turn them off (the next tap comes back to the same one).</p>
         <ul>
@@ -689,7 +703,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-11-03c';
+const APP_VERSION = '2026-11-07a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
