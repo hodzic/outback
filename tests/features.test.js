@@ -330,7 +330,7 @@ module.exports = async (browser, url, check) => {
   { // Help: its own page from the ? buttons
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);
-    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll("#helpPage .help").length === 10));
+    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll("#helpPage .help").length === 12));
     c('? button at the top of Trips and Trip', await page.evaluate(() => ['#vTrips', '#vTrip'].every(v => document.querySelector(v + ' [data-help]'))));
     for (const v of [1, 0]){
       await view(page, v); await page.locator(['#vTrips', '#vTrip'][v] + ' [data-help]').click();
@@ -362,6 +362,10 @@ module.exports = async (browser, url, check) => {
     await page.click('#helpAis summary');
     const a = await page.text('#helpAis');
     c('AIS help explains the key, the map and the limits', /aisstream\.io/.test(a) && /API Keys/.test(a) && /demo/.test(a) && /0\.5 nm/.test(a) && /lookout/.test(a), a.slice(0, 80));
+    c('forecast sources come just before radar and satellite, collapsed', await page.evaluate(() => document.querySelector('#helpForecast').nextElementSibling.id === 'helpWeather') && !(await page.isVisible('#helpForecast ul')));
+    await page.click('#helpForecast summary');
+    const f = await page.text('#helpForecast');
+    c('forecast help names each source', /Open-Meteo/.test(f) && /NOAA CO-OPS/.test(f) && /National Weather Service/.test(f) && /Open-Meteo Marine/.test(f) && /on the phone/.test(f), f.slice(0, 80));
     await ctx.close(); }
 
   { // settings live in the Trips view
