@@ -416,8 +416,9 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <div class="ri swellc"><div class="k">Swell</div><b id="atSwell">–</b></div>
           <div class="ri"><div class="k">Wind</div><b id="atWind">–</b></div>
           <div class="ri"><div class="k" id="atSky">Air</div><b id="atAir">–</b></div>
-          <div class="ri"><div class="k">Pressure</div><b id="atPres">–</b></div>
+          <div class="ri"><div class="k" id="atRainK">Rain</div><b id="atRain">–</b></div>
           <div class="ri"><div class="k">Lightning</div><b id="atLtg">–</b></div>
+          <div class="ri"><div class="k">Pressure</div><b id="atPres">–</b></div>
         </div>
         <canvas id="chart" aria-label="Day graph for the trip"></canvas>
         <div class="seg" id="graphSel" role="group" aria-label="Graph"></div>
@@ -703,7 +704,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-11-13b';
+const APP_VERSION = '2026-11-13c';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1643,7 +1644,7 @@ function wxAt(t){
   w.t.forEach((x, i) => { const d = Math.abs(x - t); if (d < bd){ bd = d; bi = i; } });
   if (bi < 0 || bd > 2*36e5) return null;
   const p = w.p?.[bi], p3 = w.p && bi >= 3 ? w.p[bi - 3] : null;
-  return { ws: w.ws[bi], wd: w.wd[bi], wg: w.wg[bi], temp: w.temp[bi], pop: w.pop[bi], code: w.code[bi], p, dp: p != null && p3 != null ? p - p3 : null, cape: w.cape?.[bi] };
+  return { ws: w.ws[bi], wd: w.wd[bi], wg: w.wg[bi], temp: w.temp[bi], pop: w.pop[bi], pr: w.pr?.[bi], sn: w.sn?.[bi], code: w.code[bi], p, dp: p != null && p3 != null ? p - p3 : null, cape: w.cape?.[bi] };
 }
 function thunderAt(t){
   const a = trip.data?.thunder; if (!a) return null;
@@ -1800,7 +1801,12 @@ function render(){
   aw.innerHTML = w ? `${Math.round(wU(w.ws))} G${Math.round(wU(w.wg))} ${wUnit()} ${compass(w.wd)}${alt(wind2(w), false)}` : '–';
   aw.classList.toggle('warn', !!w && w.wg >= gust());
   $('#atSky').textContent = w && wxText(w.code) ? 'Air · ' + wxText(w.code).toLowerCase() : 'Air';
-  $('#atAir').innerHTML = w ? `${temp(w.temp)}${tUnit()}${alt(tAlt(w.temp))}${w.pop != null ? ' · rain ' + w.pop + '%' : ''}` : '–';
+  $('#atAir').innerHTML = w ? `${temp(w.temp)}${tUnit()}${alt(tAlt(w.temp))}` : '–';
+  // rain at the picked time: its own cell, so a second temperature unit doesn't push it out of view
+  const ar = $('#atRain'), sn = w?.sn || 0, pr = w?.pr || 0, hail = w?.code === 96 || w?.code === 99;
+  $('#atRainK').textContent = sn > 0 ? (sn / SNOW_CM_PER_MM >= pr * .9 ? 'Snow' : 'Rain and snow') : 'Rain';
+  ar.textContent = w?.pop != null ? `${w.pop}%${pr > 0 ? ' · ' + (sn > 0 ? snowAmt(sn) : rainAmt(pr)) + '/h' : ''}${hail ? ' · hail' : ''}` : '–';
+  ar.classList.toggle('warn', hail);
   const ap = $('#atPres'); ap.classList.remove('warn');
   if (w && w.p != null){
     const dp = w.dp; ap.textContent = Math.round(w.p) + ' mb' + (dp == null ? '' : dp >= 0.5 ? ' ↑' : dp <= -0.5 ? ' ↓' : ' →');
