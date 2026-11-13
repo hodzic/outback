@@ -94,7 +94,7 @@ module.exports = async (browser, url, check) => {
     const v = w.temp.filter((_, i) => w.t[i] >= t0 && w.t[i] < t0 + 864e5); return d.lo === Math.min(...v) && d.hi === Math.max(...v); }));
   c('daylight sky and rain', /in daylight$/.test(await page.text('#tempS')), await page.text('#tempS'));
   c('time readout under the graph', /ft [↑↓]$/.test(await page.text('#atTide')) && /kt|Slack/.test(await page.text('#atCur')) && /^\d+ G\d+ kt [NESW]+$/.test(await page.text('#atWind'))
-    && /^\d+°F · rain \d+%$/.test(await page.text('#atAir')) && /mb/.test(await page.text('#atPres')) && /%/.test(await page.text('#atLtg')), [await page.text('#atTide'), await page.text('#atCur'), await page.text('#atWind'), await page.text('#atAir')].join(' | '));
+    && /^\d+°F$/.test(await page.text('#atAir')) && /^\d+%$/.test(await page.text('#atRain')) && /mb/.test(await page.text('#atPres')) && /%/.test(await page.text('#atLtg')), [await page.text('#atTide'), await page.text('#atCur'), await page.text('#atWind'), await page.text('#atAir')].join(' | '));
   c('swell for the day on a bay paddle', /^\d+–\d+ ft$/.test(await page.text('#swellV')) && /^Every 12 s from WNW · waves up to \d+ ft with wind chop$/.test(await page.text('#swellS')), await page.text('#swellV') + ' | ' + await page.text('#swellS'));
   c('swell at the picked time', /^\d+ ft every 12 s from WNW$/.test(await page.text('#atSwell')), await page.text('#atSwell'));
   c('lightning is one slim full-width row when the boxes would leave an empty one', await page.evaluate(() => { const l = $('.cell.ltgc'); return l.classList.contains('slim') && l.offsetWidth > $('#presV').parentElement.offsetWidth * 1.8 && l.offsetHeight < 70; }));
