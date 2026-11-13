@@ -311,6 +311,38 @@ module.exports = async (browser, url, check) => {
     c('second unit and temperature persist', await page.evaluate(() => settings.units2.paddle === 'km' && settings.temp === 'C'));
     c('no page errors (second unit)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
+  { // rain: a graph of each hour's chance and amount when rain is likely, with the day's total; in print too
+    const { ctx, page, errors } = await open(browser, url, {}, { rain: true });
+    await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
+    await page.click('#fcBtn'); await waitForecast(page);
+    c('a Rain graph is offered', await page.locator('#graphSel [data-g=rain]').count() === 1);
+    await page.click('#graphSel [data-g=rain]'); await page.waitForTimeout(200);
+    c('it can be picked', await page.evaluate(() => curGraph() === 'rain' && $('#graphSel [data-g=rain]').classList.contains('on')));
+    c('the day total is 9 mm (0.35 in)', await page.evaluate(() => Math.abs(rainDay().tot - 9) < 1e-6 && rainDay().top === 80), await page.evaluate(() => JSON.stringify(rainDay())));
+    c('the temperature cell gives the day total', /0\.35 in in the day/.test(await page.text('#tempS')), await page.text('#tempS'));
+    c('shared text gives it too', /0\.35 in in the day/.test(await page.evaluate(() => planText())));
+    await page.evaluate(() => { settings.temp = 'C'; render(); });
+    c('millimetres with °C', /9\.0 mm in the day/.test(await page.text('#tempS')), await page.text('#tempS'));
+    await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
+    c('the 1-page sheet has the rain graph', await page.locator('#printDoc canvas[data-kind=rain]').count() === 1);
+    c('no page errors (rain)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+  { // snow and hail: the graph says what falls, snow depth beside the water, hail hours marked
+    const { ctx, page, errors } = await open(browser, url, {}, { rain: true, snow: true, hail: true });
+    await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
+    await page.click('#fcBtn'); await waitForecast(page);
+    const rd = await page.evaluate(() => { const r = rainDay(); return { name: r.name, snow: r.snow, hail: r.hail.length }; });
+    c('rain then snow is named Rain and snow', rd.name === 'Rain and snow' && (await page.text('#graphSel [data-g=rain]')) === 'Rain and snow', JSON.stringify(rd));
+    c('snow depth adds up (4.41 cm of snow from 6.3 mm of water)', Math.abs(rd.snow - 4.41) < 1e-6 && rd.hail === 1, JSON.stringify(rd));
+    const s = await page.text('#tempS');
+    c('the Temperature cell gives water, snow and hail', /0\.35 in of water in the day, 1\.7 in of snow/.test(s) && /hail possible \d/.test(s) && /rain and snow up to/.test(s), s);
+    await page.click('#graphSel [data-g=rain]'); await page.waitForTimeout(200);
+    c('no page errors (snow, hail)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+  { const { ctx, page } = await open(browser, url);
+    await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
+    await page.click('#fcBtn'); await waitForecast(page);
+    c('no Rain graph on a dry day', await page.locator('#graphSel [data-g=rain]').count() === 0 && !/in the day/.test(await page.text('#tempS')));
+    await ctx.close(); }
+
   { // Share Outback: share sheet when available, else copy the link
     const { ctx, page } = await open(browser, url, { permissions: ['geolocation', 'clipboard-read', 'clipboard-write'] });
     await page.addInitScript(() => { navigator.share = d => { window.__shared = d; return Promise.resolve(); }; });
@@ -330,7 +362,7 @@ module.exports = async (browser, url, check) => {
   { // Help: its own page from the ? buttons
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);
-    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll("#helpPage .help").length === 10));
+    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll("#helpPage .help").length === 12));
     c('? button at the top of Trips and Trip', await page.evaluate(() => ['#vTrips', '#vTrip'].every(v => document.querySelector(v + ' [data-help]'))));
     for (const v of [1, 0]){
       await view(page, v); await page.locator(['#vTrips', '#vTrip'][v] + ' [data-help]').click();
@@ -362,6 +394,10 @@ module.exports = async (browser, url, check) => {
     await page.click('#helpAis summary');
     const a = await page.text('#helpAis');
     c('AIS help explains the key, the map and the limits', /aisstream\.io/.test(a) && /API Keys/.test(a) && /demo/.test(a) && /0\.5 nm/.test(a) && /lookout/.test(a), a.slice(0, 80));
+    c('forecast sources come just before radar and satellite, collapsed', await page.evaluate(() => document.querySelector('#helpForecast').nextElementSibling.id === 'helpWeather') && !(await page.isVisible('#helpForecast ul')));
+    await page.click('#helpForecast summary');
+    const f = await page.text('#helpForecast');
+    c('forecast help names each source', /Open-Meteo/.test(f) && /NOAA CO-OPS/.test(f) && /National Weather Service/.test(f) && /Open-Meteo Marine/.test(f) && /on the phone/.test(f), f.slice(0, 80));
     await ctx.close(); }
 
   { // settings live in the Trips view
