@@ -326,6 +326,17 @@ module.exports = async (browser, url, check) => {
     await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
     c('the 1-page sheet has the rain graph', await page.locator('#printDoc canvas[data-kind=rain]').count() === 1);
     c('no page errors (rain)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+  { // snow and hail: the graph says what falls, snow depth beside the water, hail hours marked
+    const { ctx, page, errors } = await open(browser, url, {}, { rain: true, snow: true, hail: true });
+    await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
+    await page.click('#fcBtn'); await waitForecast(page);
+    const rd = await page.evaluate(() => { const r = rainDay(); return { name: r.name, snow: r.snow, hail: r.hail.length }; });
+    c('rain then snow is named Rain and snow', rd.name === 'Rain and snow' && (await page.text('#graphSel [data-g=rain]')) === 'Rain and snow', JSON.stringify(rd));
+    c('snow depth adds up (4.41 cm of snow from 6.3 mm of water)', Math.abs(rd.snow - 4.41) < 1e-6 && rd.hail === 1, JSON.stringify(rd));
+    const s = await page.text('#tempS');
+    c('the Temperature cell gives water, snow and hail', /0\.35 in of water in the day, 1\.7 in of snow/.test(s) && /hail possible \d/.test(s) && /rain and snow up to/.test(s), s);
+    await page.click('#graphSel [data-g=rain]'); await page.waitForTimeout(200);
+    c('no page errors (snow, hail)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
   { const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
     await page.click('#fcBtn'); await waitForecast(page);

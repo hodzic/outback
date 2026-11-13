@@ -105,11 +105,14 @@ async function install(ctx, opts = {}){
     const auto = u.searchParams.get('timezone') === 'auto';
     const zone = auto ? (opts.tz || 'America/Los_Angeles') : 'GMT', off = auto ? (opts.tzOffset ?? -25200) : 0;
     const s = Date.parse(u.searchParams.get('start_date') + 'T00:00Z'), e = Date.parse(u.searchParams.get('end_date') + 'T23:00Z');
-    const h = { time: [], temperature_2m: [], precipitation_probability: [], weather_code: [], wind_speed_10m: [], wind_direction_10m: [], wind_gusts_10m: [], pressure_msl: [], cape: [], precipitation: [] };
+    const h = { time: [], temperature_2m: [], precipitation_probability: [], weather_code: [], wind_speed_10m: [], wind_direction_10m: [], wind_gusts_10m: [], pressure_msl: [], cape: [], precipitation: [], snowfall: [] };
     for (let t = s, i = 0; t <= e; t += 36e5, i++){
       h.time.push(new Date(t).toISOString().slice(0, 16)); // local wall-clock time when timezone=auto
       h.temperature_2m.push(60 + 5*Math.sin(i/4)); const hr = new Date(t).getUTCHours(), wet = opts.rain && hr >= 12 && hr <= 17;   // opts.rain: showers 12–5 pm, wall-clock
-      h.precipitation_probability.push(wet ? 40 + (hr - 12) * 8 : 10); h.precipitation.push(wet ? 0.5 + (hr - 12) * 0.4 : 0); h.weather_code.push(wet ? 61 : 2);
+      h.precipitation_probability.push(wet ? 40 + (hr - 12) * 8 : 10); h.precipitation.push(wet ? 0.5 + (hr - 12) * 0.4 : 0);
+      // opts.snow: the last three wet hours fall as snow (all their water); opts.hail: thunderstorm with hail at 3 pm
+      const snowy = wet && opts.snow && hr >= 15; h.snowfall.push(snowy ? (0.5 + (hr - 12) * 0.4) * 0.7 : 0);
+      h.weather_code.push(wet && opts.hail && hr === 15 ? 99 : snowy ? 73 : wet ? 61 : 2);
       h.wind_speed_10m.push(8 + 6*Math.sin(i/6)); h.wind_direction_10m.push(270); h.wind_gusts_10m.push(12 + 8*Math.sin(i/6));
       h.pressure_msl.push(1015 + 3*Math.sin(i/10)); h.cape.push(50);
     }
