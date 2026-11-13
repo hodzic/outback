@@ -621,7 +621,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card help" id="helpForecast"><summary>Where the forecast comes from</summary>
         <p><b>Get forecast</b> fetches everything for the trip's day at the middle of the route (the map's centre if there is no route yet), then keeps it on the phone for offline use. The Trip tab says when it was fetched; tap again for a newer one.</p>
         <ul>
-          <li><b>Wind, gusts, air temperature, sky, rain chance and pressure</b>: Open-Meteo (open-meteo.com), hourly. It blends the best national weather models for the place, such as NOAA's in the US. Wind and gusts are at 10 m (33 ft) above the ground or water; temperature at 2 m; pressure at sea level. Forecasts reach about 16 days ahead, and the first few days are the most reliable.</li>
+          <li><b>Wind, gusts, air temperature, sky, rain chance and pressure</b>: Open-Meteo (open-meteo.com), hourly. It blends the best national weather models for the place, such as NOAA's in the US. When any hour has a 20% chance or more, a <b>Rain</b> graph shows each hour's chance (line) and expected amount (bars) with the day's total. Wind and gusts are at 10 m (33 ft) above the ground or water; temperature at 2 m; pressure at sea level. Forecasts reach about 16 days ahead, and the first few days are the most reliable.</li>
           <li><b>Tides and currents</b>: NOAA CO-OPS (tidesandcurrents.noaa.gov) predictions for the nearest tide and current stations; <b>Choose stations</b> picks others. Predictions are astronomical: strong wind, river flow and storms can move the real water a lot.</li>
           <li><b>Water temperature</b> (paddle trips): readings from a NOAA station within 15 nm, for today or a past day; ahead of time, the station's latest reading with its age. Otherwise Open-Meteo's sea surface model, which is coarse and open water only, so a shallow bay or lake can be quite different.</li>
           <li><b>Swell</b> (paddle trips on the bay or ocean): the Open-Meteo Marine model for the open water nearest the route. The "waves up to" height, swell plus wind waves, comes from it too.</li>
@@ -703,7 +703,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-11-07a';
+const APP_VERSION = '2026-11-13a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1400,12 +1400,12 @@ async function omFetch(url, q){
 }
 async function fetchWx(c){
   const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4),
-    hourly: 'temperature_2m,precipitation_probability,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape',
+    hourly: 'temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,pressure_msl,cape',
     wind_speed_unit: 'kn', temperature_unit: 'fahrenheit', timezone: 'auto', start_date: shiftDay(trip.date,-1), end_date: shiftDay(trip.date,1) });
   const j = await omFetch('https://api.open-meteo.com/v1/forecast', q);
   if (j.error) throw new Error(/allowed range/.test(j.reason) ? 'not available for this date' : 'service unavailable');
   const h = j.hourly, off = (j.utc_offset_seconds || 0) * 1000;
-  return { tz: j.timezone, t: h.time.map(s => Date.parse(s + 'Z') - off), temp: h.temperature_2m, pop: h.precipitation_probability, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
+  return { tz: j.timezone, t: h.time.map(s => Date.parse(s + 'Z') - off), temp: h.temperature_2m, pop: h.precipitation_probability, pr: h.precipitation, code: h.weather_code, ws: h.wind_speed_10m, wd: h.wind_direction_10m, wg: h.wind_gusts_10m, p: h.pressure_msl, cape: h.cape };
 }
 // Water temperature (paddle trips): the nearest NOAA station that measures it (readings on the trip day, or
 // the latest one for a day ahead), and Open-Meteo's sea surface model for the day (coarse, open water only).
@@ -1665,8 +1665,17 @@ function wxText(c){
 }
 
 /* ---------- render: trip details + the map's conditions line ---------- */
-function graphs(){ const g = []; if (isTidal()) g.push('tide'); if (hasElev()) g.push('elev'); g.push('wind'); return g; }
-const GRAPH_NAMES = { tide: 'Tide', elev: 'Elevation', wind: 'Wind' };
+function graphs(){ const g = []; if (isTidal()) g.push('tide'); if (hasElev()) g.push('elev'); g.push('wind'); if (rainDay()) g.push('rain'); return g; }
+const GRAPH_NAMES = { tide: 'Tide', elev: 'Elevation', wind: 'Wind', rain: 'Rain' };
+// The trip day's hourly rain chance and amount (mm), when any hour has a real chance or a measurable amount
+function rainDay(){
+  const w = trip?.data?.wx; if (!w?.pop) return null;
+  const t0 = dayStart(), idx = w.t.map((t, i) => i).filter(i => w.t[i] >= t0 && w.t[i] < t0 + 864e5);
+  const tot = idx.reduce((s, i) => s + (w.pr?.[i] || 0), 0), top = Math.max(0, ...idx.map(i => w.pop[i] || 0));
+  return idx.length && (top >= 20 || tot >= 0.25) ? { idx, tot, top, amounts: !!w.pr } : null;
+}
+// rain amounts: mm with °C, else inches
+const rainAmt = mm => tC() ? (mm < 10 ? mm.toFixed(1) : Math.round(mm)) + ' mm' : (mm / 25.4).toFixed(2) + ' in';
 function curGraph(){ const g = graphs(); return g.includes(settings.graph) ? settings.graph : g[0]; }
 // The trip day's facts that don't change with the picked time: tide and current turns, wind by morning and
 // afternoon, and daylight sky, rain, pressure and thunder.
@@ -1817,7 +1826,8 @@ function render(){
   wv.classList.toggle('warn', [dy.am, dy.pm].some(h => h && h.wg >= gust()));
   const dt = dayTemps();
   $('#tempV').innerHTML = dt ? `<span class="lo">Low ${temp(dt.lo)}</span> · <span class="hi">High ${temp(dt.hi)}</span>${tUnit()}${alt(tAlt(dt.lo, dt.hi))}` : '–';
-  $('#tempS').textContent = dy.sky ? `${dy.sky}${dy.pop != null ? dy.pop ? ' · rain up to ' + dy.pop + '%' : ' · no rain' : ''} in daylight` : ' ';
+  const rd = rainDay();
+  $('#tempS').textContent = dy.sky ? `${dy.sky}${dy.pop != null ? dy.pop ? ' · rain up to ' + dy.pop + '%' : ' · no rain' : ''} in daylight${rd?.amounts && rd.tot >= 0.25 ? ` · ${rainAmt(rd.tot)} in the day` : ''}` : ' ';
   const pv = $('#presV'); pv.classList.remove('warn');
   if (dy.p){
     const d = dy.p.b - dy.p.a;
@@ -2115,6 +2125,7 @@ function drawDay(cv, sun, kind, o){
   for (let h = 3; h < 24; h += o.compact ? 6 : 3){ const x = X(t0 + h*36e5); g.fillRect(x, H - 4, 1, 4); g.fillText(h === 12 ? '12p' : (h > 12 ? h - 12 + 'p' : h + 'a'), x + 2, H - 2); }
   const cursor = () => { g.fillStyle = ink('#C8167E'); g.fillRect(X(tAt()) - (bwInk ? 1.5 : 1), 0, bwInk ? 3 : 2, H); };
   if (kind === 'wind'){ drawWind(g, W, H, X, t0, t1, font, note, T, sun); return cursor(); }
+  if (kind === 'rain'){ drawRain(g, W, H, X, font, note, T); return cursor(); }
   const mid = H * .55, tags = [];
   const cur = o.cur && trip.data?.current && hasCurrents(), tide = o.tide && trip.data?.tide;
   if (cur){
@@ -2167,6 +2178,24 @@ function drawWind(g, W, H, X, t0, t1, font, note, T, sun){
     const set = lit.length ? lit : day, gi = pk('wg', set), all = pk('wg', day);
     put(gi, 'wg', '#B3261E', -1); put(pk('ws', set), 'ws', '#12324A', 1);
     if (w.wg[all] > w.wg[gi]) put(all, 'wg', '#B3261E', -1); }
+}
+// Rain: blue bars for each hour's expected amount, a line for the chance (0–100%), the day's total
+function drawRain(g, W, H, X, font, note, T){
+  const w = trip.data?.wx, rd = rainDay();
+  if (!rd) return note('No rain expected this day');
+  const top = H - 14, Yp = p => top - p / 100 * (H - 26), mx = Math.max(1, ...rd.idx.map(i => w.pr?.[i] || 0)), Ya = mm => mm / mx * (H - 26) * .75;   // headroom for the totals line
+  const bw = Math.max(2, X(36e5) - X(0) - 2);
+  g.fillStyle = ink('rgba(31,111,178,.55)');
+  if (rd.amounts) rd.idx.forEach(i => { const a = w.pr[i] || 0; if (a > 0) g.fillRect(X(w.t[i]) + 1, top - Ya(a), bw, Ya(a)); });
+  g.strokeStyle = ink('#12324A'); g.lineWidth = 1.5; g.beginPath();
+  rd.idx.forEach((i, k) => { const x = X(w.t[i]) + bw / 2 + 1, y = Yp(w.pop[i] || 0); k ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+  g.fillStyle = ink('#5B7183'); g.font = '10px ' + font;
+  g.fillText('100%', 2, 10);
+  const pk = k => rd.idx.reduce((a, i) => (w[k]?.[i] || 0) > (w[k]?.[a] || 0) ? i : a, rd.idx[0]), ia = pk('pr');
+  const totTxt = !rd.amounts ? 'Get forecast again for amounts' : `Day ${rainAmt(rd.tot)}${w.pr[ia] > 0 ? ` · most ${rainAmt(w.pr[ia])}/h at ${hmS(w.t[ia])}` : ''}`;
+  g.font = '600 10px ' + font; const tw = g.measureText(totTxt).width; g.fillStyle = ink('#1F6FB2'); g.fillText(totTxt, W - tw - 3, 10);
+  // the highest chance
+  const ip = pk('pop'); tag(g, W, H, X(w.t[ip]) + bw / 2 + 1, Yp(w.pop[ip] || 0), T(`${w.pop[ip]}%`, w.t[ip]), '#12324A', -1, [[0, 0, 30, 13], [W - tw - 6, 0, tw + 6, 13]]);
 }
 function drawElev(g, W, H, font, note, live){
   const el = trip.data?.elev;
@@ -3301,8 +3330,8 @@ async function openPrint(){
   const loop = r.length > 2 && (distNm(r[0], r.at(-1)) < .1 || (!!r[0][2] && r[0][2] === r.at(-1)[2]));
   const tip = i => !lbl.has(i) || (loop && i === r.length - 1) ? '' : [r[i][2] || (i ? i === r.length - 1 ? 'Finish' : '' : loop ? 'Start, finish' : 'Start'),
     loop && !i ? `${hm(all[i].at)} → ${hm(all.at(-1).at)}` : hm(all[i].at), all[i].stop && `⏸ ${all[i].stop} min`].filter(Boolean).join(' · ');
-  const kinds = [isTidal() && 'tide', 'wind', hasElev() && r.length > 1 && 'elev'].filter(Boolean);
-  const names = { tide: hasCurrents() ? 'Tide and current' : 'Tide', wind: 'Wind and gusts', elev: 'Elevation' };
+  const kinds = [isTidal() && 'tide', 'wind', rainDay() && 'rain', hasElev() && r.length > 1 && 'elev'].filter(Boolean);
+  const names = { tide: hasCurrents() ? 'Tide and current' : 'Tide', wind: 'Wind and gusts', rain: 'Rain: chance and amount', elev: 'Elevation' };
   const big = !!settings.sheetSun; $('#printDoc').classList.toggle('sun', big); $('#printDoc').classList.toggle('bw', !!settings.sheetBw);
   $('#printDoc').innerHTML = `<div class="p1"><h1>${esc(trip.name)}</h1>
     <p class="sub"><b>${act().name}${envName() ? ' · ' + esc(envName()) : ''}</b> · ${fmtDay(trip.date)} · start ${startTime()}${r.length > 1 ? ` · ${esc($('#dist').textContent)} · ${esc($('#dur').textContent)} at ${esc($('#spd').textContent)}` : ''}</p>

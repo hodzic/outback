@@ -311,6 +311,27 @@ module.exports = async (browser, url, check) => {
     c('second unit and temperature persist', await page.evaluate(() => settings.units2.paddle === 'km' && settings.temp === 'C'));
     c('no page errors (second unit)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
 
+  { // rain: a graph of each hour's chance and amount when rain is likely, with the day's total; in print too
+    const { ctx, page, errors } = await open(browser, url, {}, { rain: true });
+    await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
+    await page.click('#fcBtn'); await waitForecast(page);
+    c('a Rain graph is offered', await page.locator('#graphSel [data-g=rain]').count() === 1);
+    await page.click('#graphSel [data-g=rain]'); await page.waitForTimeout(200);
+    c('it can be picked', await page.evaluate(() => curGraph() === 'rain' && $('#graphSel [data-g=rain]').classList.contains('on')));
+    c('the day total is 9 mm (0.35 in)', await page.evaluate(() => Math.abs(rainDay().tot - 9) < 1e-6 && rainDay().top === 80), await page.evaluate(() => JSON.stringify(rainDay())));
+    c('the temperature cell gives the day total', /0\.35 in in the day/.test(await page.text('#tempS')), await page.text('#tempS'));
+    c('shared text gives it too', /0\.35 in in the day/.test(await page.evaluate(() => planText())));
+    await page.evaluate(() => { settings.temp = 'C'; render(); });
+    c('millimetres with °C', /9\.0 mm in the day/.test(await page.text('#tempS')), await page.text('#tempS'));
+    await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
+    c('the 1-page sheet has the rain graph', await page.locator('#printDoc canvas[data-kind=rain]').count() === 1);
+    c('no page errors (rain)', errors.length === 0, errors.join(' | ')); await ctx.close(); }
+  { const { ctx, page } = await open(browser, url);
+    await page.goto(url); await ready(page); await seedRoute(page, GG); await view(page, 1);
+    await page.click('#fcBtn'); await waitForecast(page);
+    c('no Rain graph on a dry day', await page.locator('#graphSel [data-g=rain]').count() === 0 && !/in the day/.test(await page.text('#tempS')));
+    await ctx.close(); }
+
   { // Share Outback: share sheet when available, else copy the link
     const { ctx, page } = await open(browser, url, { permissions: ['geolocation', 'clipboard-read', 'clipboard-write'] });
     await page.addInitScript(() => { navigator.share = d => { window.__shared = d; return Promise.resolve(); }; });
