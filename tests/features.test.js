@@ -321,6 +321,12 @@ module.exports = async (browser, url, check) => {
     c('the day total is 9 mm (0.35 in)', await page.evaluate(() => Math.abs(rainDay().tot - 9) < 1e-6 && rainDay().top === 80), await page.evaluate(() => JSON.stringify(rainDay())));
     c('the temperature cell gives the day total', /0\.35 in in the day/.test(await page.text('#tempS')), await page.text('#tempS'));
     c('shared text gives it too', /0\.35 in in the day/.test(await page.evaluate(() => planText())));
+    await page.evaluate(() => { state.tMin = 9 * 60; render(); });
+    c('a dry hour says 0, not nothing', /^\d+% · 0 in$/.test(await page.text('#atRain')), await page.text('#atRain'));
+    await page.evaluate(() => { state.tMin = 15 * 60; render(); });
+    c('a wet hour gives its amount', /^\d+% · 0\.\d\d in\/h$/.test(await page.text('#atRain')), await page.text('#atRain'));
+    c('a trace is < 0.01 in, not 0.00', await page.evaluate(() => rainAmt(0.1) === '< 0.01 in' && rainAmt(0.3) === '0.01 in'));
+    c('a gust is never below its wind', await page.evaluate(() => gustFloor({ ws: [7, 8, null], wg: [5, 12, 4] }).wg.join() === '7,12,4'));
     await page.evaluate(() => { settings.temp = 'C'; render(); });
     c('millimetres with °C', /9\.0 mm in the day/.test(await page.text('#tempS')), await page.text('#tempS'));
     await page.click('#sharePlan'); await page.click('#printPlan'); await page.waitForTimeout(1200);
