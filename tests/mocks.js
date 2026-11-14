@@ -102,6 +102,7 @@ async function install(ctx, opts = {}){
       return json(r, { elevation: Array.from({ length: n }, (_, i) => 200 + 300 * Math.sin(Math.PI * i / Math.max(1, n - 1))) });
     }
     if (tooFar(u)) return json(r, tooFar(u), 400);
+    if (opts.wxDown && u.pathname.endsWith('/forecast')) return r.fulfill({ status: 503, contentType: 'text/html', body: '<html>Service Unavailable</html>' });
     const auto = u.searchParams.get('timezone') === 'auto';
     const zone = auto ? (opts.tz || 'America/Los_Angeles') : 'GMT', off = auto ? (opts.tzOffset ?? -25200) : 0;
     const s = Date.parse(u.searchParams.get('start_date') + 'T00:00Z'), e = Date.parse(u.searchParams.get('end_date') + 'T23:00Z');

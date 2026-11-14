@@ -704,7 +704,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-11-13d';
+const APP_VERSION = '2026-11-14a';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1394,7 +1394,7 @@ async function fetchCurrent(s){
 // Ask again ending on its last day, so the trip day loads as soon as it is in range; a trip day past it says when it will be.
 const dayDiff = (a, b) => Math.round((Date.parse(b + 'T12:00Z') - Date.parse(a + 'T12:00Z')) / 864e5);
 async function omFetch(url, q){
-  const get = async () => (await fetch(url + '?' + q)).json();
+  const get = async () => { const r = await fetch(url + '?' + q); try { return await r.json(); } catch { throw new Error('service unavailable' + (r.ok ? '' : ' (' + r.status + ')')); } };
   let j = await get();
   const last = j.error && /allowed range.* to (\d{4}-\d\d-\d\d)/.exec(j.reason || '')?.[1], day = shiftDay(q.get('start_date'), 1);
   if (last && q.get('end_date') > last){
@@ -1402,6 +1402,12 @@ async function omFetch(url, q){
     q.set('end_date', last); j = await get();
   }
   return j;
+}
+// Why the status line has no weather: past the 16-day range, or the request failed (offline, the service down).
+function wxMissing(){
+  const e = trip.data?.wxErr, far = dayDiff(todayIso(), trip.date) > 15;
+  if (far || /^(not available|available from)/.test(e || '')) return 'no wind forecast yet (only up to 16 days ahead' + (/^available from/.test(e || '') ? ', ' + e : '') + ')';
+  return `no wind forecast (weather did not load${e && !/fetch|network|load failed/i.test(e) ? ': ' + e : ''}; tap Get forecast to try again)`;
 }
 async function fetchWx(c){
   const q = new URLSearchParams({ latitude: c[0].toFixed(4), longitude: c[1].toFixed(4),
@@ -1524,8 +1530,8 @@ async function getForecast(){
     if (gone()) return stop();
     if (t.status === 'fulfilled') data.tide = t.value; else { data.tide = null; errs.push('tides (' + t.reason.message + ')'); }
     if (cu.status === 'fulfilled'){ if (cu.value) Object.assign(data, cu.value); else data.current = null; } else { data.current = null; errs.push('currents (' + cu.reason.message + ')'); }
-    if (w.status === 'fulfilled'){ data.wx = w.value; if (validTz(w.value.tz) && w.value.tz !== trip.tz){ trip.tz = w.value.tz; if (todayIso() === trip.date) state.tMin = Math.floor(nowMin() / 5) * 5; } }
-    else { data.wx = null; errs.push('weather (' + w.reason.message + ')'); }
+    if (w.status === 'fulfilled'){ data.wx = w.value; delete data.wxErr; if (validTz(w.value.tz) && w.value.tz !== trip.tz){ trip.tz = w.value.tz; if (todayIso() === trip.date) state.tMin = Math.floor(nowMin() / 5) * 5; } }
+    else { data.wx = null; data.wxErr = w.reason.message; errs.push('weather (' + w.reason.message + ')'); }
     data.thunder = th.status === 'fulfilled' ? th.value : null;
     if (el.status === 'fulfilled'){ if (el.value) data.elev = el.value; } else errs.push('elevation (' + el.reason.message + ')');
     data.water = wa.status === 'fulfilled' ? wa.value : null;
@@ -1889,7 +1895,7 @@ function render(){
   else {
     const age = Date.now() - trip.fetchedAt, future = dayStart() + 864e5 > Date.now();
     st.textContent = `From ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}${(o => o ? ` · map saved offline (${o.tiles} tiles${o.bytes ? ', ' + fmtSize(o.bytes) : ''})` : '')(offlineMaps[trip.id])}`;
-    if (!trip.data?.wx){ st.textContent += ' · no wind forecast (only up to 16 days ahead)'; st.classList.add('warn'); }
+    if (!trip.data?.wx){ st.textContent += ' · ' + wxMissing(); st.classList.add('warn'); }
     else if (future && age > 18*36e5){ st.textContent += ' · refresh before you go'; st.classList.add('warn'); }
   }
   // the map's one-line summary
