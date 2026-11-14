@@ -45,13 +45,23 @@ module.exports = async (browser, url, check) => {
     const when = await page.evaluate(() => new Date(shiftDay(todayIso(), 3) + 'T12:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
     const t = await page.text('#toast');
     c('a trip past the forecast range says when weather will load', t.includes(`Missing: weather (available from ${when})`) && !/Parameter|allowed range/.test(t), t);
-    c('and says so under the forecast', /no wind forecast/.test(await page.text('#status')));
+    c('and says so under the forecast', /no wind forecast yet \(only up to 16 days ahead, available from/.test(await page.text('#status')), await page.text('#status'));
     wx.length = 0;
     await page.evaluate(d => { trip.date = d; changed(); }, last);
     await page.click('#fcBtn'); await waitForecast(page);
     const day = await page.evaluate(() => { const a = dayStart(), w = trip.data.wx; return w && w.t.some(x => x >= a + 12 * 36e5 && x < a + 13 * 36e5); });
     c('a trip on the last forecast day loads its weather', day && !/Missing/.test(await page.text('#toast')), await page.text('#toast'));
     c('by asking again up to the last forecast day', wx.length === 2 && wx[1] < wx[0], wx.join(' '));
+    await ctx.close(); }
+
+  { // weather down for a near trip: the status gives the real reason, not the 16-day limit
+    const { ctx, page } = await open(browser, url, {}, { wxDown: true });
+    await page.goto(url); await ready(page); await seedRoute(page, GG);
+    await page.evaluate(() => { trip.date = shiftDay(todayIso(), 1); changed(); });
+    await page.click('#fcBtn'); await waitForecast(page);
+    const st = await page.text('#status');
+    c('a failed weather request is not blamed on the 16-day range', /weather did not load: service unavailable \(503\); tap Get forecast/.test(st) && !/16 days/.test(st), st);
+    c('and the toast names it', /Missing: weather \(service unavailable \(503\)\)/.test(await page.text('#toast')), await page.text('#toast'));
     await ctx.close(); }
 
   { // planning an SF trip from New York: times must be SF local
