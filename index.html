@@ -622,7 +622,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       <details class="card help" id="helpForecast"><summary>Where the forecast comes from</summary>
         <p><b>Get forecast</b> fetches everything for the trip's day at the middle of the route (the map's centre if there is no route yet), then keeps it on the phone for offline use. The Trip tab says when it was fetched; tap again for a newer one.</p>
         <ul>
-          <li><b>Wind, gusts, air temperature, sky, rain chance and pressure</b>: Open-Meteo (open-meteo.com), hourly. It blends the best national weather models for the place, such as NOAA's in the US. When any hour has a 20% chance or more of rain or snow, a <b>Rain</b> graph (<b>Snow</b>, or <b>Rain and snow</b>, when snow is forecast) shows each hour's chance (line) and expected amount as water (bars; snow's share pale, with its depth in the header) and the day's total. Hail has no forecast amount: hours with thunderstorms and hail are marked. Wind and gusts are at 10 m (33 ft) above the ground or water; temperature at 2 m; pressure at sea level. Forecasts reach about 16 days ahead, and the first few days are the most reliable.</li>
+          <li><b>Wind, gusts, air temperature, sky, rain chance and pressure</b>: Open-Meteo (open-meteo.com), hourly. It blends the best national weather models for the place, such as NOAA's in the US. When any hour has a 20% chance or more of rain or snow, a <b>Rain</b> graph (<b>Snow</b>, or <b>Rain and snow</b>, when snow is forecast) shows each hour's chance (line) and expected amount as water (bars; snow's share pale, with its depth in the header) and the day's total. Hail has no forecast amount: hours with thunderstorms and hail are marked. Wind and gusts are at 10 m (33 ft) above the ground or water; temperature at 2 m; pressure at sea level. Forecasts reach about 16 days ahead, and the first few days are the most reliable. When Open-Meteo doesn't answer, US trips up to about 7 days ahead get wind, gusts, temperature and rain from the National Weather Service instead (no pressure or sky), and the status line says so.</li>
           <li><b>Tides and currents</b>: NOAA CO-OPS (tidesandcurrents.noaa.gov) predictions for the nearest tide and current stations; <b>Choose stations</b> picks others. Predictions are astronomical: strong wind, river flow and storms can move the real water a lot.</li>
           <li><b>Water temperature</b> (paddle trips): readings from a NOAA station within 15 nm, for today or a past day; ahead of time, the station's latest reading with its age. Otherwise Open-Meteo's sea surface model, which is coarse and open water only, so a shallow bay or lake can be quite different.</li>
           <li><b>Swell</b> (paddle trips on the bay or ocean): the Open-Meteo Marine model for the open water nearest the route. The "waves up to" height, swell plus wind waves, comes from it too.</li>
@@ -704,7 +704,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-11-14a';
+const APP_VERSION = '2026-11-14b';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -1480,15 +1480,34 @@ function elevStats(){
 }
 // NWS probability of thunder (US only, ~7 days)
 function isoDur(d){ const m = /P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?)?/.exec(d || '') || []; return ((+m[1]||0)*24 + (+m[2]||0)) * 36e5 + (+m[3]||0) * 6e4; }
-async function fetchThunder(c){
+// One NWS grid request per forecast: thunder chance, and the weather backup when Open-Meteo fails
+async function nwsGrid(c){
   const r = await fetch(`https://api.weather.gov/points/${c[0].toFixed(4)},${c[1].toFixed(4)}`);
   if (!r.ok) throw new Error('NWS ' + r.status);
-  const url = (await r.json()).properties?.forecastGridData;
+  const pt = (await r.json()).properties, url = pt?.forecastGridData;
   if (!url) throw new Error('NWS: no grid');
-  const g = await (await fetch(url)).json();
-  const vals = g.properties?.probabilityOfThunder?.values;
+  const g = await fetch(url);
+  if (!g.ok) throw new Error('NWS ' + g.status);
+  return { tz: pt.timeZone, g: (await g.json()).properties || {} };
+}
+async function fetchThunder(gp){
+  const vals = (await gp).g.probabilityOfThunder?.values;
   if (!vals) throw new Error('NWS: no thunder data');
   return vals.map(v => { const [st, du] = v.validTime.split('/'); const t = Date.parse(st); return { t, end: t + isoDur(du), v: v.value }; });
+}
+// Open-Meteo didn't answer: the NWS hourly grid (US, ~7 days) gives wind, gusts, temperature, rain chance and amounts.
+// No pressure, storm energy or sky codes; a place or day it doesn't cover keeps Open-Meteo's error.
+async function fetchWxNws(gp, why){
+  let tz, g; try { ({ tz, g } = await gp); } catch { throw why; }
+  const ser = k => (g[k]?.values || []).map(v => { const [st, du] = v.validTime.split('/'), t = Date.parse(st), d = isoDur(du) || 36e5; return { t, end: t + d, h: d / 36e5, v: v.value }; });
+  const S = { temp: ser('temperature'), ws: ser('windSpeed'), wg: ser('windGust'), wd: ser('windDirection'), pop: ser('probabilityOfPrecipitation'), pr: ser('quantitativePrecipitation'), sn: ser('snowfallAmount') };
+  const at = (a, t, f = x => x.v) => { const x = a.find(x => x.t <= t && t < x.end); return x && x.v != null ? f(x) : null; };
+  const t0 = dayStart(), t = []; for (let x = t0 - 864e5; x < t0 + 2 * 864e5; x += 36e5) t.push(x);
+  const ws = t.map(x => at(S.ws, x, e => e.v / 1.852));
+  if (!ws.some((v, i) => v != null && t[i] >= t0 && t[i] < t0 + 864e5)) throw why;
+  return gustFloor({ tz, src: 'nws', t, ws, wg: t.map(x => at(S.wg, x, e => e.v / 1.852)), wd: t.map(x => at(S.wd, x)),
+    temp: t.map(x => at(S.temp, x, e => e.v * 9 / 5 + 32)), pop: t.map(x => at(S.pop, x)),
+    pr: t.map(x => at(S.pr, x, e => e.v / e.h)), sn: t.map(x => at(S.sn, x, e => e.v / 10 / e.h)), code: t.map(() => null) });
 }
 const validTz = z => { try{ return !!z && z !== 'GMT' && !!new Intl.DateTimeFormat('en', { timeZone: z }); }catch{ return false; } };
 
@@ -1519,11 +1538,12 @@ async function getForecast(){
     }
     const data = trip.data || {};
     const none = () => Promise.reject(new Error('none nearby'));
+    const grid = nwsGrid(c); grid.catch(() => {});
     const [t, cu, w, th, el, wa] = await Promise.allSettled([
       !isTidal() ? null : trip.tide ? fetchTide(trip.tide) : none(),
       !hasCurrents() ? null : trip.current ? fetchCurrent(trip.current) : none(),
-      fetchWx(c),
-      fetchThunder(c),
+      fetchWx(c).catch(e => fetchWxNws(grid, e)),
+      fetchThunder(grid),
       hasElev() && trip.route.length > 1 ? fetchElev(trip.route) : null,
       trip.activity === 'paddle' ? fetchWater(c) : null
     ]);
@@ -1896,6 +1916,7 @@ function render(){
     const age = Date.now() - trip.fetchedAt, future = dayStart() + 864e5 > Date.now();
     st.textContent = `From ${new Date(trip.fetchedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: tz() })}${(o => o ? ` · map saved offline (${o.tiles} tiles${o.bytes ? ', ' + fmtSize(o.bytes) : ''})` : '')(offlineMaps[trip.id])}`;
     if (!trip.data?.wx){ st.textContent += ' · ' + wxMissing(); st.classList.add('warn'); }
+    else if (trip.data.wx.src === 'nws') st.textContent += ' · weather from the NWS (Open-Meteo did not load)';
     else if (future && age > 18*36e5){ st.textContent += ' · refresh before you go'; st.classList.add('warn'); }
   }
   // the map's one-line summary

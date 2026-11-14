@@ -64,6 +64,19 @@ module.exports = async (browser, url, check) => {
     c('and the toast names it', /Missing: weather \(service unavailable \(503\)\)/.test(await page.text('#toast')), await page.text('#toast'));
     await ctx.close(); }
 
+  { // Open-Meteo down, NWS up: wind, gusts, temperature and rain come from the NWS grid
+    const { ctx, page, errors } = await open(browser, url, {}, { wxDown: true, nwsWx: true });
+    await page.goto(url); await ready(page); await seedRoute(page, GG);
+    await page.evaluate(() => { trip.date = shiftDay(todayIso(), 1); changed(); });
+    await page.click('#fcBtn'); await waitForecast(page);
+    const st = await page.text('#status'), w = await page.evaluate(() => wxAt(tAt()));
+    c('NWS fills in when Open-Meteo fails', w && Math.round(w.ws) === 11 && Math.round(w.wg) === 16 && w.wd === 270 && w.temp === 59 && w.pop === 60 && Math.abs(w.pr - 0.4) < 1e-9, JSON.stringify(w));
+    c('the status says where the weather came from', /weather from the NWS \(Open-Meteo did not load\)/.test(st) && !/no wind forecast/.test(st), st);
+    c('no weather is missing', !/Missing/.test(await page.text('#toast')), await page.text('#toast'));
+    c('wind shown', /G\d/.test(await page.text('#windV')), await page.text('#windV'));
+    c('no page errors (NWS weather)', !errors.length, errors.join(' | '));
+    await ctx.close(); }
+
   { // planning an SF trip from New York: times must be SF local
     const { ctx, page } = await open(browser, url, { timezoneId: 'America/New_York' });
     await page.goto(url); await ready(page); await seedRoute(page, GG);
