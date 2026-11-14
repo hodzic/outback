@@ -133,10 +133,13 @@ async function install(ctx, opts = {}){
   });
   await ctx.route('https://api.weather.gov/**', r => {
     const u = r.request().url();
-    if (u.includes('/points/')) return json(r, { properties: { forecastGridData: 'https://api.weather.gov/gridpoints/MTR/85,105' } });
+    if (u.includes('/points/')) return json(r, { properties: { forecastGridData: 'https://api.weather.gov/gridpoints/MTR/85,105', timeZone: 'America/Los_Angeles' } });
     const start = Date.now() - 2*864e5, values = [];
     for (let i = 0; i < 40; i++) values.push({ validTime: new Date(start + i*3*36e5).toISOString().replace('.000', '') + '/PT3H', value: i % 5 === 0 ? 30 : 0 });
-    json(r, { properties: { probabilityOfThunder: { values } } });
+    // opts.nwsWx: the hourly weather grid too (wind 20 km/h, gusts 30, 15 °C, rain 2.4 mm over 6 h at 60%)
+    const ser = (v, d = 'PT1H', step = 36e5) => ({ values: Array.from({ length: 120 * 36e5 / step }, (_, i) => ({ validTime: new Date(start + i * step).toISOString().replace('.000', '') + '/' + d, value: v })) });
+    const wx = opts.nwsWx ? { windSpeed: ser(20), windGust: ser(30), windDirection: ser(270), temperature: ser(15), probabilityOfPrecipitation: ser(60), quantitativePrecipitation: ser(2.4, 'PT6H', 6 * 36e5) } : {};
+    json(r, { properties: { probabilityOfThunder: { values }, ...wx } });
   });
   // Overpass (OpenStreetMap): restrooms for the 🚻 button (two near the Golden Gate unless opts.toilets),
   // and water for PDF map Auto-align (none unless opts.overpass)
