@@ -368,7 +368,7 @@ module.exports = async (browser, url, check) => {
   { // Help: its own page from the ? buttons
     const { ctx, page } = await open(browser, url);
     await page.goto(url); await ready(page); await view(page, 0);
-    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll("#helpPage .help").length === 12));
+    c('help is not on the Trips page any more', await page.evaluate(() => !document.querySelector('#vTrips .help') && document.querySelectorAll("#helpPage .help").length === 13));
     c('? button at the top of Trips and Trip', await page.evaluate(() => ['#vTrips', '#vTrip'].every(v => document.querySelector(v + ' [data-help]'))));
     for (const v of [1, 0]){
       await view(page, v); await page.locator(['#vTrips', '#vTrip'][v] + ' [data-help]').click();
