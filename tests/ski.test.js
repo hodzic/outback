@@ -18,6 +18,13 @@ module.exports = async (browser, url, check) => {
     c('crowds: Saturday busy, Tuesday light, Thanksgiving Friday and Presidents’ week busy', await page.evaluate(() => {
       const K = SKI[1]; return skiCrowd(K, '2026-11-28', null).lvl >= 2 && skiCrowd(K, '2026-12-01', null).lvl === 0 && skiCrowd(K, '2026-11-27', null).lvl >= 2
         && skiHoliday('2027-02-17') && skiHoliday('2027-01-16') && skiHoliday('2026-12-24') && !skiHoliday('2027-01-12') && skiHoliday('2026-11-26') === 'Thanksgiving'; }));
+    c('closed before opening day, open after', await page.evaluate(() => skiOpens(SKI[0], '2026-11-22') === '2026-11-23' && !skiOpens(SKI[0], '2026-11-23') && !skiOpens(SKI[1], '2026-11-21')
+      && skiVerdict(SKI[0], '2026-11-22').bad.some(b => /closed: opens/.test(b))));
+    c('Epic Local blackouts only with the Local pass', await page.evaluate(() => { const a = skiBlackout('2026-12-27'); settings.skiPass = 'local';
+      const r = skiBlackout('2026-12-27') && skiBlackout('2027-01-16') && !skiBlackout('2027-01-17') && skiVerdict(SKI[1], '2026-11-28').v === 2; settings.skiPass = 'epic'; return !a && r; }));
+    await page.click('[data-skipass="local"]');
+    c('pass picked in the sheet is kept', await page.evaluate(() => settings.skiPass === 'local') && (await page.text('#skiPass .on')) === 'Epic Local');
+    await page.click('[data-skipass="epic"]');
     c('a powder day draws a crowd', await page.evaluate(() => skiCrowd(SKI[0], '2026-12-01', { newIn: 10 }).why.includes('powder')));
     await page.click('[data-skiday]:nth-child(4)');
     c('picking a day redraws for that day', (await page.getAttribute('[data-skiday].on', 'data-skiday')) === (await page.evaluate(() => shiftDay(skiToday(), 3))));
@@ -48,6 +55,11 @@ module.exports = async (browser, url, check) => {
     await page.waitForFunction(() => !ski.busy && ski.data && /too far/.test(document.querySelector('#skiSheet').innerText));
     const t = await page.text('#skiSheet');
     c('too far: says so and lists the distance to each resort', /too far away for a ski day trip/.test(t) && (t.match(/mi, about \d+ h/g) || []).length === 3 && !(await page.isVisible('.skiDays')), t);
+    await ctx.close();
+  }
+  { // weather down: retried once, the reason shown
+    const { ctx, page } = await sheetFor({ wxDown: true });
+    c('weather failure says why', /Couldn’t load weather \(HTTP 503\)/.test(await page.text('#skiSheet')), (await page.text('#skiSheet')).slice(0, 200));
     await ctx.close();
   }
   { // no location: works, asks for it
