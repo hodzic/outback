@@ -673,6 +673,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
           <li><b>Weather</b>: Open-Meteo at the summit and base, 9 am to 4 pm. New snow is what falls from 9 am the day before. Summit gusts of 40 mph or more often put upper lifts on hold; 60 mph or more closes many. Rain at the base and fog up top count against the day.</li>
           <li><b>Drive</b>: with location allowed, the drive from where you are (OSRM routing on OpenStreetMap roads, without traffic; your location goes to the OSRM server and stays on this phone otherwise). A resort more than about 5 hours away is listed as too far for a day trip, with its distance; if all three are, that's all Ski day shows.</li>
           <li><b>Road</b>: for today and tomorrow, Caltrans chain controls now at the stations your drive passes (without a location: SR-88 west of Kirkwood, US-50, I-80 west of Truckee and SR-267). For any day, snow forecast at the base from 5 to 9 am and 3 to 7 pm means chains are likely. Check Caltrans QuickMap before you leave.</li>
+          <li><b>Open and pass</b>: each season's opening days (2026-27: Heavenly and Northstar Nov 20, Kirkwood Nov 23); before that a resort shows <b>Skip, closed</b>. Pick <b>Epic</b> or <b>Epic Local</b> under the title: with Epic Local, its blackout days at these resorts (2026-27: Nov 27–28, Dec 26–31, Jan 16, Feb 13–14) are marked ⊘ and show Skip. Which lifts and runs are open today isn't available to the app: use the resort's link.</li>
           <li><b>Crowds</b>: a guess. Weekends, Thanksgiving, Dec 20 to Jan 4, MLK and Presidents' week are busy; a powder day adds people, a storm on the roads keeps some home. Northstar fills most, Kirkwood least.</li>
         </ul>
       </details>
@@ -717,7 +718,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-11-21b';
+const APP_VERSION = '2026-11-21c';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3668,6 +3669,12 @@ const SKI = [
 const SKI_TZ = 'America/Los_Angeles';
 const skiToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: SKI_TZ }).format(new Date());
 let ski = { day: null, data: null, busy: false };
+// Season facts, updated each season: opening days, and the days the Epic Local pass can't be used at these three (the full Epic pass has none).
+const SKI_SEASONS = [{ from: '2026-07-01', to: '2027-06-30', open: { kirkwood: '2026-11-23', heavenly: '2026-11-20', northstar: '2026-11-20' },
+  local: [['2026-11-27', '2026-11-28'], ['2026-12-26', '2026-12-31'], ['2027-01-16', '2027-01-16'], ['2027-02-13', '2027-02-14']] }];
+const skiSeason = iso => SKI_SEASONS.find(S => iso >= S.from && iso <= S.to);
+const skiOpens = (R, iso) => { const o = skiSeason(iso)?.open?.[R.id]; return o && iso < o ? o : null; };
+const skiBlackout = iso => settings.skiPass === 'local' && !!skiSeason(iso)?.local.some(([a, b]) => iso >= a && iso <= b);
 
 // School and Monday holidays, when the mountains fill up: Thanksgiving Wed–Sun, Dec 20–Jan 4,
 // MLK and Presidents' Day weekends (Sat–Mon) and Presidents' week (the Bay Area's ski week).
@@ -3701,8 +3708,13 @@ async function skiFetchWx(){
   const q = new URLSearchParams({ latitude: pts.map(p => p[0].ll[0]).join(','), longitude: pts.map(p => p[0].ll[1]).join(','), elevation: pts.map(p => Math.round(p[1] * FT)).join(','),
     hourly: 'temperature_2m,precipitation,rain,snowfall,weather_code,wind_speed_10m,wind_gusts_10m,visibility,freezing_level_height',
     temperature_unit: 'fahrenheit', wind_speed_unit: 'mph', precipitation_unit: 'inch', timezone: SKI_TZ, start_date: shiftDay(t, -3), end_date: shiftDay(t, 7) });
-  const r = await fetch('https://api.open-meteo.com/v1/forecast?' + q), j = await r.json();
-  if (j.error || !r.ok) throw new Error(j.reason || 'weather unavailable');
+  let r, j;
+  for (let k = 0; k < 2; k++){
+    try{ r = await fetch('https://api.open-meteo.com/v1/forecast?' + q); j = await r.json().catch(() => ({ error: true, reason: 'HTTP ' + r.status })); if (r.ok && !j.error) break; }
+    catch(e){ r = null; j = { error: true, reason: navigator.onLine === false ? 'offline' : 'no answer' }; }
+    if (!k) await new Promise(res => setTimeout(res, 1500));
+  }
+  if (!r?.ok || j.error) throw new Error(j.reason || 'HTTP ' + r.status);
   const a = Array.isArray(j) ? j : [j];
   const out = {}; SKI.forEach((R, i) => out[R.id] = { base: a[2 * i]?.hourly || a[0].hourly, top: a[2 * i + 1]?.hourly || a[0].hourly }); return out;
 }
@@ -3762,7 +3774,7 @@ async function skiFetch(){
   const rt = await Promise.allSettled([skiFetchRoutes(from.value, old.routes, cc.value)]).then(a => a[0]);
   const routes = rt.value || (skiNear(old.routes?.from, from.value) ? old.routes : null);
   ski.data = { at: Date.now(), wx: wx.value || old.wx, snow: snow.value || old.snow, roads: cc.value ? skiRoads(cc.value, routes) : old.roads, routes, from: from.value,
-    err: [wx.status === 'rejected' && 'weather', snow.status === 'rejected' && 'snow depth', cc.status === 'rejected' && 'chain controls', from.value && !routes && 'drive times'].filter(Boolean) };
+    err: [wx.status === 'rejected' && `weather (${wx.reason?.message || 'unavailable'})`, snow.status === 'rejected' && 'snow depth', cc.status === 'rejected' && 'chain controls', from.value && !routes && 'drive times'].filter(Boolean) };
   const roads = cc;
   ski.busy = false;
   if (wx.value || snow.value || roads.value || routes) idb.put('kv', ski.data, 'ski').catch(() => {});
@@ -3801,7 +3813,9 @@ function skiSky(codes){
 function skiVerdict(R, iso){
   const w = skiDay(R, iso), sn = R.snotel.map(s => ski.data?.snow?.[s[0]]).find(Boolean);
   const rd = iso <= shiftDay(skiToday(), 1) ? ski.data?.roads?.[R.id] : null;
-  const bad = [], meh = [], good = [];
+  const bad = [], meh = [], good = [], opens = skiOpens(R, iso);
+  if (opens) bad.push(`closed: opens ${fmtDay(opens)}`);
+  if (skiBlackout(iso)) bad.push('Epic Local blackout day');
   if (sn){ if (sn.in < 12) bad.push(`thin snow (${sn.in} in at ${R.snotel[0][1]})`); else if (sn.in < 24) meh.push(`early-season snow (${sn.in} in)`); else if (sn.in >= 48) good.push(`deep base`); }
   if (w){
     if (w.newIn >= 6) good.push(`${Math.round(w.newIn)} in new overnight`);
@@ -3844,7 +3858,7 @@ function skiSheetHtml(){
   const card = ({ R, x }) => { const w = x.w, V = SKI_V[x.v];
     const snow = x.sn ? `${x.sn.in} in at ${esc(R.snotel.find(s => ski.data.snow[s[0]] === x.sn)[1])} (${R.snotel.find(s => ski.data.snow[s[0]] === x.sn)[2].toLocaleString()} ft)${x.sn.wk ? `, ${x.sn.wk > 0 ? '+' : ''}${x.sn.wk} in this week` : ''}${x.sn.date < t ? ` (reading of ${fmtDay(x.sn.date)})` : ''}` : 'no reading';
     const wx = w ? `${w.sky}; new snow ${w.newIn >= .5 ? Math.round(w.newIn) + ' in overnight' : 'none overnight'}${w.dayIn >= 1 ? `, ${Math.round(w.dayIn)} in during the day` : ''}; ${Math.round(w.lo)}°F up top, ${Math.round(w.hi)}°F at the base; wind ${Math.round(w.wind)} G${Math.round(w.gust)} mph up top` : 'no forecast for this day';
-    const road = x.rd ? `${esc(x.rd.status === 'R-0' ? 'No chain controls' : x.rd.status + ' ' + (x.rd.desc || ''))} now${x.rd.rank ? ' at ' + esc(x.rd.at) : ` on ${x.rd.mine ? 'your way' : esc(R.via)}`}` : w ? (w.driveIn >= 2 ? 'Snow forecast on the drive: chains likely' : w.driveIn >= .5 ? 'Some snow on the drive: chains possible' : 'No snow forecast on the drive') : '–';
+    const road = x.rd ? `${esc(x.rd.status === 'R-0' ? 'No chain controls' : x.rd.status + ' ' + (x.rd.desc || ''))} now${x.rd.rank ? ' at ' + esc(x.rd.at) : ` on ${x.rd.mine ? 'your way' : esc(R.via)}`}` : w ? (w.driveIn >= 2 ? 'Snow forecast on the drive: chains likely' : w.driveIn >= .5 ? 'Some snow on the drive: chains possible' : 'No snow forecast on the drive') : 'No chain-control report or forecast for this day';
     return `<div class="card ski"><div class="row"><b class="grow" style="font-size:18px">${esc(R.name)}</b><span class="skiV" style="background:${V[1]}">${V[0]}</span></div>
       ${[...x.bad, ...x.meh, ...x.good].length ? `<p class="muted" style="margin:4px 0">${esc([...x.bad, ...x.meh, ...x.good].join(' · '))}</p>` : ''}
       <dl class="skiL"><dt>Snow</dt><dd>${snow}</dd><dt>Weather</dt><dd>${esc(wx)}</dd><dt>Road</dt><dd>${road}<br><span class="muted">${esc(skiDrive(R, x))}</span></dd>
@@ -3852,12 +3866,16 @@ function skiSheetHtml(){
       <a href="${R.site}" target="_blank" rel="noopener">${esc(R.name)} snow report and lifts</a></div>`; };
   const err = ski.data?.err?.length ? `<p class="muted" style="color:var(--warn)">Couldn’t load ${ski.data.err.join(', ')}${ski.data.wx || ski.data.snow ? '; showing what was saved' : ''}.</p>` : '';
   return `${top}
-    <div class="seg skiDays" style="margin:10px 0;display:flex;overflow-x:auto">${days.map(x => `<button data-skiday="${x}"${x === d ? ' class="on"' : ''}>${dl(x)}</button>`).join('')}</div>
+    <div class="row" style="gap:8px;margin-top:10px"><span class="muted">Your pass</span><div class="seg" id="skiPass">${[['epic', 'Epic'], ['local', 'Epic Local']].map(([k, n]) => `<button data-skipass="${k}"${(settings.skiPass || 'epic') === k ? ' class="on"' : ''}>${n}</button>`).join('')}</div></div>
+    <div class="seg skiDays" style="margin:10px 0;display:flex;overflow-x:auto">${days.map(x => `<button data-skiday="${x}"${x === d ? ' class="on"' : ''}${skiBlackout(x) ? ' title="Epic Local blackout"' : ''}>${dl(x)}${skiBlackout(x) ? ' ⊘' : ''}</button>`).join('')}</div>
     ${err}${best ? `<p><b>Best bet: ${esc(best.R.name)}</b>${best.x.v ? ' (marginal)' : ''}</p>` : ski.data ? '<p><b>Not a great day for any of them.</b></p>' : ''}
     ${ski.data ? rows.map(card).join('') + (far.length ? `<p class="muted">Too far for a day trip from where you are:</p><ul class="muted">${farList}</ul>` : '') : `<p class="muted">${ski.busy ? 'Getting the mountain forecast, snow depth and chain controls…' : 'No data yet.'}</p>`}
     <p class="muted">Snow is natural snow at the nearest SNOTEL station; groomed runs usually have more, from snowmaking. Chain controls are live from Caltrans for today and tomorrow; later days use the forecast. Crowds are a guess from the day, holidays and new snow. ${ski.data ? 'Updated ' + new Date(ski.data.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) + '.' : ''} <a href="https://quickmap.dot.ca.gov/" target="_blank" rel="noopener">Caltrans QuickMap</a> · <a href="#" id="skiHelp">Help</a></p>`;
 }
-function skiRender(){ if (sheet.open && $('#skiSheet')) $('#skiSheet').innerHTML = skiSheetHtml(); }
+function skiRender(){ if (!sheet.open || !$('#skiSheet')) return; const x = $('#skiSheet .skiDays')?.scrollLeft; $('#skiSheet').innerHTML = skiSheetHtml();
+  const strip = $('#skiSheet .skiDays'), on = strip?.querySelector('.on'); if (!strip || !on) return;
+  if (x != null) strip.scrollLeft = x;
+  if (on.offsetLeft < strip.scrollLeft || on.offsetLeft + on.offsetWidth > strip.scrollLeft + strip.clientWidth) strip.scrollLeft = on.offsetLeft - (strip.clientWidth - on.offsetWidth) / 2; }
 async function openSki(){
   openSheet(`<div id="skiSheet"></div>`);
   if (!ski.data) ski.data = await idb.get('kv', 'ski').catch(() => null) || null;
@@ -3868,6 +3886,7 @@ sheet.addEventListener('click', e => {
   if (!$('#skiSheet')) return;
   const b = e.target.closest('[data-skiday]'); if (b){ ski.day = b.dataset.skiday; return skiRender(); }
   if (e.target.id === 'skiRefresh') return skiFetch();
+  const p = e.target.closest('[data-skipass]'); if (p){ settings.skiPass = p.dataset.skipass; saveSettings(); return skiRender(); }
   if (e.target.id === 'skiHelp'){ e.preventDefault(); sheet.close(); openHelp('helpSki'); }
 });
 $('#skiBtn').onclick = openSki;
@@ -4289,7 +4308,7 @@ ghSettings();
 /* ---------- backup ---------- */
 // One file with every trip, PDF map and setting. Restore merges: newer copies of a trip win, maps are added.
 const DAY = 864e5, NAG_DAYS = 14;
-const SKIP_SETTINGS = ['view', 'shownMaps', 'lastBackup', 'backupNag', 'firstRun', 'prog', 'ghToken', 'ghUser']; // a backup file never carries the GitHub token
+const SKIP_SETTINGS = ['view', 'skiFrom', 'shownMaps', 'lastBackup', 'backupNag', 'firstRun', 'prog', 'ghToken', 'ghUser']; // a backup file never carries the GitHub token
 const toDataUrl = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(b); });
 function fromDataUrl(u){
   const [h, d] = String(u).split(','), bin = atob(d), a = new Uint8Array(bin.length);
