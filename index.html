@@ -367,7 +367,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
       </details>
       <details class="card"><summary>About <span class="muted" id="appVer" style="font-weight:400;font-size:14px"></span></summary>
         <p class="muted">Plan a paddle, hike or bike ride online, then take it offline. Your trips, tracks and settings stay on this phone.</p>
-        <p class="muted">Tides and currents: NOAA CO-OPS predictions (more in Help, <i>Where the forecast comes from</i>). Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Swell: Open-Meteo Marine. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps; placed maps from the <a href="https://hodzic.github.io/outback-maps/" target="_blank" rel="noopener">Outback map library</a> (hodzic.github.io/outback-maps). Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Ski day: snow depth from NRCS SNOTEL, chain controls from Caltrans, mountain weather from Open-Meteo. Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch. Share links (optional): a trip you share is kept as a secret gist on your GitHub account; anyone with the link can read it.</p>
+        <p class="muted">Tides and currents: NOAA CO-OPS predictions (more in Help, <i>Where the forecast comes from</i>). Water temperature: NOAA CO-OPS station readings, else the Open-Meteo Marine model. Swell: Open-Meteo Marine. Wind, weather, pressure and elevation: Open-Meteo. Lightning: NWS thunder probability (US), else estimated. Maps: NOAA electronic charts (NOAA Chart Display Service), OpenStreetMap, USGS topo and imagery, OpenSeaMap sea marks, OpenStreetMap restrooms, parking and boat ramps; launch sites from the San Francisco Bay Area Water Trail, and your own overlay PDF maps; placed maps from the <a href="https://hodzic.github.io/outback-maps/" target="_blank" rel="noopener">Outback map library</a> (hodzic.github.io/outback-maps). Auto-align of overlay PDF maps: water outlines from OpenStreetMap (Overpass API). Ships: AIS from aisstream.io. Ski day: snow depth from NRCS SNOTEL, chain controls from Caltrans, mountain weather from Open-Meteo, drive times from OSRM (OpenStreetMap data). Time estimates use your set speed plus any stops you add; hiking adds 1 hour per 2000 ft of climb, biking per 3000 ft. Tracks come from GPX files you import, e.g. from your watch. Share links (optional): a trip you share is kept as a secret gist on your GitHub account; anyone with the link can read it.</p>
         <p class="muted"><b style="color:var(--warn)">Not for navigation or safety decisions.</b> Forecasts, tides, currents, maps, elevation, ship positions and time estimates come from free public services and simple calculations. They can be wrong, late, incomplete or missing, and saved data goes out of date offline. Small boats, many hazards, and trail or road closures don't show at all.</p>
         <p class="muted">Before any paddle, hike or ride: check official forecasts, warnings and local conditions; carry proper charts or maps, a compass and the safety gear your trip needs; tell someone your plan and when you'll be back; and turn back when in doubt. You are responsible for your own safety.</p>
         <p class="muted"><a href="/">All apps</a></p>
@@ -667,11 +667,12 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <p class="muted">Simplified; the full list is NOAA's U.S. Chart No. 1 (nauticalcharts.noaa.gov). OpenSeaMap is volunteer-made: not every mark is mapped, and positions can be off. Not for navigation.</p>
       </details>
       <details class="card help" id="helpSki"><summary>Ski day</summary>
-        <p><b>Ski day</b> on the Trips page compares Kirkwood, Heavenly and Northstar for a day trip from Sacramento, today and the next 7 days, and says <b>Go</b>, <b>Marginal</b> or <b>Skip</b> with the reasons.</p>
+        <p><b>Ski day</b> on the Trips page compares Kirkwood, Heavenly and Northstar for a day trip from where you are, today and the next 7 days, and says <b>Go</b>, <b>Marginal</b> or <b>Skip</b> with the reasons.</p>
         <ul>
           <li><b>Snow</b>: the natural snow depth at the nearest NRCS SNOTEL station (Carson Pass for Kirkwood, Heavenly Valley, Independence Lake or Truckee #2 for Northstar), with this week's change. Under 12 in is Skip, under 24 in Marginal. Groomed runs usually have more from snowmaking: check the resort's snow report (link on each card).</li>
           <li><b>Weather</b>: Open-Meteo at the summit and base, 9 am to 4 pm. New snow is what falls from 9 am the day before. Summit gusts of 40 mph or more often put upper lifts on hold; 60 mph or more closes many. Rain at the base and fog up top count against the day.</li>
-          <li><b>Road</b>: for today and tomorrow, Caltrans chain controls now on the way in (SR-88 west of Kirkwood, US-50, I-80 west of Truckee and SR-267). For any day, snow forecast at the base from 5 to 9 am and 3 to 7 pm means chains are likely. Check Caltrans QuickMap before you leave.</li>
+          <li><b>Drive</b>: with location allowed, the drive from where you are (OSRM routing on OpenStreetMap roads, without traffic; your location goes to the OSRM server and stays on this phone otherwise). A resort more than about 5 hours away is listed as too far for a day trip, with its distance; if all three are, that's all Ski day shows.</li>
+          <li><b>Road</b>: for today and tomorrow, Caltrans chain controls now at the stations your drive passes (without a location: SR-88 west of Kirkwood, US-50, I-80 west of Truckee and SR-267). For any day, snow forecast at the base from 5 to 9 am and 3 to 7 pm means chains are likely. Check Caltrans QuickMap before you leave.</li>
           <li><b>Crowds</b>: a guess. Weekends, Thanksgiving, Dec 20 to Jan 4, MLK and Presidents' week are busy; a powder day adds people, a storm on the roads keeps some home. Northstar fills most, Kirkwood least.</li>
         </ul>
       </details>
@@ -716,7 +717,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-11-21a';
+const APP_VERSION = '2026-11-21b';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3653,13 +3654,13 @@ sheet.addEventListener('click', async e => {
 // natural snow depth at the nearest SNOTEL station (NRCS), chain controls on the way there (Caltrans, live), and a crowd guess.
 const FT = .3048;
 const SKI = [
-  { id: 'kirkwood', name: 'Kirkwood', ll: [38.6845, -120.0654], base: 7800, top: 9876, drive: 135, via: 'SR-88',
+  { id: 'kirkwood', name: 'Kirkwood', ll: [38.6845, -120.0654], base: 7800, top: 9876, via: 'SR-88',
     snotel: [['1067:CA:SNTL', 'Carson Pass', 8360]], crowd: -.5, cc: { d: 10, keep: l => l.route === 'SR-88' && +l.longitude < -120.06 },
     site: 'https://www.kirkwood.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx' },
-  { id: 'heavenly', name: 'Heavenly', ll: [38.9351, -119.9400], base: 6540, top: 10067, drive: 120, via: 'US-50',
+  { id: 'heavenly', name: 'Heavenly', ll: [38.9351, -119.9400], base: 6540, top: 10067, via: 'US-50',
     snotel: [['518:CA:SNTL', 'Heavenly Valley', 8540]], crowd: 0, cc: { d: 3, keep: l => l.route === 'US-50' },
     site: 'https://www.skiheavenly.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx' },
-  { id: 'northstar', name: 'Northstar', ll: [39.2746, -120.1211], base: 6330, top: 8610, drive: 115, via: 'I-80, SR-267',
+  { id: 'northstar', name: 'Northstar', ll: [39.2746, -120.1211], base: 6330, top: 8610, via: 'I-80, SR-267',
     snotel: [['541:CA:SNTL', 'Independence Lake', 8340], ['834:CA:SNTL', 'Truckee #2', 6500]], crowd: .5,
     cc: { d: 3, keep: l => (l.route === 'I-80' && +l.longitude < -120.16) || (l.route === 'SR-267' && +l.latitude > 39.28 && +l.latitude < 39.34) },
     site: 'https://www.northstarcalifornia.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx' }
@@ -3716,24 +3717,55 @@ async function skiFetchSnow(){
   return out;
 }
 const CC_RANK = s => /^R-?0$/.test(s) ? 0 : /^R-?([123])$/.test(s) ? +RegExp.$1 : 4;
-async function skiFetchRoads(){
-  const ds = [...new Set(SKI.map(R => R.cc.d))], got = {};
-  await Promise.all(ds.map(async d => { const r = await fetch(`https://cwwp2.dot.ca.gov/data/d${d}/cc/ccStatusD${String(d).padStart(2, '0')}.json`); if (r.ok) got[d] = (await r.json()).data || []; }));
+async function skiFetchCc(){
+  const ds = [...new Set(SKI.map(R => R.cc.d))], got = [];
+  await Promise.all(ds.map(async d => { const r = await fetch(`https://cwwp2.dot.ca.gov/data/d${d}/cc/ccStatusD${String(d).padStart(2, '0')}.json`); if (!r.ok) throw new Error('chain controls unavailable');
+    for (const x of (await r.json()).data || []) if (x.cc && x.cc.inService !== 'false') got.push({ ...x.cc, d }); }));
+  return got;
+}
+// The worst chain control on the way: the stations the drive passes (within 400 m of the route), else the usual way in
+function skiRoads(cc, routes){
   const out = {};
-  for (const R of SKI){ const L = (got[R.cc.d] || []).map(x => x.cc).filter(c => c && c.inService !== 'false' && R.cc.keep(c.location)); if (!L.length) continue;
+  for (const R of SKI){ const on = routes?.[R.id]?.cc?.length ? routes[R.id].cc : null, L = cc.filter(c => on ? on.includes(c.index) : c.d === R.cc.d && R.cc.keep(c.location)); if (!L.length) continue;
     const w = L.reduce((a, c) => CC_RANK(c.statusData.status) > CC_RANK(a.statusData.status) ? c : a);
     const st = w.statusData, ts = st.statusTimestamp || {};
-    out[R.id] = { rank: CC_RANK(st.status), status: st.status, desc: st.statusDescription, at: L[0].location.route === w.location.route ? `${w.location.route} at ${w.location.locationName}` : w.location.locationName, when: `${ts.statusDate || ''} ${ts.statusTime || ''}`.trim() }; }
+    out[R.id] = { rank: CC_RANK(st.status), status: st.status, desc: st.statusDescription, at: `${w.location.route} at ${w.location.locationName}`, mine: !!on,
+      via: [...new Set(L.map(c => c.location.route))].join(', '), when: `${ts.statusDate || ''} ${ts.statusTime || ''}`.trim() }; }
+  return out;
+}
+// Where you are now (a fix up to 30 min old), else the last place Ski day saw you; kept on this phone only
+async function skiWhere(){
+  const ll = state.pos || await new Promise(res => navigator.geolocation ? navigator.geolocation.getCurrentPosition(p => res([p.coords.latitude, p.coords.longitude]), () => res(null), { maximumAge: 30 * 6e4, timeout: 15000 }) : res(null));
+  if (ll){ settings.skiFrom = { ll: ll.map(v => +v.toFixed(3)), at: Date.now() }; saveSettings(); }
+  return settings.skiFrom?.ll || null;
+}
+const SKI_FAR_MIN = 300, MI = nm => nm * 1.15078; // a one-way drive longer than 5 h isn't a day trip
+const skiNear = (a, b) => a && b && MI(distNm(a, b)) < 3;
+// Driving routes from you (OSRM, no traffic): time, distance and the chain-control stations on the way; reused while you stay within 3 mi
+async function skiFetchRoutes(from, old, cc){
+  if (!from) return null;
+  if (skiNear(old?.from, from) && SKI.every(R => old[R.id]) && (!cc || SKI.every(R => old[R.id].cc || old[R.id].min > SKI_FAR_MIN))) return old;
+  const out = { from };
+  await Promise.all(SKI.map(async R => {
+    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${R.ll[1]},${R.ll[0]}?overview=full&geometries=geojson`), j = await r.json(), rt = j.routes?.[0];
+    if (!r.ok || !rt) throw new Error('no route');
+    const o = out[R.id] = { mi: Math.round(rt.distance / 1609.34), min: Math.round(rt.duration / 60) };
+    if (cc && o.min <= SKI_FAR_MIN){ const g = rt.geometry.coordinates;
+      o.cc = cc.filter(c => { const p = [+c.location.latitude, +c.location.longitude]; return g.some(q => Math.abs(q[1] - p[0]) < .01 && Math.abs(q[0] - p[1]) < .013 && distNm([q[1], q[0]], p) < .216); }).map(c => c.index); }
+  }));
   return out;
 }
 async function skiFetch(){
   if (ski.busy) return; ski.busy = true; skiRender();
-  const [wx, snow, roads] = await Promise.allSettled([skiFetchWx(), skiFetchSnow(), skiFetchRoads()]);
   const old = ski.data || {};
-  ski.data = { at: Date.now(), wx: wx.value || old.wx, snow: snow.value || old.snow, roads: roads.value || old.roads,
-    err: [wx.status === 'rejected' && 'weather', snow.status === 'rejected' && 'snow depth', roads.status === 'rejected' && 'chain controls'].filter(Boolean) };
+  const [wx, snow, cc, from] = await Promise.allSettled([skiFetchWx(), skiFetchSnow(), skiFetchCc(), skiWhere()]);
+  const rt = await Promise.allSettled([skiFetchRoutes(from.value, old.routes, cc.value)]).then(a => a[0]);
+  const routes = rt.value || (skiNear(old.routes?.from, from.value) ? old.routes : null);
+  ski.data = { at: Date.now(), wx: wx.value || old.wx, snow: snow.value || old.snow, roads: cc.value ? skiRoads(cc.value, routes) : old.roads, routes, from: from.value,
+    err: [wx.status === 'rejected' && 'weather', snow.status === 'rejected' && 'snow depth', cc.status === 'rejected' && 'chain controls', from.value && !routes && 'drive times'].filter(Boolean) };
+  const roads = cc;
   ski.busy = false;
-  if (wx.value || snow.value || roads.value) idb.put('kv', ski.data, 'ski').catch(() => {});
+  if (wx.value || snow.value || roads.value || routes) idb.put('kv', ski.data, 'ski').catch(() => {});
   skiRender();
 }
 
@@ -3785,31 +3817,44 @@ function skiVerdict(R, iso){
   return { w, sn, rd, cr, v, bad, meh, good, score: (w ? 0 : -1) - 3 * bad.length - meh.length + good.length - cr.lvl * .3 };
 }
 const SKI_V = [['Go', 'var(--ebb)'], ['Marginal', '#b26b00'], ['Skip', 'var(--warn)']];
+const skiH = m => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
+// How far you are: the drive from your location, else a straight line; null without a location
+function skiAway(R){
+  const r = ski.data?.routes?.[R.id], from = ski.data?.from;
+  if (r) return { far: r.min > SKI_FAR_MIN, text: `${r.mi.toLocaleString()} mi, about ${skiH(r.min)} drive` };
+  if (!from) return null;
+  const mi = Math.round(MI(distNm(from, R.ll)));
+  return { far: mi > 250, text: `${mi.toLocaleString()} mi away in a straight line` };
+}
 function skiDrive(R, x){
   const ch = (x.w?.driveIn || 0) >= .5 || (x.rd?.rank || 0) >= 1, dow = new Date(ski.day + 'T12:00Z').getUTCDay();
-  const busy = dow === 0 || dow === 6 || skiHoliday(ski.day);
-  const f = m => `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`;
-  return `≈${f(R.drive)} from Sacramento via ${R.via}${ch ? ', more with chains' : ''}${busy ? '; slow coming home in the afternoon' : ''}`;
+  const busy = dow === 0 || dow === 6 || skiHoliday(ski.day), a = skiAway(R), r = ski.data?.routes?.[R.id];
+  if (!a) return 'Allow location for the drive time and the chain controls on your way.';
+  return `${r ? `≈${skiH(r.min)}, ${r.mi} mi from where you are` : a.text}${ch ? ', more with chains' : ''}${busy ? '; slow coming home in the afternoon' : ''}`;
 }
 function skiSheetHtml(){
   const t = skiToday(), days = Array.from({ length: 8 }, (_, i) => shiftDay(t, i)), d = ski.day = days.includes(ski.day) ? ski.day : days[0];
   const dl = iso => iso === t ? 'Today' : iso === shiftDay(t, 1) ? 'Tmrw' : new Date(iso + 'T12:00').toLocaleDateString([], { weekday: 'short', day: 'numeric' });
-  const rows = ski.data ? SKI.map(R => ({ R, x: skiVerdict(R, d) })) : [];
+  const all = ski.data ? SKI.map(R => ({ R, x: skiVerdict(R, d), a: skiAway(R) })) : [], rows = all.filter(r => !r.a?.far), far = all.filter(r => r.a?.far);
+  const top = `<div class="row"><h2 class="grow" style="margin:0">Ski day</h2><button class="btn" id="skiRefresh"${ski.busy ? ' disabled' : ''}>${ski.busy ? 'Loading…' : 'Refresh'}</button><button class="btn" data-close>Close</button></div>`;
+  const farList = far.map(({ R, a }) => `<li><b>${esc(R.name)}</b>: ${esc(a.text)}</li>`).join('');
+  if (all.length && !rows.length) return `${top}<p style="margin-top:12px"><b>You’re too far away for a ski day trip.</b> From where you are:</p><ul>${farList}</ul>
+    <p class="muted">Ski day compares the resorts when one is within about 5 hours’ drive.</p>`;
   const best = rows.filter(r => r.x.v < 2).sort((a, b) => a.x.v - b.x.v || b.x.score - a.x.score)[0];
   const card = ({ R, x }) => { const w = x.w, V = SKI_V[x.v];
     const snow = x.sn ? `${x.sn.in} in at ${esc(R.snotel.find(s => ski.data.snow[s[0]] === x.sn)[1])} (${R.snotel.find(s => ski.data.snow[s[0]] === x.sn)[2].toLocaleString()} ft)${x.sn.wk ? `, ${x.sn.wk > 0 ? '+' : ''}${x.sn.wk} in this week` : ''}${x.sn.date < t ? ` (reading of ${fmtDay(x.sn.date)})` : ''}` : 'no reading';
     const wx = w ? `${w.sky}; new snow ${w.newIn >= .5 ? Math.round(w.newIn) + ' in overnight' : 'none overnight'}${w.dayIn >= 1 ? `, ${Math.round(w.dayIn)} in during the day` : ''}; ${Math.round(w.lo)}°F up top, ${Math.round(w.hi)}°F at the base; wind ${Math.round(w.wind)} G${Math.round(w.gust)} mph up top` : 'no forecast for this day';
-    const road = x.rd ? `${esc(x.rd.status === 'R-0' ? 'No chain controls' : x.rd.status + ' ' + (x.rd.desc || ''))} now${x.rd.rank ? ' at ' + esc(x.rd.at) : ` on ${esc(R.via)}`}` : w ? (w.driveIn >= 2 ? 'Snow forecast on the drive: chains likely' : w.driveIn >= .5 ? 'Some snow on the drive: chains possible' : 'No snow forecast on the drive') : '–';
+    const road = x.rd ? `${esc(x.rd.status === 'R-0' ? 'No chain controls' : x.rd.status + ' ' + (x.rd.desc || ''))} now${x.rd.rank ? ' at ' + esc(x.rd.at) : ` on ${x.rd.mine ? 'your way' : esc(R.via)}`}` : w ? (w.driveIn >= 2 ? 'Snow forecast on the drive: chains likely' : w.driveIn >= .5 ? 'Some snow on the drive: chains possible' : 'No snow forecast on the drive') : '–';
     return `<div class="card ski"><div class="row"><b class="grow" style="font-size:18px">${esc(R.name)}</b><span class="skiV" style="background:${V[1]}">${V[0]}</span></div>
       ${[...x.bad, ...x.meh, ...x.good].length ? `<p class="muted" style="margin:4px 0">${esc([...x.bad, ...x.meh, ...x.good].join(' · '))}</p>` : ''}
       <dl class="skiL"><dt>Snow</dt><dd>${snow}</dd><dt>Weather</dt><dd>${esc(wx)}</dd><dt>Road</dt><dd>${road}<br><span class="muted">${esc(skiDrive(R, x))}</span></dd>
       <dt>Crowds</dt><dd>${x.cr.name} <span class="muted">(${esc(x.cr.why)})</span></dd></dl>
       <a href="${R.site}" target="_blank" rel="noopener">${esc(R.name)} snow report and lifts</a></div>`; };
   const err = ski.data?.err?.length ? `<p class="muted" style="color:var(--warn)">Couldn’t load ${ski.data.err.join(', ')}${ski.data.wx || ski.data.snow ? '; showing what was saved' : ''}.</p>` : '';
-  return `<div class="row"><h2 class="grow" style="margin:0">Ski day</h2><button class="btn" id="skiRefresh"${ski.busy ? ' disabled' : ''}>${ski.busy ? 'Loading…' : 'Refresh'}</button><button class="btn" data-close>Close</button></div>
+  return `${top}
     <div class="seg skiDays" style="margin:10px 0;display:flex;overflow-x:auto">${days.map(x => `<button data-skiday="${x}"${x === d ? ' class="on"' : ''}>${dl(x)}</button>`).join('')}</div>
     ${err}${best ? `<p><b>Best bet: ${esc(best.R.name)}</b>${best.x.v ? ' (marginal)' : ''}</p>` : ski.data ? '<p><b>Not a great day for any of them.</b></p>' : ''}
-    ${ski.data ? rows.map(card).join('') : `<p class="muted">${ski.busy ? 'Getting the mountain forecast, snow depth and chain controls…' : 'No data yet.'}</p>`}
+    ${ski.data ? rows.map(card).join('') + (far.length ? `<p class="muted">Too far for a day trip from where you are:</p><ul class="muted">${farList}</ul>` : '') : `<p class="muted">${ski.busy ? 'Getting the mountain forecast, snow depth and chain controls…' : 'No data yet.'}</p>`}
     <p class="muted">Snow is natural snow at the nearest SNOTEL station; groomed runs usually have more, from snowmaking. Chain controls are live from Caltrans for today and tomorrow; later days use the forecast. Crowds are a guess from the day, holidays and new snow. ${ski.data ? 'Updated ' + new Date(ski.data.at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) + '.' : ''} <a href="https://quickmap.dot.ca.gov/" target="_blank" rel="noopener">Caltrans QuickMap</a> · <a href="#" id="skiHelp">Help</a></p>`;
 }
 function skiRender(){ if (sheet.open && $('#skiSheet')) $('#skiSheet').innerHTML = skiSheetHtml(); }
@@ -3817,7 +3862,7 @@ async function openSki(){
   openSheet(`<div id="skiSheet"></div>`);
   if (!ski.data) ski.data = await idb.get('kv', 'ski').catch(() => null) || null;
   skiRender();
-  if (!ski.data || Date.now() - ski.data.at > 30 * 6e4) skiFetch();
+  if (!ski.data || Date.now() - ski.data.at > 30 * 6e4 || (state.pos && !skiNear(ski.data.from, state.pos))) skiFetch();
 }
 sheet.addEventListener('click', e => {
   if (!$('#skiSheet')) return;

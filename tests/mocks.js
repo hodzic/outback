@@ -128,9 +128,17 @@ async function install(ctx, opts = {}){
     json(r, u.searchParams.get('stationTriplets').split(',').map(id => ({ stationTriplet: id, data: [{ stationElement: { elementCode: 'SNWD' },
       values: days.map((date, i) => ({ date, value: Math.round(d - 10 + 10 * i / (days.length - 1)) })) }] })));
   });
+  // OSRM driving routes: a straight line, 1.3× as long, at 55 mph. opts.osrmDown: unreachable
+  await ctx.route('https://router.project-osrm.org/**', r => {
+    if (opts.osrmDown) return r.abort();
+    ctx.osrmHits = (ctx.osrmHits || 0) + 1;
+    const [a, b] = new URL(r.request().url()).pathname.split('/').pop().split(';').map(p => p.split(',').map(Number));
+    const R = Math.PI / 180, d = 2 * 6371e3 * Math.asin(Math.sqrt(Math.sin((b[1] - a[1]) * R / 2) ** 2 + Math.cos(a[1] * R) * Math.cos(b[1] * R) * Math.sin((b[0] - a[0]) * R / 2) ** 2)) * 1.3;
+    json(r, { code: 'Ok', routes: [{ distance: d, duration: d / 24.6, geometry: { type: 'LineString', coordinates: Array.from({ length: 101 }, (_, i) => [a[0] + (b[0] - a[0]) * i / 100, a[1] + (b[1] - a[1]) * i / 100]) } }] });
+  });
   await ctx.route('https://cwwp2.dot.ca.gov/**', r => {
     if (opts.skiDown) return r.abort();
-    const st = opts.chains || 'R-0', cc = (route, name, lat, lon) => ({ cc: { inService: 'true', location: { route, locationName: name, latitude: String(lat), longitude: String(lon) },
+    const st = opts.chains || 'R-0', cc = (route, name, lat, lon) => ({ cc: { index: route + name, inService: 'true', location: { route, locationName: name, latitude: String(lat), longitude: String(lon) },
       statusData: { statusTimestamp: { statusDate: '2026-11-21', statusTime: '06:00:00' }, status: st, statusDescription: st === 'R-0' ? 'No chain controls are in effect at this time.' : st === 'ROAD CLOSED' ? 'Closed to traffic.' : 'Chains required.' } } });
     json(r, { data: r.request().url().includes('d10') ? [cc('SR-88', 'KIRKWOOD', 38.70, -120.08), cc('SR-89', 'MONITOR PASS', 38.66, -119.72)]
       : [cc('US-50', 'Echo Summit', 38.81, -120.03), cc('I-80', 'Kingvale', 39.31, -120.45), cc('SR-267', 'Northstar Rd', 39.29, -120.10), cc('SR-28', 'Kings Beach', 39.23, -120.01)] });
