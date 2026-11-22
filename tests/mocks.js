@@ -117,7 +117,23 @@ async function install(ctx, opts = {}){
       h.wind_speed_10m.push(8 + 6*Math.sin(i/6)); h.wind_direction_10m.push(270); h.wind_gusts_10m.push(12 + 8*Math.sin(i/6));
       h.pressure_msl.push(1015 + 3*Math.sin(i/10)); h.cape.push(50);
     }
-    json(r, { timezone: zone, utc_offset_seconds: off, hourly: h });
+    const n = (u.searchParams.get('latitude') || '').split(',').length; // several places in one request: one answer each
+    json(r, n > 1 ? Array.from({ length: n }, () => ({ timezone: zone, utc_offset_seconds: off, hourly: h })) : { timezone: zone, utc_offset_seconds: off, hourly: h });
+  });
+  // Ski day: NRCS SNOTEL snow depth (opts.snowIn, default 40 in, +10 over the week) and Caltrans chain controls (opts.chains: status everywhere)
+  await ctx.route('https://wcc.sc.egov.usda.gov/**', r => {
+    if (opts.skiDown) return r.abort();
+    const u = new URL(r.request().url()), d = opts.snowIn ?? 40, b = u.searchParams.get('beginDate'), e = u.searchParams.get('endDate'), days = [];
+    for (let t = Date.parse(b + 'T12:00Z'); t <= Date.parse(e + 'T12:00Z'); t += 864e5) days.push(new Date(t).toISOString().slice(0, 10));
+    json(r, u.searchParams.get('stationTriplets').split(',').map(id => ({ stationTriplet: id, data: [{ stationElement: { elementCode: 'SNWD' },
+      values: days.map((date, i) => ({ date, value: Math.round(d - 10 + 10 * i / (days.length - 1)) })) }] })));
+  });
+  await ctx.route('https://cwwp2.dot.ca.gov/**', r => {
+    if (opts.skiDown) return r.abort();
+    const st = opts.chains || 'R-0', cc = (route, name, lat, lon) => ({ cc: { inService: 'true', location: { route, locationName: name, latitude: String(lat), longitude: String(lon) },
+      statusData: { statusTimestamp: { statusDate: '2026-11-21', statusTime: '06:00:00' }, status: st, statusDescription: st === 'R-0' ? 'No chain controls are in effect at this time.' : st === 'ROAD CLOSED' ? 'Closed to traffic.' : 'Chains required.' } } });
+    json(r, { data: r.request().url().includes('d10') ? [cc('SR-88', 'KIRKWOOD', 38.70, -120.08), cc('SR-89', 'MONITOR PASS', 38.66, -119.72)]
+      : [cc('US-50', 'Echo Summit', 38.81, -120.03), cc('I-80', 'Kingvale', 39.31, -120.45), cc('SR-267', 'Northstar Rd', 39.29, -120.10), cc('SR-28', 'Kings Beach', 39.23, -120.01)] });
   });
 
   // Open-Meteo Marine: sea surface 61–63 °F (opts.water 'none' or 'nomodel': no data, as in a slough; 'model': no NOAA water station)
