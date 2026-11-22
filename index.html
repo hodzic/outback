@@ -671,7 +671,7 @@ body[data-view="2"] #toast{bottom:calc(var(--tabs) + 140px)}
         <ul>
           <li><b>Snow</b>: the natural snow depth at the nearest NRCS SNOTEL station (Carson Pass for Kirkwood, Heavenly Valley, Independence Lake or Truckee #2 for Northstar), with this week's change. Under 12 in is Skip, under 24 in Marginal. Groomed runs usually have more from snowmaking: check the resort's snow report (link on each card).</li>
           <li><b>Weather</b>: Open-Meteo at the summit and base, 9 am to 4 pm. New snow is what falls from 9 am the day before. Summit gusts of 40 mph or more often put upper lifts on hold; 60 mph or more closes many. Rain at the base and fog up top count against the day.</li>
-          <li><b>Drive</b>: with location allowed, the drive from where you are (OSRM routing on OpenStreetMap roads, without traffic; your location goes to the OSRM server and stays on this phone otherwise). A resort more than about 5 hours away is listed as too far for a day trip, with its distance; if all three are, that's all Ski day shows.</li>
+          <li><b>Drive</b>: with location allowed, the drive from where you are (OSRM routing on OpenStreetMap roads, without traffic; your location goes to the OSRM server and stays on this phone otherwise). The time is for dry roads; chain control adds its own line: the controlled stretch (from the first controlled Caltrans station on your route to the last, or to the resort) at the posted 30 mph, plus 15 min to put chains on and take them off. Pick <b>4WD + snow tires</b> under the title if that's your car: chains are then needed only at R-3, and R-1 or R-2 is taken as 35 mph with no stop. For later days, snow forecast on the drive is taken as R-2. <b>Live drive time</b> opens Google Maps (Apple Maps on iPhone) for the real time with traffic. A resort more than about 5 hours away is listed as too far for a day trip, with its distance; if all three are, that's all Ski day shows.</li>
           <li><b>Road</b>: for today and tomorrow, Caltrans chain controls now at the stations your drive passes (without a location: SR-88 west of Kirkwood, US-50, I-80 west of Truckee and SR-267). For any day, snow forecast at the base from 5 to 9 am and 3 to 7 pm means chains are likely. Check Caltrans QuickMap before you leave.</li>
           <li><b>Open and pass</b>: each season's opening days (2026-27: Heavenly and Northstar Nov 20, Kirkwood Nov 23); before that a resort shows <b>Skip, closed</b>. Pick <b>Epic</b> or <b>Epic Local</b> under the title: with Epic Local, its blackout days at these resorts (2026-27: Nov 27–28, Dec 26–31, Jan 16, Feb 13–14) are marked ⊘ and show Skip. Which lifts and runs are open today isn't available to the app: use the resort's link.</li>
           <li><b>Crowds</b>: a guess. Weekends, Thanksgiving, Dec 20 to Jan 4, MLK and Presidents' week are busy; a powder day adds people, a storm on the roads keeps some home. Northstar fills most, Kirkwood least.</li>
@@ -718,7 +718,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem('paddle.'+k, JSON.stringify(v)); }catch{} }
 };
 // App version: release date (US Pacific) + a letter per release that day. Set by `npm run bump`, with SHELL in sw.js.
-const APP_VERSION = '2026-11-21c';
+const APP_VERSION = '2026-11-21d';
 const settings = Object.assign({ speedsKt: { paddle: 3, hike: 2.17, bike: 8.69 }, units: { paddle: 'nm', hike: 'mi', bike: 'mi' }, variation: 13, layer: 'chart', gustKt: { paddle: 15, hike: 15, bike: 15 }, graph: 'tide', locMode: 1, shownMaps: [], view: 1 }, LS.get('settings', {}));
 // Older versions stored speed in the activity's display unit (Paddle: kt; Outback 1: kt for paddle, mph for hike).
 if (typeof settings.speed === 'number'){ settings.speedsKt.paddle = settings.speed; delete settings.speed; }
@@ -3738,11 +3738,12 @@ async function skiFetchCc(){
 // The worst chain control on the way: the stations the drive passes (within 400 m of the route), else the usual way in
 function skiRoads(cc, routes){
   const out = {};
-  for (const R of SKI){ const on = routes?.[R.id]?.cc?.length ? routes[R.id].cc : null, L = cc.filter(c => on ? on.includes(c.index) : c.d === R.cc.d && R.cc.keep(c.location)); if (!L.length) continue;
+  for (const R of SKI){ const rc = routes?.[R.id]?.cc?.length ? routes[R.id].cc : null, on = rc && new Map(rc.map(c => [c.i, c])), L = cc.filter(c => on ? on.has(c.index) : c.d === R.cc.d && R.cc.keep(c.location)); if (!L.length) continue;
     const w = L.reduce((a, c) => CC_RANK(c.statusData.status) > CC_RANK(a.statusData.status) ? c : a);
     const st = w.statusData, ts = st.statusTimestamp || {};
     out[R.id] = { rank: CC_RANK(st.status), status: st.status, desc: st.statusDescription, at: `${w.location.route} at ${w.location.locationName}`, mine: !!on,
-      via: [...new Set(L.map(c => c.location.route))].join(', '), when: `${ts.statusDate || ''} ${ts.statusTime || ''}`.trim() }; }
+      via: [...new Set(L.map(c => c.location.route))].join(', '), when: `${ts.statusDate || ''} ${ts.statusTime || ''}`.trim(),
+      ctl: on ? L.filter(c => CC_RANK(c.statusData.status) >= 1 && CC_RANK(c.statusData.status) < 4).map(c => ({ ...on.get(c.index), rank: CC_RANK(c.statusData.status), route: c.location.route })) : [] }; }
   return out;
 }
 // Where you are now (a fix up to 30 min old), else the last place Ski day saw you; kept on this phone only
@@ -3756,14 +3757,19 @@ const skiNear = (a, b) => a && b && MI(distNm(a, b)) < 3;
 // Driving routes from you (OSRM, no traffic): time, distance and the chain-control stations on the way; reused while you stay within 3 mi
 async function skiFetchRoutes(from, old, cc){
   if (!from) return null;
-  if (skiNear(old?.from, from) && SKI.every(R => old[R.id]) && (!cc || SKI.every(R => old[R.id].cc || old[R.id].min > SKI_FAR_MIN))) return old;
-  const out = { from };
+  if (old?.v === 2 && skiNear(old.from, from) && SKI.every(R => old[R.id]) && (!cc || SKI.every(R => old[R.id].cc || old[R.id].min > SKI_FAR_MIN))) return old;
+  const out = { v: 2, from };
   await Promise.all(SKI.map(async R => {
-    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${R.ll[1]},${R.ll[0]}?overview=full&geometries=geojson`), j = await r.json(), rt = j.routes?.[0];
+    const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${R.ll[1]},${R.ll[0]}?overview=full&geometries=geojson&annotations=distance,duration`), j = await r.json(), rt = j.routes?.[0];
     if (!r.ok || !rt) throw new Error('no route');
     const o = out[R.id] = { mi: Math.round(rt.distance / 1609.34), min: Math.round(rt.duration / 60) };
-    if (cc && o.min <= SKI_FAR_MIN){ const g = rt.geometry.coordinates;
-      o.cc = cc.filter(c => { const p = [+c.location.latitude, +c.location.longitude]; return g.some(q => Math.abs(q[1] - p[0]) < .01 && Math.abs(q[0] - p[1]) < .013 && distNm([q[1], q[0]], p) < .216); }).map(c => c.index); }
+    if (cc && o.min <= SKI_FAR_MIN){ const g = rt.geometry.coordinates, an = rt.legs?.[0]?.annotation, cd = [0], ct = [0];
+      // how far along the route (miles, minutes) each point is, from OSRM's per-segment distances and times; spread evenly without them
+      for (let k = 1; k < g.length; k++){ cd.push(cd[k - 1] + (an?.distance?.[k - 1] ?? rt.distance / (g.length - 1))); ct.push(ct[k - 1] + (an?.duration?.[k - 1] ?? rt.duration / (g.length - 1))); }
+      o.cc = [];
+      for (const c of cc){ const p = [+c.location.latitude, +c.location.longitude]; let best = -1, bd = .216;
+        g.forEach((q, k) => { if (Math.abs(q[1] - p[0]) < .01 && Math.abs(q[0] - p[1]) < .013){ const d = distNm([q[1], q[0]], p); if (d < bd){ bd = d; best = k; } } });
+        if (best >= 0) o.cc.push({ i: c.index, mi: cd[best] / 1609.34, min: ct[best] / 60 }); } }
   }));
   return out;
 }
@@ -3840,11 +3846,30 @@ function skiAway(R){
   const mi = Math.round(MI(distNm(from, R.ll)));
   return { far: mi > 250, text: `${mi.toLocaleString()} mi away in a straight line` };
 }
+// Extra time for chain control on the way up: the controlled stretch (first to last controlled station on the route, or to the
+// resort) at the posted 30 mph instead of OSRM's speed, plus 15 min to put chains on and take them off. With 4WD and snow tires
+// chains are needed only at R-3; under R-1 and R-2 the stretch is driven at about 35 mph. Later days: chains likely (snow on the
+// drive) is taken as R-2 over the stretch the route's chain-control stations cover.
+function skiChain(R, x){
+  const r = ski.data?.routes?.[R.id], rc = r?.cc; if (!rc?.length || r.min > SKI_FAR_MIN) return null;
+  const live = x.rd?.ctl?.length ? x.rd.ctl : null, likely = !live && (x.w?.driveIn || 0) >= 2;
+  if (!live && !likely) return null;
+  const S = (live || rc).slice().sort((a, b) => a.mi - b.mi), a = S[0], b = S.length > 1 ? S[S.length - 1] : { mi: r.mi, min: r.min };
+  const rank = live ? Math.max(...live.map(c => c.rank)) : 2, on = rank >= 3 || settings.skiCar !== '4wd', mph = on ? 30 : 35;
+  const mi = Math.max(1, b.mi - a.mi), add = Math.max(5, Math.round((Math.max(0, mi / mph * 60 - (b.min - a.min)) + (on ? 15 : 0)) / 5) * 5);
+  const what = live ? `R-${rank} on ${[...new Set(live.map(c => c.route))].join(', ')}` : 'if chain controls go up (snow forecast on the drive)';
+  return { add, text: `+ ~${add} min: ${what}, ${Math.round(mi)} mi at ${mph} mph${on ? ', chains on and off' : ' (4WD, snow tires)'}` };
+}
 function skiDrive(R, x){
-  const ch = (x.w?.driveIn || 0) >= .5 || (x.rd?.rank || 0) >= 1, dow = new Date(ski.day + 'T12:00Z').getUTCDay();
-  const busy = dow === 0 || dow === 6 || skiHoliday(ski.day), a = skiAway(R), r = ski.data?.routes?.[R.id];
-  if (!a) return 'Allow location for the drive time and the chain controls on your way.';
-  return `${r ? `≈${skiH(r.min)}, ${r.mi} mi from where you are` : a.text}${ch ? ', more with chains' : ''}${busy ? '; slow coming home in the afternoon' : ''}`;
+  const dow = new Date(ski.day + 'T12:00Z').getUTCDay(), busy = dow === 0 || dow === 6 || skiHoliday(ski.day), a = skiAway(R), r = ski.data?.routes?.[R.id];
+  if (!a) return { html: 'Allow location for the drive time and the chain controls on your way.' };
+  const ch = skiChain(R, x), maybe = !ch && ((x.w?.driveIn || 0) >= .5 || (x.rd?.rank || 0) >= 1);
+  const L = [r ? `≈${skiH(r.min)}, ${r.mi} mi from where you are (dry roads)` : esc(a.text)];
+  if (ch) L.push(esc(ch.text), `<b>≈${skiH(r.min + ch.add)} with chain control</b>; coming home too while the controls are up`);
+  else if (maybe) L.push('Chains possible: more time if controls go up');
+  if (busy) L.push('Slow coming home in the afternoon (weekend or holiday traffic)');
+  L.push(`<a href="${driveUrl({ lat: R.ll[0], lng: R.ll[1] })}" target="_blank" rel="noopener">Live drive time in ${isApple ? 'Apple' : 'Google'} Maps</a>`);
+  return { html: L.join('<br>') };
 }
 function skiSheetHtml(){
   const t = skiToday(), days = Array.from({ length: 8 }, (_, i) => shiftDay(t, i)), d = ski.day = days.includes(ski.day) ? ski.day : days[0];
@@ -3861,12 +3886,13 @@ function skiSheetHtml(){
     const road = x.rd ? `${esc(x.rd.status === 'R-0' ? 'No chain controls' : x.rd.status + ' ' + (x.rd.desc || ''))} now${x.rd.rank ? ' at ' + esc(x.rd.at) : ` on ${x.rd.mine ? 'your way' : esc(R.via)}`}` : w ? (w.driveIn >= 2 ? 'Snow forecast on the drive: chains likely' : w.driveIn >= .5 ? 'Some snow on the drive: chains possible' : 'No snow forecast on the drive') : 'No chain-control report or forecast for this day';
     return `<div class="card ski"><div class="row"><b class="grow" style="font-size:18px">${esc(R.name)}</b><span class="skiV" style="background:${V[1]}">${V[0]}</span></div>
       ${[...x.bad, ...x.meh, ...x.good].length ? `<p class="muted" style="margin:4px 0">${esc([...x.bad, ...x.meh, ...x.good].join(' · '))}</p>` : ''}
-      <dl class="skiL"><dt>Snow</dt><dd>${snow}</dd><dt>Weather</dt><dd>${esc(wx)}</dd><dt>Road</dt><dd>${road}<br><span class="muted">${esc(skiDrive(R, x))}</span></dd>
+      <dl class="skiL"><dt>Snow</dt><dd>${snow}</dd><dt>Weather</dt><dd>${esc(wx)}</dd><dt>Road</dt><dd>${road}<br><span class="muted">${skiDrive(R, x).html}</span></dd>
       <dt>Crowds</dt><dd>${x.cr.name} <span class="muted">(${esc(x.cr.why)})</span></dd></dl>
       <a href="${R.site}" target="_blank" rel="noopener">${esc(R.name)} snow report and lifts</a></div>`; };
   const err = ski.data?.err?.length ? `<p class="muted" style="color:var(--warn)">Couldn’t load ${ski.data.err.join(', ')}${ski.data.wx || ski.data.snow ? '; showing what was saved' : ''}.</p>` : '';
   return `${top}
     <div class="row" style="gap:8px;margin-top:10px"><span class="muted">Your pass</span><div class="seg" id="skiPass">${[['epic', 'Epic'], ['local', 'Epic Local']].map(([k, n]) => `<button data-skipass="${k}"${(settings.skiPass || 'epic') === k ? ' class="on"' : ''}>${n}</button>`).join('')}</div></div>
+    <div class="row" style="gap:8px;margin-top:6px"><span class="muted">Your car</span><div class="seg" id="skiCar">${[['2wd', '2WD'], ['4wd', '4WD + snow tires']].map(([k, n]) => `<button data-skicar="${k}"${(settings.skiCar || '2wd') === k ? ' class="on"' : ''}>${n}</button>`).join('')}</div></div>
     <div class="seg skiDays" style="margin:10px 0;display:flex;overflow-x:auto">${days.map(x => `<button data-skiday="${x}"${x === d ? ' class="on"' : ''}${skiBlackout(x) ? ' title="Epic Local blackout"' : ''}>${dl(x)}${skiBlackout(x) ? ' ⊘' : ''}</button>`).join('')}</div>
     ${err}${best ? `<p><b>Best bet: ${esc(best.R.name)}</b>${best.x.v ? ' (marginal)' : ''}</p>` : ski.data ? '<p><b>Not a great day for any of them.</b></p>' : ''}
     ${ski.data ? rows.map(card).join('') + (far.length ? `<p class="muted">Too far for a day trip from where you are:</p><ul class="muted">${farList}</ul>` : '') : `<p class="muted">${ski.busy ? 'Getting the mountain forecast, snow depth and chain controls…' : 'No data yet.'}</p>`}
@@ -3887,6 +3913,7 @@ sheet.addEventListener('click', e => {
   const b = e.target.closest('[data-skiday]'); if (b){ ski.day = b.dataset.skiday; return skiRender(); }
   if (e.target.id === 'skiRefresh') return skiFetch();
   const p = e.target.closest('[data-skipass]'); if (p){ settings.skiPass = p.dataset.skipass; saveSettings(); return skiRender(); }
+  const k = e.target.closest('[data-skicar]'); if (k){ settings.skiCar = k.dataset.skicar; saveSettings(); return skiRender(); }
   if (e.target.id === 'skiHelp'){ e.preventDefault(); sheet.close(); openHelp('helpSki'); }
 });
 $('#skiBtn').onclick = openSki;
