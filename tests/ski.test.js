@@ -2,8 +2,8 @@
 const { open, ready, view } = require('./harness');
 module.exports = async (browser, url, check) => {
   const c = (n, ok, i) => check('ski', n, ok, i);
-  const sheetFor = async (mock = {}) => {
-    const o = await open(browser, url, {}, mock); await o.page.goto(url); await ready(o.page); await view(o.page, 0);
+  const sheetFor = async (mock = {}, ctxOpts = {}) => {
+    const o = await open(browser, url, ctxOpts, mock); await o.page.goto(url); await ready(o.page); await view(o.page, 0);
     await o.page.click('#skiBtn'); await o.page.waitForFunction(() => !ski.busy && ski.data && document.querySelectorAll('#skiSheet .ski').length === 3);
     return o;
   };
@@ -23,6 +23,10 @@ module.exports = async (browser, url, check) => {
     c('picking a day redraws for that day', (await page.getAttribute('[data-skiday].on', 'data-skiday')) === (await page.evaluate(() => shiftDay(skiToday(), 3))));
     c('later days use the forecast for the road', /snow forecast on the drive/i.test(await page.text('#skiSheet')));
     c('saved for offline use', !!(await page.evaluate(() => idb.get('kv', 'ski'))));
+    c('drive time from where you are', /≈\d h( \d+ min)?, \d+ mi from where you are/.test(txt), txt.match(/.*from where.*/)?.[0]);
+    c('location kept for next time', await page.evaluate(() => settings.skiFrom?.ll?.[0] === 37.8));
+    { const hits = ctx.osrmHits; await page.click('#skiRefresh'); await page.waitForFunction(() => !ski.busy);
+      c('routes reused while you stay put', ctx.osrmHits === hits, `${hits} → ${ctx.osrmHits}`); }
     c('no page errors (ski)', !errors.length, errors.join('; '));
     await ctx.close();
   }
@@ -36,6 +40,19 @@ module.exports = async (browser, url, check) => {
   {
     const { ctx, page } = await sheetFor({ chains: 'ROAD CLOSED' });
     c('a closed road means Skip', (await page.locator('#skiSheet .skiV').allInnerTexts()).every(v => v === 'Skip'));
+    await ctx.close();
+  }
+  { // far away (Seattle): only how far each resort is
+    const o = await open(browser, url, { geolocation: { latitude: 47.61, longitude: -122.33 } }); const { ctx, page } = o;
+    await page.goto(url); await ready(page); await view(page, 0); await page.click('#skiBtn');
+    await page.waitForFunction(() => !ski.busy && ski.data && /too far/.test(document.querySelector('#skiSheet').innerText));
+    const t = await page.text('#skiSheet');
+    c('too far: says so and lists the distance to each resort', /too far away for a ski day trip/.test(t) && (t.match(/mi, about \d+ h/g) || []).length === 3 && !(await page.isVisible('.skiDays')), t);
+    await ctx.close();
+  }
+  { // no location: works, asks for it
+    const { ctx, page } = await sheetFor({}, { permissions: [] });
+    c('without location: still compares, asks for location for the drive', /Allow location for the drive time/.test(await page.text('#skiSheet')) && /No chain controls now on SR-88/.test(await page.text('#skiSheet')));
     await ctx.close();
   }
   {
