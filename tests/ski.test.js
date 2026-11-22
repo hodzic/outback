@@ -25,6 +25,20 @@ module.exports = async (browser, url, check) => {
     await page.click('[data-skipass="local"]');
     c('pass picked in the sheet is kept', await page.evaluate(() => settings.skiPass === 'local') && (await page.text('#skiPass .on')) === 'Epic Local');
     await page.click('[data-skipass="epic"]');
+    c('chain control time: the controlled stretch at 30 mph plus chains on and off; 4WD only slows down', await page.evaluate(() => {
+      const keep = ski.data, R = SKI[0], car = settings.skiCar;
+      ski.data = { ...keep, routes: { [R.id]: { mi: 150, min: 205, cc: [{ i: 'a', mi: 100, min: 140 }, { i: 'b', mi: 125, min: 170 }] } } };
+      const x = { rd: { ctl: [{ mi: 100, min: 140, rank: 2, route: 'SR-88' }, { mi: 125, min: 170, rank: 2, route: 'SR-88' }] }, w: null };
+      settings.skiCar = '2wd'; const two = skiChain(R, x);           // 25 mi: 50 min at 30 mph vs 30 → +20, +15 chains = 35
+      settings.skiCar = '4wd'; const four = skiChain(R, x);          // 25 mi at 35 mph ≈ 43 min vs 30 → +13 → 15
+      const later = skiChain(R, { rd: null, w: { driveIn: 3 } });    // forecast: the stations' stretch, as R-2 (4WD)
+      const none = skiChain(R, { rd: null, w: { driveIn: 0 } });
+      settings.skiCar = car; ski.data = keep;
+      return two.add === 35 && /R-2 on SR-88, 25 mi at 30 mph, chains on and off/.test(two.text) && four.add === 15 && /35 mph \(4WD/.test(four.text) && later && /if chain controls go up/.test(later.text) && !none; }));
+    c('live drive time link to maps', (await page.locator('#skiSheet a', { hasText: 'Live drive time' }).count()) === 3 && /maps\/dir\/\?api=1&destination=38\.6845/.test(await page.locator('#skiSheet a', { hasText: 'Live drive time' }).first().getAttribute('href')));
+    await page.click('[data-skicar="4wd"]');
+    c('car picked in the sheet is kept', await page.evaluate(() => settings.skiCar === '4wd') && /4WD/.test(await page.text('#skiCar .on')));
+    await page.click('[data-skicar="2wd"]');
     c('a powder day draws a crowd', await page.evaluate(() => skiCrowd(SKI[0], '2026-12-01', { newIn: 10 }).why.includes('powder')));
     await page.click('[data-skiday]:nth-child(4)');
     c('picking a day redraws for that day', (await page.getAttribute('[data-skiday].on', 'data-skiday')) === (await page.evaluate(() => shiftDay(skiToday(), 3))));
